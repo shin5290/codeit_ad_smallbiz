@@ -894,8 +894,8 @@ PostgreSQL, Redis
 GitHub Actions, pytest
 
 ## 협업 플로우
-
-> 사용자 입력
+'''
+사용자 입력
 ↓
 Frontend (Streamlit)
 ↓ HTTP: POST /api/v1/generate
@@ -912,4 +912,4 @@ Backend - [services.py](http://services.py/)
 Backend → Frontend
 ↓
 사용자에게 표시
->
+'''
