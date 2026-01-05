@@ -13,41 +13,44 @@
 ## 📅 1단계 (MVP): ~ 2026-01-15
 
 ### 🗓 1주차 (12/29 ~ 1/4): 프로젝트 초기 설정
-
-#### Day 1-2 (12/29-12/30): 환경 설정
+#### 환경 설정
 
 **프론트엔드 설정**
-- [ ] Node.js 18+ 설치 확인
-- [ ] Svelte 프로젝트 생성
+- [V] Node.js 18+ 설치 확인 -> 20.19.6
+- [V] Svelte 프로젝트 생성 (로컬, 프로젝트 루트에서)
   ```bash
-  cd ~/ad-generator/src
-  npm create vite@latest frontend -- --template svelte
-  cd frontend
+  npm create vite@latest src/frontend -- --template svelte
+  ```
+- [V] 필요한 패키지 설치 (프로젝트 루트에서)
+  - axios: HTTP 클라이언트 라이브러리, 백엔드 API와 통신하기 위해 사용
+  - 대안: 내장된 `fetch API` 사용 가능 (추가 설치 불필요)
+  ```bash
+  cd src/frontend
   npm install
+  npm install axios 
   ```
-- [ ] 필요한 패키지 설치
-  ```bash
-  npm install axios  # 또는 fetch API 사용
-  ```
-- [ ] Vercel CLI 설치 및 로그인
+- [V] Vercel CLI 설치 및 로그인
+  - **Vercel**: 프론트엔드 배포 플랫폼, 프론트엔드를 Vercel에 배포하기 위한 도구
+  - `-g`: 글로벌 설치 (시스템 전역에서 사용 가능)
   ```bash
   npm install -g vercel
   vercel login
   ```
 
 **백엔드 API 설정**
-- [ ] GCP VM 접속 확인
-- [ ] Python 가상 환경 활성화
+- [V] GCP VM 접속 확인
+- [V] Python 가상 환경 활성화
   ```bash
-  cd ~/ad-generator
-  source venv/bin/activate
+  cd ~/codeit_ad_smallbiz
+  source source /opt/jhub-venv/bin/activate
   ```
-- [ ] FastAPI 설치 확인
+- [ ] FastAPI 설치 확인, 없을 시 설치
   ```bash
   pip list | grep fastapi
+  pip install fastapi
   ```
 
-#### Day 3-4 (12/31-1/1): routes.py 기본 엔드포인트
+#### routes.py 기본 엔드포인트
 
 **routes.py 파일 생성**
 - [ ] `src/backend/routes.py` 파일 생성
@@ -84,7 +87,7 @@
   - [ ] GET /status/{task_id} 호출
 - [ ] Swagger UI 확인 (http://localhost:8000/docs)
 
-#### Day 5-7 (1/2-1/4): 챗봇 UI 프로토타입
+#### 1주차: Day 5-7 (1/2-1/4): 챗봇 UI 프로토타입
 
 **App.svelte 기본 레이아웃**
 - [ ] 파일 생성: `src/frontend/src/App.svelte`
@@ -171,8 +174,8 @@
 - [ ] AI 메시지: 왼쪽 정렬, 회색 배경
   ```css
   .message.assistant {
-    align-self: flex-start;
-    background-color: #f1f0f0;
+  align-self: flex-start;
+  background-color: #f1f0f0;
   }
   ```
 - [ ] 이미지 포함 시 썸네일 표시
@@ -202,7 +205,7 @@
 
 **전체 플로우 테스트**
 - [ ] 텍스트 입력
-- [ ] 비율 선택
+- [ ] 생성할 이미지 비율 선택
 - [ ] 생성 버튼 클릭
 - [ ] 로딩 표시 확인
 - [ ] 결과 표시 확인
@@ -603,13 +606,13 @@ VITE_API_URL=http://{GCP_VM_IP}:8000
 
 ### Svelte 개발 서버 실행
 ```bash
-cd ~/ad-generator/src/frontend
+cd ~/codeit_ad_smallbiz/src/frontend
 npm run dev
 ```
 
 ### FastAPI 서버 실행
 ```bash
-cd ~/ad-generator
+cd ~/codeit_ad_smallbiz
 uvicorn src.backend.routes:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -627,6 +630,6 @@ vercel --prod
 
 ---
 
-**작성일**: 2026-01-02 
+**작성일**: 2026-01-05
 **담당자**: 이유노님 (프론트엔드 + 백엔드 API)  
-**최종 수정**: 2026-01-02
+**최종 수정**: 2026-01-05
