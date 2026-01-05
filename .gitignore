@@ -209,3 +209,6 @@ __marimo__/
 
 
 .DS_Store
+
+# Image generation models (large files)
+src/generation/image_generation/models/
