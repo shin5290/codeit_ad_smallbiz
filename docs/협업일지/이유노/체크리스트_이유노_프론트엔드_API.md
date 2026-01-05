@@ -17,11 +17,11 @@
 
 **프론트엔드 설정**
 - [V] Node.js 18+ 설치 확인 -> 20.19.6
-- [ ] Svelte 프로젝트 생성 (로컬, 프로젝트 루트에서)
+- [V] Svelte 프로젝트 생성 (로컬, 프로젝트 루트에서)
   ```bash
   npm create vite@latest src/frontend -- --template svelte
   ```
-- [ ] 필요한 패키지 설치 (프로젝트 루트에서)
+- [V] 필요한 패키지 설치 (프로젝트 루트에서)
   - axios: HTTP 클라이언트 라이브러리, 백엔드 API와 통신하기 위해 사용
   - 대안: 내장된 `fetch API` 사용 가능 (추가 설치 불필요)
   ```bash
@@ -29,7 +29,7 @@
   npm install
   npm install axios 
   ```
-- [ ] Vercel CLI 설치 및 로그인
+- [V] Vercel CLI 설치 및 로그인
   - **Vercel**: 프론트엔드 배포 플랫폼, 프론트엔드를 Vercel에 배포하기 위한 도구
   - `-g`: 글로벌 설치 (시스템 전역에서 사용 가능)
   ```bash
@@ -44,7 +44,7 @@
   cd ~/codeit_ad_smallbiz
   source source /opt/jhub-venv/bin/activate
   ```
-- [ ] FastAPI 설치 확인, 없을 시 설치
+- [V] FastAPI 설치 확인, 없을 시 설치
   ```bash
   pip list | grep fastapi
   pip install fastapi
@@ -53,28 +53,28 @@
 #### routes.py 기본 엔드포인트
 
 **routes.py 파일 생성**
-- [ ] `src/backend/routes.py` 파일 생성
-- [ ] FastAPI 앱 초기화
+- [V] `src/backend/routes.py` 파일 생성
+- [V] FastAPI 앱 초기화
   ```python
   from fastapi import FastAPI
   app = FastAPI()
   ```
-- [ ] CORS 설정
+- [V] CORS 설정
   ```python
   from fastapi.middleware.cors import CORSMiddleware
   app.add_middleware(CORSMiddleware, ...)
   ```
 
 **POST /generate 엔드포인트**
-- [ ] GenerateRequest 스키마 정의 (schemas.py 협업)
-- [ ] UUID로 Task ID 생성
-- [ ] Task 상태 저장소 (딕셔너리) 생성
-- [ ] 즉시 응답 반환 `{"task_id": "..."}`
-- [ ] BackgroundTasks로 작업 시작 (services.py 호출)
+- [V] GenerateRequest 스키마 정의 (schemas.py 협업)
+- [V] UUID로 Task ID 생성
+- [V] Task 상태 저장소 (딕셔너리) 생성
+- [V] 즉시 응답 반환 `{"task_id": "..."}`
+- [V] BackgroundTasks로 작업 시작 (services.py 호출)
 
 **GET /status/{task_id} 엔드포인트**
-- [ ] Task ID로 상태 조회
-- [ ] TaskStatus 스키마 반환
+- [V] Task ID로 상태 조회
+- [V] TaskStatus 스키마 반환
 - [ ] 404 에러 처리
 
 **로컬 테스트**
