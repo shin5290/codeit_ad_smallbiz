@@ -30,8 +30,9 @@ def simulate_advertisement_creation(user_input):
         print("1️⃣ 이미지 프롬프트 생성 (배현석 파트)")
         print("-" * 80)
         pm = PromptTemplateManager()
-        image_prompt = pm.generate_image_prompt(user_input, style="realistic")
-        print(f"✅ 완료: {len(image_prompt.split(','))}개 태그 생성\n")
+        image_prompts = pm.generate_image_prompt(user_input, style="realistic")
+        print(f"✅ 완료: Positive {len(image_prompts['positive'].split(','))}개 태그\n")
+        print(f"✅ 완료: Negative 프롬프트 생성\n")
         
         # 2. 광고 문구 생성 (배현석)
         print("2️⃣ 광고 문구 생성 (배현석 파트)")
@@ -44,7 +45,8 @@ def simulate_advertisement_creation(user_input):
         print("3️⃣ 결과 통합 (진수경 파트)")
         print("-" * 80)
         result = {
-            "image_prompt": image_prompt,
+            "positive_prompt": image_prompts["positive"],
+            "negative_prompt": image_prompts["negative"],
             "ad_copy": ad_copy,
             "status": "success"
         }
@@ -53,8 +55,10 @@ def simulate_advertisement_creation(user_input):
         print("=" * 80)
         print("🎉 광고 생성 완료!")
         print("=" * 80)
-        print(f"\n📸 이미지 프롬프트:")
-        print(f"   {image_prompt}\n")
+        print(f"\n📸 이미지 Positive 프롬프트:")
+        print(f"   {image_prompts['positive']}\n")
+        print(f"🚫 이미지 Negative 프롬프트:")
+        print(f"   {image_prompts['negative']}\n")
         print(f"📝 광고 문구:")
         print(f"   '{ad_copy}' ({len(ad_copy)}자)\n")
         
@@ -63,7 +67,8 @@ def simulate_advertisement_creation(user_input):
         print("📦 진수경님한테 전달할 데이터 (JSON 형태)")
         print("=" * 80)
         print(f"""{{
-    "image_prompt": "{image_prompt[:60]}...",
+    "positive_prompt": "{image_prompts['positive'][:50]}...",
+    "negative_prompt": "{image_prompts['negative'][:50]}...",
     "ad_copy": "{ad_copy}",
     "status": "success"
 }}""")

@@ -1,7 +1,7 @@
 """
 이미지 생성 프롬프트 관리 모듈
 작성자: 배현석
-버전: 1.0
+버전: 1.1
 """
 
 import os
@@ -33,8 +33,11 @@ class PromptTemplateManager:
             style (str): 이미지 스타일 ("realistic", "illustration", "minimal")
         
         Returns:
-            str: 영문 태그 (쉼표로 구분)
-                예: "cafe interior, new menu board, warm lighting, cozy atmosphere, ..."
+            dict: {"positive": str, "negative": str}
+                예: {
+                    "positive": "cafe interior, new menu board, warm lighting, ...",
+                    "negative": "low quality, blurry, text, ..."
+                }
         """
         
         print(f"🎨 이미지 프롬프트 생성 중...")
@@ -55,7 +58,7 @@ class PromptTemplateManager:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.5,  # 안정적인 결과를 위해 낮춤
+                temperature=0.5,
                 max_tokens=200
             )
             
@@ -63,16 +66,26 @@ class PromptTemplateManager:
             prompt = response.choices[0].message.content.strip()
             
             # 5. 후처리
-            prompt = self._postprocess(prompt, style)
+            positive_prompt = self._postprocess(prompt, style)
+            
+            # 6. Negative 프롬프트 생성
+            negative_prompt = self._get_negative_prompt(style)
             
             print(f"✅ 생성 완료")
-            print(f"   프롬프트: {prompt[:80]}...")
+            print(f"   Positive: {positive_prompt[:60]}...")
+            print(f"   Negative: {negative_prompt[:60]}...")
             
-            return prompt
+            return {
+                "positive": positive_prompt,
+                "negative": negative_prompt
+            }
             
         except Exception as e:
             print(f"❌ 오류 발생: {e}")
-            return self._get_fallback_prompt(style)
+            return {
+                "positive": self._get_fallback_prompt(style),
+                "negative": self._get_negative_prompt(style)
+            }
     
     def _get_system_prompt(self, style):
         """스타일에 따른 시스템 프롬프트"""
@@ -181,6 +194,23 @@ Tags:"""
         }
         
         return fallback.get(style, fallback["realistic"])
+    
+    def _get_negative_prompt(self, style):
+        """스타일별 Negative 프롬프트 생성"""
+        
+        # 모든 스타일 공통 negative
+        base_negative = "low quality, blurry, text, watermark, bad anatomy, distorted, deformed"
+        
+        # 스타일별 추가 negative
+        style_negatives = {
+            "realistic": ", cartoon, anime, illustration, painting, drawing, sketch, 3d render",
+            "illustration": ", photorealistic, photograph, photo, realistic, 3d render, cgi",
+            "minimal": ", cluttered, busy, complex, detailed background, ornate, messy, crowded"
+        }
+        
+        additional = style_negatives.get(style, "")
+        
+        return base_negative + additional
 
 
 # 테스트 코드
@@ -218,16 +248,17 @@ if __name__ == "__main__":
         )
         
         # 검증
-        tags = result.split(',')
+        positive_tags = result["positive"].split(',')
         has_korean = any(
             '\uac00' <= char <= '\ud7a3' or '\u3131' <= char <= '\u318e' 
-            for char in result
+            for char in result["positive"]
         )
         
         print(f"\n📊 검증 결과:")
-        print(f"   ✅ 태그 개수: {len(tags)}개")
+        print(f"   ✅ Positive 태그: {len(positive_tags)}개")
         print(f"   ✅ 한글 포함: {'❌ 있음' if has_korean else '✅ 없음'}")
-        print(f"   ✅ 전체 프롬프트:\n   {result}")
+        print(f"   ✅ Positive 프롬프트:\n   {result['positive']}")
+        print(f"   🚫 Negative 프롬프트:\n   {result['negative']}")
     
     print(f"\n{'='*80}")
     print("✅ 모든 테스트 완료!")
