@@ -73,8 +73,8 @@
 - [V] BackgroundTasks로 작업 시작 (services.py 호출)
 
 **GET /status/{task_id} 엔드포인트**
-- [ ] Task ID로 상태 조회
-- [ ] TaskStatus 스키마 반환
+- [V] Task ID로 상태 조회
+- [V] TaskStatus 스키마 반환
 - [ ] 404 에러 처리
 
 **로컬 테스트**
