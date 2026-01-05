@@ -40,6 +40,9 @@ class Text2ImageNode(BaseNode):
         image = result["image"]  # PIL.Image
     """
 
+    # 클래스 변수: 모든 인스턴스가 공유하는 VAE 캐시
+    _vae_cache = None
+
     def __init__(self, device: Optional[str] = None, model_id: Optional[str] = None, auto_unload: bool = True):
         """
         Args:
@@ -81,13 +84,18 @@ class Text2ImageNode(BaseNode):
         # 로컬 모델 경로 확인
         local_model_path = MODELS_DIR / self.model_id.replace("/", "--")
 
-        # 개선된 VAE 로드 (madebyollin/sdxl-vae-fp16-fix)
-        print(f"[{self.node_name}] Loading VAE...")
-        vae = AutoencoderKL.from_pretrained(
-            model_config.VAE_ID,
-            torch_dtype=getattr(torch, model_config.DTYPE),
-            cache_dir=MODELS_DIR  # VAE도 models/ 폴더에 캐싱
-        )
+        # 개선된 VAE 로드 (클래스 변수로 캐싱하여 재사용)
+        if Text2ImageNode._vae_cache is None:
+            print(f"[{self.node_name}] Loading VAE (first time)...")
+            Text2ImageNode._vae_cache = AutoencoderKL.from_pretrained(
+                model_config.VAE_ID,
+                torch_dtype=getattr(torch, model_config.DTYPE),
+                cache_dir=MODELS_DIR  # VAE도 models/ 폴더에 캐싱
+            )
+        else:
+            print(f"[{self.node_name}] Using cached VAE...")
+
+        vae = Text2ImageNode._vae_cache
 
         # SDXL 파이프라인 로드 (로컬 우선, 없으면 다운로드)
         if local_model_path.exists():
@@ -102,33 +110,29 @@ class Text2ImageNode(BaseNode):
             )
         else:
             print(f"[{self.node_name}] Downloading from HuggingFace: {self.model_id}")
-            load_path = self.model_id
             # HuggingFace에서 다운로드 시 variant 사용 시도 (실패 시 variant 없이 재시도)
             try:
                 self.pipe = StableDiffusionXLPipeline.from_pretrained(
-                    load_path,
+                    self.model_id,
                     vae=vae,
                     torch_dtype=getattr(torch, model_config.DTYPE),
                     variant=model_config.VARIANT,
                     use_safetensors=True,
-                    cache_dir=MODELS_DIR  # models/ 폴더에 저장
                 )
             except (OSError, ValueError) as e:
                 # variant가 없는 모델의 경우 variant 없이 재시도
                 if "variant" in str(e).lower():
                     print(f"[{self.node_name}] No fp16 variant available, loading without variant...")
                     self.pipe = StableDiffusionXLPipeline.from_pretrained(
-                        load_path,
+                        self.model_id,
                         vae=vae,
                         torch_dtype=getattr(torch, model_config.DTYPE),
                         use_safetensors=True,
-                        cache_dir=MODELS_DIR
                     )
                 else:
                     raise
 
-        # 처음 다운로드한 경우 로컬 경로에 저장
-        if not local_model_path.exists() and load_path != str(local_model_path):
+            # 로컬 경로에 저장 (중복 방지)
             print(f"[{self.node_name}] Saving to local cache: {local_model_path}")
             self.pipe.save_pretrained(local_model_path)
 
@@ -145,7 +149,8 @@ class Text2ImageNode(BaseNode):
             inputs: 입력 데이터
                 - prompt (str, 필수): 생성할 이미지 설명
                 - aspect_ratio (str, 선택): "1:1", "16:9" 등 (기본: "1:1")
-                - negative_prompt (str, 선택): 제외할 요소
+                - negative_prompt (str, 선택): 제외할 요소 (지정하지 않으면 style에 따라 자동 설정)
+                - style (str, 선택): 스타일 ("ultra_realistic", "semi_realistic", "anime")
                 - num_inference_steps (int, 선택): 생성 스텝 수 (기본: 40)
                 - guidance_scale (float, 선택): CFG 스케일 (기본: 7.5)
                 - seed (int, 선택): 랜덤 시드 (재현성 위해)
@@ -164,7 +169,9 @@ class Text2ImageNode(BaseNode):
         # 입력 파라미터 추출
         prompt = inputs["prompt"]
         aspect_ratio = inputs.get("aspect_ratio", generation_config.DEFAULT_ASPECT_RATIO)
-        negative_prompt = inputs.get("negative_prompt", generation_config.NEGATIVE_PROMPT)
+        style = inputs.get("style", "ultra_realistic")
+        # negative_prompt가 명시적으로 지정되지 않으면 스타일에 따라 자동 설정
+        negative_prompt = inputs.get("negative_prompt", generation_config.get_negative_prompt(style))
         num_inference_steps = inputs.get("num_inference_steps", generation_config.DEFAULT_STEPS)
         guidance_scale = inputs.get("guidance_scale", generation_config.DEFAULT_GUIDANCE_SCALE)
         seed = inputs.get("seed", None)

@@ -57,14 +57,22 @@ class GenerationConfig:
     DEFAULT_GUIDANCE_SCALE: float = 7.5
     DEFAULT_ASPECT_RATIO: str = "1:1"  # 기본 비율
 
-    # 품질 설정
-    NEGATIVE_PROMPT: str = (
+    # 품질 설정 - 공통 네거티브 프롬프트
+    NEGATIVE_PROMPT_BASE: str = (
         "low quality, blurry, distorted, ugly, deformed, bad anatomy, "
         "bad hands, extra fingers, missing fingers, fused fingers, too many fingers, "
         "mutated hands, poorly drawn hands, malformed limbs, "
         "watermark, text overlay, signature, logo, amateur photo, "
-        "low resolution, oversaturated colors, cartoon, anime style, "
-        "3d render, plastic looking, artificial"
+        "low resolution, oversaturated colors"
+    )
+
+    # 스타일별 추가 네거티브 프롬프트
+    STYLE_NEGATIVE_PROMPTS: dict = None
+
+    # 기본 네거티브 프롬프트 (Realistic 스타일용)
+    NEGATIVE_PROMPT: str = (
+        NEGATIVE_PROMPT_BASE + ", "
+        "cartoon, anime style, 3d render, plastic looking, artificial"
     )
 
     # ControlNet 설정
@@ -74,6 +82,15 @@ class GenerationConfig:
     INDUSTRY_STYLES: dict = None
 
     def __post_init__(self):
+        # 스타일별 네거티브 프롬프트 초기화
+        if self.STYLE_NEGATIVE_PROMPTS is None:
+            self.STYLE_NEGATIVE_PROMPTS = {
+                "ultra_realistic": self.NEGATIVE_PROMPT_BASE + ", cartoon, anime style, 3d render, plastic looking, artificial",
+                "semi_realistic": self.NEGATIVE_PROMPT_BASE + ", cartoon, extreme anime style, 3d render",
+                "anime": self.NEGATIVE_PROMPT_BASE + ", photorealistic, photograph, 3d render, plastic looking",
+            }
+
+        # 업종별 스타일 프리셋 초기화
         if self.INDUSTRY_STYLES is None:
             self.INDUSTRY_STYLES = {
                 "cafe": {
@@ -93,6 +110,10 @@ class GenerationConfig:
                     "negative_add": "unprofessional, messy",
                 },
             }
+
+    def get_negative_prompt(self, style: str = "ultra_realistic") -> str:
+        """스타일에 맞는 네거티브 프롬프트 반환"""
+        return self.STYLE_NEGATIVE_PROMPTS.get(style, self.NEGATIVE_PROMPT)
 
 
 @dataclass
