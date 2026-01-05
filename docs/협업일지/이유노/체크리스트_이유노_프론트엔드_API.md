@@ -44,7 +44,7 @@
   cd ~/codeit_ad_smallbiz
   source source /opt/jhub-venv/bin/activate
   ```
-- [ ] FastAPI 설치 확인, 없을 시 설치
+- [V] FastAPI 설치 확인, 없을 시 설치
   ```bash
   pip list | grep fastapi
   pip install fastapi
@@ -53,24 +53,24 @@
 #### routes.py 기본 엔드포인트
 
 **routes.py 파일 생성**
-- [ ] `src/backend/routes.py` 파일 생성
-- [ ] FastAPI 앱 초기화
+- [V] `src/backend/routes.py` 파일 생성
+- [V] FastAPI 앱 초기화
   ```python
   from fastapi import FastAPI
   app = FastAPI()
   ```
-- [ ] CORS 설정
+- [V] CORS 설정
   ```python
   from fastapi.middleware.cors import CORSMiddleware
   app.add_middleware(CORSMiddleware, ...)
   ```
 
 **POST /generate 엔드포인트**
-- [ ] GenerateRequest 스키마 정의 (schemas.py 협업)
-- [ ] UUID로 Task ID 생성
-- [ ] Task 상태 저장소 (딕셔너리) 생성
-- [ ] 즉시 응답 반환 `{"task_id": "..."}`
-- [ ] BackgroundTasks로 작업 시작 (services.py 호출)
+- [V] GenerateRequest 스키마 정의 (schemas.py 협업)
+- [V] UUID로 Task ID 생성
+- [V] Task 상태 저장소 (딕셔너리) 생성
+- [V] 즉시 응답 반환 `{"task_id": "..."}`
+- [V] BackgroundTasks로 작업 시작 (services.py 호출)
 
 **GET /status/{task_id} 엔드포인트**
 - [ ] Task ID로 상태 조회
