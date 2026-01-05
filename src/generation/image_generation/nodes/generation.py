@@ -1,0 +1,236 @@
+"""
+Image Generation Nodes
+텍스트나 이미지를 입력받아 새로운 이미지를 생성하는 노드들
+"""
+
+from typing import Dict, Any, Optional
+from pathlib import Path
+import torch
+from PIL import Image
+from diffusers import StableDiffusionXLPipeline, AutoencoderKL
+
+from .base import BaseNode
+from ..config import (
+    model_config,
+    generation_config,
+    aspect_ratio_templates,
+)
+
+# 모델 캐시 디렉토리
+MODELS_DIR = Path(__file__).parent.parent / "models"
+MODELS_DIR.mkdir(exist_ok=True)
+
+
+class Text2ImageNode(BaseNode):
+    """
+    텍스트 프롬프트로부터 이미지를 생성하는 노드
+
+    SDXL 모델과 개선된 VAE를 사용하여 고품질 이미지 생성
+
+    Example:
+        node = Text2ImageNode()
+        result = node.execute({
+            "prompt": "cozy cafe interior",
+            "aspect_ratio": "16:9",
+            "negative_prompt": "blurry, low quality",
+            "num_inference_steps": 40,
+            "guidance_scale": 7.5,
+            "seed": 42
+        })
+        image = result["image"]  # PIL.Image
+    """
+
+    def __init__(self, device: Optional[str] = None, model_id: Optional[str] = None, auto_unload: bool = True):
+        """
+        Args:
+            device: 실행할 디바이스 ("cuda", "cpu" 등)
+                    None이면 config.py의 설정 사용
+            model_id: 사용할 SDXL 모델 ID (HuggingFace repo)
+                      None이면 기본 SDXL (stabilityai/stable-diffusion-xl-base-1.0)
+                      예: "SG161222/RealVisXL_V4.0", "cagliostrolab/animagine-xl-3.1"
+
+                      모델은 자동으로 image_generation/models/ 에 다운로드되어 캐싱됨
+            auto_unload: 이미지 생성 완료 후 자동으로 파이프라인 언로드 (기본: True)
+        """
+        super().__init__("Text2ImageNode")
+
+        # 디바이스 설정
+        self.device = device or model_config.DEVICE
+
+        # 모델 ID 설정
+        self.model_id = model_id or model_config.MODEL_ID
+
+        # 자동 언로드 설정
+        self.auto_unload = auto_unload
+
+        # 파이프라인 (처음엔 None, 매 실행마다 로드/언로드)
+        self.pipe = None
+
+    def _load_pipeline(self):
+        """
+        SDXL 파이프라인 로드 (models/ 폴더에서 캐싱)
+
+        - 로컬 models/ 폴더에 모델이 있으면 그것을 사용
+        - 없으면 HuggingFace에서 다운로드하여 models/ 폴더에 저장
+        """
+        if self.pipe is not None:
+            return  # 이미 로드됨
+
+        print(f"[{self.node_name}] Loading SDXL pipeline from {self.model_id}...")
+
+        # 로컬 모델 경로 확인
+        local_model_path = MODELS_DIR / self.model_id.replace("/", "--")
+
+        # 개선된 VAE 로드 (madebyollin/sdxl-vae-fp16-fix)
+        print(f"[{self.node_name}] Loading VAE...")
+        vae = AutoencoderKL.from_pretrained(
+            model_config.VAE_ID,
+            torch_dtype=getattr(torch, model_config.DTYPE),
+            cache_dir=MODELS_DIR  # VAE도 models/ 폴더에 캐싱
+        )
+
+        # SDXL 파이프라인 로드 (로컬 우선, 없으면 다운로드)
+        if local_model_path.exists():
+            print(f"[{self.node_name}] Loading from local cache: {local_model_path}")
+            load_path = str(local_model_path)
+            # 로컬 캐시는 variant 없이 로드 (이미 저장된 형식 그대로)
+            self.pipe = StableDiffusionXLPipeline.from_pretrained(
+                load_path,
+                vae=vae,
+                torch_dtype=getattr(torch, model_config.DTYPE),
+                use_safetensors=True,
+            )
+        else:
+            print(f"[{self.node_name}] Downloading from HuggingFace: {self.model_id}")
+            load_path = self.model_id
+            # HuggingFace에서 다운로드 시 variant 사용 시도 (실패 시 variant 없이 재시도)
+            try:
+                self.pipe = StableDiffusionXLPipeline.from_pretrained(
+                    load_path,
+                    vae=vae,
+                    torch_dtype=getattr(torch, model_config.DTYPE),
+                    variant=model_config.VARIANT,
+                    use_safetensors=True,
+                    cache_dir=MODELS_DIR  # models/ 폴더에 저장
+                )
+            except (OSError, ValueError) as e:
+                # variant가 없는 모델의 경우 variant 없이 재시도
+                if "variant" in str(e).lower():
+                    print(f"[{self.node_name}] No fp16 variant available, loading without variant...")
+                    self.pipe = StableDiffusionXLPipeline.from_pretrained(
+                        load_path,
+                        vae=vae,
+                        torch_dtype=getattr(torch, model_config.DTYPE),
+                        use_safetensors=True,
+                        cache_dir=MODELS_DIR
+                    )
+                else:
+                    raise
+
+        # 처음 다운로드한 경우 로컬 경로에 저장
+        if not local_model_path.exists() and load_path != str(local_model_path):
+            print(f"[{self.node_name}] Saving to local cache: {local_model_path}")
+            self.pipe.save_pretrained(local_model_path)
+
+        # GPU로 이동
+        self.pipe.to(self.device)
+
+        print(f"[{self.node_name}] Pipeline loaded successfully!")
+
+    def process(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        텍스트 프롬프트로부터 이미지 생성
+
+        Args:
+            inputs: 입력 데이터
+                - prompt (str, 필수): 생성할 이미지 설명
+                - aspect_ratio (str, 선택): "1:1", "16:9" 등 (기본: "1:1")
+                - negative_prompt (str, 선택): 제외할 요소
+                - num_inference_steps (int, 선택): 생성 스텝 수 (기본: 40)
+                - guidance_scale (float, 선택): CFG 스케일 (기본: 7.5)
+                - seed (int, 선택): 랜덤 시드 (재현성 위해)
+                - industry (str, 선택): 업종 ("cafe", "restaurant" 등)
+
+        Returns:
+            출력 데이터
+                - image (PIL.Image): 생성된 이미지
+                - seed (int): 사용된 시드값
+                - width (int): 이미지 너비
+                - height (int): 이미지 높이
+        """
+        # 파이프라인 로드 (lazy loading)
+        self._load_pipeline()
+
+        # 입력 파라미터 추출
+        prompt = inputs["prompt"]
+        aspect_ratio = inputs.get("aspect_ratio", generation_config.DEFAULT_ASPECT_RATIO)
+        negative_prompt = inputs.get("negative_prompt", generation_config.NEGATIVE_PROMPT)
+        num_inference_steps = inputs.get("num_inference_steps", generation_config.DEFAULT_STEPS)
+        guidance_scale = inputs.get("guidance_scale", generation_config.DEFAULT_GUIDANCE_SCALE)
+        seed = inputs.get("seed", None)
+        industry = inputs.get("industry", None)
+
+        # 해상도 가져오기 (aspect_ratio_templates에서)
+        width, height = aspect_ratio_templates.get_size(aspect_ratio)
+
+        # 업종별 스타일 적용 (있을 경우)
+        if industry and industry in generation_config.INDUSTRY_STYLES:
+            style = generation_config.INDUSTRY_STYLES[industry]
+            # 프롬프트에 스타일 접미사 추가
+            prompt = f"{prompt}, {style['style_suffix']}"
+            # 네거티브 프롬프트에 추가 네거티브 추가
+            negative_prompt = f"{negative_prompt}, {style['negative_add']}"
+
+        # 시드 설정 (재현성)
+        generator = None
+        if seed is not None:
+            generator = torch.Generator(device=self.device).manual_seed(seed)
+
+        # 이미지 생성
+        print(f"[{self.node_name}] Generating {width}x{height} image...")
+        print(f"[{self.node_name}] Prompt: {prompt[:100]}...")  # 앞부분만 출력
+
+        result = self.pipe(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            width=width,
+            height=height,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            generator=generator,
+        )
+
+        image = result.images[0]
+
+        # 자동 언로드 (메모리 절약)
+        if self.auto_unload:
+            print(f"[{self.node_name}] Auto-unloading pipeline to free memory...")
+            self.unload_pipeline()
+
+        # 실제 사용된 시드 반환 (없었으면 None)
+        return {
+            "image": image,
+            "seed": seed,
+            "width": width,
+            "height": height,
+        }
+
+    def get_required_inputs(self) -> list:
+        """필수 입력: prompt만 필수"""
+        return ["prompt"]
+
+    def get_output_keys(self) -> list:
+        """출력: image, seed, width, height"""
+        return ["image", "seed", "width", "height"]
+
+    def unload_pipeline(self):
+        """
+        파이프라인 언로드 (메모리 절약)
+
+        사용 후 메모리를 확보하고 싶을 때 호출
+        """
+        if self.pipe is not None:
+            del self.pipe
+            self.pipe = None
+            torch.cuda.empty_cache()  # GPU 메모리 정리
+            print(f"[{self.node_name}] Pipeline unloaded")
