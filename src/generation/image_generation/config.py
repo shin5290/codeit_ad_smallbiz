@@ -60,6 +60,8 @@ class GenerationConfig:
     # 품질 설정
     NEGATIVE_PROMPT: str = (
         "low quality, blurry, distorted, ugly, deformed, bad anatomy, "
+        "bad hands, extra fingers, missing fingers, fused fingers, too many fingers, "
+        "mutated hands, poorly drawn hands, malformed limbs, "
         "watermark, text overlay, signature, logo, amateur photo, "
         "low resolution, oversaturated colors, cartoon, anime style, "
         "3d render, plastic looking, artificial"
