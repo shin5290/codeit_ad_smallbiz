@@ -11,8 +11,9 @@ ComfyUI 스타일의 노드 기반 아키텍처를 채택하여 유연하고 확
 
 1. **자동 이미지 생성**: 텍스트 프롬프트 기반 광고 이미지 생성
 2. **노드 기반 워크플로우**: 유연한 전처리/생성/후처리 파이프라인
-3. **업종별 최적화**: 카페, 음식점, 소매업 등 업종별 스타일 프리셋
+3. **스타일별 최적화**: Ultra Realistic, Semi Realistic, Anime 스타일 지원
 4. **다양한 비율 지원**: 1:1, 3:4, 4:3, 16:9, 9:16 해상도 템플릿
+5. **멀티 모델 시스템**: 스타일별 전문 체크포인트 모델 자동 전환
 
 ---
 
@@ -23,16 +24,17 @@ ComfyUI 스타일의 노드 기반 아키텍처를 채택하여 유연하고 확
 ```
 사용자 입력
     ↓
-[전처리 노드들]
+[전처리 노드들] (향후 구현)
     - 배경 제거 노드
     - 밝기 조정 노드
     - 품질 분석 노드
     ↓
-[생성 노드]
-    - Text2Image 노드 (SDXL)
-    - ControlNet 노드 (옵션)
+[생성 노드] ✅ 구현 완료
+    - Text2ImageNode (SDXL)
+    - 멀티 모델 지원 (RealVisXL, Equinox, Animagine)
+    - 로컬 캐싱 및 자동 언로드
     ↓
-[후처리 노드들]
+[후처리 노드들] (향후 구현)
     - 리사이즈 노드
     - 텍스트 오버레이 노드
     - 압축 노드
@@ -42,17 +44,26 @@ ComfyUI 스타일의 노드 기반 아키텍처를 채택하여 유연하고 확
 
 ### **핵심 컴포넌트**
 
-1. **BaseNode** (`nodes/base.py`)
+1. **BaseNode** (`nodes/base.py`) ✅
    - 모든 노드의 추상 베이스 클래스
    - `process()` 메서드 정의
    - 입력/출력 표준화
+   - 메타데이터 자동 추적 (실행 시간, 상태, 에러)
 
-2. **ImageGenerationWorkflow** (`workflow.py`)
+2. **ImageGenerationWorkflow** (`workflow.py`) ✅
    - 노드들을 연결하여 실행
    - 동적 워크플로우 구성
-   - 중간 결과 확인 가능
+   - 메타데이터 수집 및 리포트
+   - 에러 핸들링
 
-3. **UnifiedImageGenerator** (`generator.py`)
+3. **Text2ImageNode** (`nodes/generation.py`) ✅
+   - SDXL 파이프라인 lazy loading
+   - 멀티 모델 지원 (model_id 파라미터)
+   - 로컬 캐싱 (models/ 폴더)
+   - 자동 언로드 (메모리 관리)
+   - Variant fallback (fp16 미지원 모델 대응)
+
+4. **UnifiedImageGenerator** (`generator.py`) 🚧
    - 외부(Backend)에서 호출하는 메인 인터페이스
    - 자동 모델 선택 로직
    - 입력 분석 및 워크플로우 생성
@@ -61,16 +72,29 @@ ComfyUI 스타일의 노드 기반 아키텍처를 채택하여 유연하고 확
 
 ## 🔧 기술 스택
 
-### **모델**
-- **Primary**: SDXL (stabilityai/stable-diffusion-xl-base-1.0)
-- **VAE**: madebyollin/sdxl-vae-fp16-fix (품질 개선)
-- **ControlNet**: diffusers/controlnet-canny-sdxl-1.0 (구조 유지)
+### **모델 시스템**
 
-### **이유**
-- ✅ L4 22GB GPU에서 안정적 동작 (~7-8GB VRAM)
-- ✅ 적당한 이미지 생성
-- ✅ 풍부한 ControlNet 지원
-- ✅ 검증된 안정성
+#### **현재 사용 중인 모델**
+1. **Ultra Realistic**: SG161222/RealVisXL_V4.0 (~6.5GB)
+   - 포토리얼리즘 전문 모델
+   - 제빵소, 바리스타, 헤어샵 등 실사 이미지
+
+2. **Semi Realistic**: John6666/bss-equinox-il-semi-realistic-model-v25-sdxl (~6.5GB)
+   - 균형잡힌 리얼리즘
+   - 꽃집, 서점 등 일반적인 광고 이미지
+
+3. **Anime**: cagliostrolab/animagine-xl-3.1 (~6.5GB)
+   - 애니메이션 스타일 전문
+   - 캐릭터 일러스트, 캐주얼한 분위기
+
+#### **공통 VAE**
+- **madebyollin/sdxl-vae-fp16-fix**: 품질 개선 및 메모리 효율화
+
+### **메모리 관리**
+- ✅ L4 22GB GPU에서 안정적 동작
+- ✅ 로컬 캐싱으로 재다운로드 방지
+- ✅ 자동 언로드로 모델 교체 시 메모리 최적화
+- ✅ Variant fallback으로 호환성 보장
 
 ### **의존성**
 ```
@@ -78,10 +102,11 @@ diffusers
 transformers
 accelerate
 safetensors
+peft  # LoRA 지원용
 pillow
-opencv-python
+opencv-python (향후)
 numpy
-rembg
+rembg (향후)
 ```
 
 ---
@@ -91,19 +116,24 @@ rembg
 ```
 src/generation/image_generation/
 ├── __init__.py
-├── Image_README.md              # 이 문서
-├── config.py                    # 모델/생성 설정
-├── generator.py                 # UnifiedImageGenerator 메인 클래스
-├── workflow.py                  # ImageGenerationWorkflow
+├── private_doc/
+│   └── Image_README.md              # 이 문서
+├── config.py                        # ✅ 모델/생성 설정
+├── generator.py                     # 🚧 UnifiedImageGenerator 메인 클래스
+├── workflow.py                      # ✅ ImageGenerationWorkflow
 ├── nodes/
 │   ├── __init__.py
-│   ├── base.py                  # BaseNode 추상 클래스
-│   ├── generation.py            # Text2ImageNode, ControlNetNode
-│   ├── preprocessing.py         # 전처리 노드들
-│   ├── postprocessing.py        # 후처리 노드들
-│   └── controlnet_prep.py       # ControlNet 전처리 노드
-├── utils.py                     # 헬퍼 함수
-└── test_model*.py               # 테스트 스크립트
+│   ├── base.py                      # ✅ BaseNode 추상 클래스
+│   ├── generation.py                # ✅ Text2ImageNode
+│   ├── preprocessing.py             # 🚧 전처리 노드들
+│   └── postprocessing.py            # 🚧 후처리 노드들
+├── models/                          # 로컬 모델 캐시 (gitignore)
+│   ├── SG161222--RealVisXL_V4.0/
+│   ├── John6666--bss-equinox-il-semi-realistic-model-v25-sdxl/
+│   ├── cagliostrolab--animagine-xl-3.1/
+│   └── stabilityai--stable-diffusion-xl-base-1.0/
+├── test_images/                     # 테스트 결과물
+└── test_workflow.py                 # ✅ 테스트 스크립트
 ```
 
 ---
@@ -124,17 +154,24 @@ src/generation/image_generation/
 
 ### **2. 업종별 스타일 프리셋**
 
+config.py의 INDUSTRY_STYLES:
 - **카페**: 따뜻한 조명, 아늑한 분위기, 커피 컵
 - **음식점**: 우아한 다이닝, 음식 프레젠테이션
 - **소매업**: 깔끔한 디스플레이, 밝은 조명
 - **서비스업**: 전문적, 모던한 인테리어
 
-### **3. 자동 모델 선택**
+### **3. Negative Prompt 최적화**
 
+손가락 품질 개선:
 ```python
-입력 분석:
-- 이미지 없음 → Text2Image (컨셉 이미지)
-- 이미지 있음 → ControlNet (제품 구조 유지, 스타일만 변경)
+NEGATIVE_PROMPT = (
+    "low quality, blurry, distorted, ugly, deformed, bad anatomy, "
+    "bad hands, extra fingers, missing fingers, fused fingers, too many fingers, "
+    "mutated hands, poorly drawn hands, malformed limbs, "
+    "watermark, text overlay, signature, logo, amateur photo, "
+    "low resolution, oversaturated colors, cartoon, anime style, "
+    "3d render, plastic looking, artificial"
+)
 ```
 
 ---
@@ -144,31 +181,42 @@ src/generation/image_generation/
 ### **기본 Text2Image 워크플로우**
 
 ```python
-workflow = ImageGenerationWorkflow()
-workflow.add_node(Text2ImageNode(model="sdxl"))
-workflow.add_node(ResizeNode(ratio="16:9"))
-workflow.add_node(TextOverlayNode(text="특별 할인!"))
+from workflow import ImageGenerationWorkflow
+from nodes.generation import Text2ImageNode
 
-result = workflow.execute({
-    "prompt": "professional coffee shop advertisement",
-    "industry": "cafe"
+# Ultra Realistic 스타일
+workflow = ImageGenerationWorkflow(name="AdGeneration")
+workflow.add_node(Text2ImageNode(
+    model_id="SG161222/RealVisXL_V4.0",
+    auto_unload=True
+))
+
+result = workflow.run({
+    "prompt": "professional bakery interior, fresh croissants and bread",
+    "aspect_ratio": "4:3",
+    "num_inference_steps": 40,
+    "guidance_scale": 8.0,
+    "seed": 1000
 })
+
+# result["image"]: PIL.Image
+# result["seed"]: 사용된 시드
+# result["width"], result["height"]: 해상도
 ```
 
-### **ControlNet 워크플로우 (제품 이미지 변환)**
+### **스타일별 자동 모델 선택**
 
 ```python
-workflow = ImageGenerationWorkflow()
-workflow.add_node(RemoveBackgroundNode())
-workflow.add_node(AdjustBrightnessNode(factor=1.2))
-workflow.add_node(CannyEdgeNode())  # ControlNet 전처리
-workflow.add_node(ControlNetNode(model="canny"))
-workflow.add_node(CompressNode(quality=95))
+# Anime 스타일
+workflow = ImageGenerationWorkflow(name="AnimeAd")
+workflow.add_node(Text2ImageNode(
+    model_id="cagliostrolab/animagine-xl-3.1",
+    auto_unload=True
+))
 
-result = workflow.execute({
-    "prompt": "professional product photo, studio lighting",
-    "input_image": user_product_image,
-    "industry": "retail"
+result = workflow.run({
+    "prompt": "anime style character illustration of cheerful barista",
+    "aspect_ratio": "3:4",
 })
 ```
 
@@ -176,91 +224,132 @@ result = workflow.execute({
 
 ## 🎯 Backend API 연동 인터페이스
 
+### **현재 사용 가능한 인터페이스**
+
+```python
+from workflow import ImageGenerationWorkflow
+from nodes.generation import Text2ImageNode
+from config import generation_config
+
+# 워크플로우 생성
+workflow = ImageGenerationWorkflow(name="AdGeneration")
+workflow.add_node(Text2ImageNode(
+    model_id="SG161222/RealVisXL_V4.0",  # 스타일에 따라 선택
+    auto_unload=True
+))
+
+# 이미지 생성
+result = workflow.run({
+    "prompt": image_prompt,  # 배현석님의 PromptTemplateManager에서 생성
+    "aspect_ratio": aspect_ratio,
+    "negative_prompt": generation_config.NEGATIVE_PROMPT
+})
+
+# 결과 사용
+image = result["image"]  # PIL.Image
+seed = result["seed"]
+width = result["width"]
+height = result["height"]
+```
+
 ### **입력 형식**
 ```python
 {
-    "prompt": str,                    # 사용자 프롬프트
-    "image": Optional[bytes],         # 입력 이미지 (ControlNet용)
-    "industry": str,                  # 업종 (cafe, restaurant, retail, service)
-    "aspect_ratio": str,              # 비율 (1:1, 3:4, 4:3, 16:9, 9:16)
-    "style": Optional[str],           # 추가 스타일 키워드
-    "overlay_text": Optional[str],    # 오버레이 텍스트
+    "prompt": str,                    # 필수: 생성할 이미지 설명
+    "aspect_ratio": str,              # 기본: "1:1"
+    "negative_prompt": str,           # 기본: config.NEGATIVE_PROMPT
+    "num_inference_steps": int,       # 기본: 40
+    "guidance_scale": float,          # 기본: 7.5
+    "seed": Optional[int],            # 재현성 위해 (None이면 랜덤)
+    "industry": Optional[str],        # 업종 프리셋 적용
 }
 ```
 
 ### **출력 형식**
 ```python
 {
-    "image_url": str,           # GCS 저장 경로
-    "method": str,              # "t2i" or "controlnet"
-    "metadata": {
-        "model": str,
-        "steps": int,
-        "guidance_scale": float,
-        "resolution": tuple,
-        "generation_time": float,
-    }
+    "image": PIL.Image,         # 생성된 이미지 객체
+    "seed": int,               # 사용된 시드값
+    "width": int,              # 이미지 너비
+    "height": int,             # 이미지 높이
 }
 ```
 
 ---
 
-## 🚀 사용 예시
+## 📊 성능 및 메모리
 
-```python
-from image_generation.generator import UnifiedImageGenerator
+### **생성 속도**
+- **모든 스타일 (40 steps)**: ~15-20초 (L4 GPU 기준)
+- 스타일에 관계없이 일정한 속도
 
-# 초기화 (한 번만)
-generator = UnifiedImageGenerator(model_type="sdxl")
+### **메모리 사용량**
+- **모델 로드**: 약 6-7GB VRAM
+- **이미지 생성**: 추가 2-3GB VRAM
+- **총**: 약 10GB (L4 22GB에서 안정적)
+- **자동 언로드**: 생성 완료 후 즉시 메모리 해제
 
-# 텍스트→이미지 생성
-result = generator.generate(
-    prompt="cozy coffee shop interior with latte art",
-    industry="cafe",
-    aspect_ratio="1:1",
-)
+### **로컬 캐싱**
+- 모델은 `models/` 폴더에 저장
+- 재실행 시 다운로드 없이 즉시 로드
+- 약 20GB 디스크 공간 사용 (3개 모델 + VAE)
 
-# 제품 이미지 변환 (ControlNet)
-result = generator.generate(
-    prompt="professional product photo, clean background",
-    input_image=product_image,
-    industry="retail",
-    aspect_ratio="4:3",
-)
+---
+
+## 🚀 테스트 스크립트
+
+### **test_workflow.py**
+
+9가지 테스트 케이스:
+- **Ultra Realistic** (3): 베이커리, 바리스타, 헤어샵
+- **Semi Realistic** (3): 꽃집, 꽃집 직원, 서점
+- **Anime** (3): 카페, 바리스타, 제빵사
+
+각 스타일별로 자동으로 모델 전환하며 테스트:
+```bash
+python test_workflow.py
 ```
 
----
-
-## 📊 성능 목표
-
-- **생성 시간**: ~30-60초 (SDXL 40 steps 기준)
-- **품질**: 상업적 사용 가능 수준
-- **VRAM**: ~7-8GB (L4 GPU에서 안정적)
-- **확장성**: 새로운 노드 추가 용이
-
----
-
-## 🔜 향후 확장 계획
-
-1. **LoRA 지원**: 특정 스타일 강화
-2. **IP-Adapter**: 참조 이미지 스타일 전이
-3. **Upscale 노드**: 고해상도 출력
-4. **A/B 테스트**: 여러 버전 동시 생성
-5. **캐싱**: 자주 사용하는 프롬프트 결과 캐싱
+결과는 `test_images/` 폴더에 저장됨
 
 ---
 
 ## 📝 개발 진행 상황
 
+### **✅ 완료**
 - [x] SDXL 모델 테스트 및 확정
-- [x] config.py 작성 (해상도 템플릿, 설정)
-- [ ] nodes/base.py (BaseNode)
-- [ ] workflow.py (ImageGenerationWorkflow)
-- [ ] nodes/generation.py (Text2ImageNode)
-- [ ] nodes/preprocessing.py
-- [ ] nodes/postprocessing.py
-- [ ] generator.py (UnifiedImageGenerator)
+- [x] FLUX vs SDXL 비교 (SDXL 선택)
+- [x] config.py 작성 (해상도 템플릿, negative prompt, 업종 프리셋)
+- [x] nodes/base.py (BaseNode + NodeMetadata)
+- [x] workflow.py (ImageGenerationWorkflow + 메타데이터 수집)
+- [x] nodes/generation.py (Text2ImageNode + 멀티 모델)
+- [x] 로컬 모델 캐싱 시스템
+- [x] 자동 언로드 메모리 관리
+- [x] Variant fallback 처리
+- [x] 테스트 스크립트 (9개 케이스)
+
+### **🚧 진행 중**
+- [ ] generator.py (UnifiedImageGenerator) - 백엔드 연동용
+- [ ] nodes/preprocessing.py (배경 제거, 이미지 품질 분석)
+- [ ] nodes/postprocessing.py (텍스트 오버레이, 압축)
+
+### **📋 계획**
 - [ ] Backend API 통합 테스트
+- [ ] 프롬프트 최적화 (배현석님 TextGenerator 연동)
+- [ ] 이미지 저장 로직 (신승목님 storage 연동)
+- [ ] 에러 처리 강화
+- [ ] 성능 모니터링
+
+---
+
+## 🔜 향후 확장 계획
+
+1. **전처리 노드**: 배경 제거, 밝기 조정
+2. **후처리 노드**: 텍스트 오버레이, 압축, 워터마크
+3. **LoRA 추가**: 특정 스타일 강화
+4. **Upscale**: 고해상도 출력
+5. **캐싱**: 자주 사용하는 프롬프트 결과 캐싱
+6. **모니터링**: 생성 시간, 메모리 사용량 추적
 
 ---
 
@@ -270,4 +359,4 @@ result = generator.generate(
 
 ---
 
-**최종 수정일**: 2025-12-31
+**최종 수정일**: 2026-01-05
