@@ -56,17 +56,27 @@ ComfyUI 스타일의 노드 기반 아키텍처를 채택하여 유연하고 확
    - 메타데이터 수집 및 리포트
    - 에러 핸들링
 
-3. **Text2ImageNode** (`nodes/generation.py`) ✅
+3. **Text2ImageNode** (`nodes/text2image.py`) ✅
    - SDXL 파이프라인 lazy loading
    - 멀티 모델 지원 (model_id 파라미터)
    - 로컬 캐싱 (models/ 폴더)
    - 자동 언로드 (메모리 관리)
    - Variant fallback (fp16 미지원 모델 대응)
 
-4. **UnifiedImageGenerator** (`generator.py`) 🚧
+4. **Image2ImageControlNetNode** (`nodes/image2image.py`) ✅
+   - ControlNet 기반 I2I 생성
+   - 제품 형태 유지 + 스타일 변환
+   - Text2ImageNode와 VAE 캐시 공유
+
+5. **ControlNet Nodes** (`nodes/controlnet.py`) ✅
+   - ControlNetPreprocessorNode: Canny/Depth/Openpose 전처리
+   - ControlNetLoaderNode: SDXL ControlNet 모델 로드
+
+6. **Generator** (`generator.py`) ✅
    - 외부(Backend)에서 호출하는 메인 인터페이스
-   - 자동 모델 선택 로직
-   - 입력 분석 및 워크플로우 생성
+   - 자동 T2I/I2I 분기 처리 (reference_image 유무 기반)
+   - generate_and_save_image(): 통합 진입점
+   - generate_with_controlnet(): I2I 전용 워크플로우
 
 ---
 
@@ -104,8 +114,11 @@ accelerate
 safetensors
 peft  # LoRA 지원용
 pillow
-opencv-python (향후)
 numpy
+controlnet-aux  # ControlNet 전처리 (Canny/Depth/Openpose)
+mediapipe==0.10.9  # controlnet-aux 의존성
+timm==0.9.16  # controlnet-aux 호환 버전
+opencv-python (향후)
 rembg (향후)
 ```
 
@@ -124,16 +137,20 @@ src/generation/image_generation/
 ├── nodes/
 │   ├── __init__.py
 │   ├── base.py                      # ✅ BaseNode 추상 클래스
-│   ├── generation.py                # ✅ Text2ImageNode
+│   ├── text2image.py                # ✅ Text2ImageNode
+│   ├── image2image.py               # ✅ Image2ImageControlNetNode
+│   ├── controlnet.py                # ✅ ControlNet Preprocessor/Loader 노드
 │   ├── preprocessing.py             # 🚧 전처리 노드들
 │   └── postprocessing.py            # 🚧 후처리 노드들
 ├── models/                          # 로컬 모델 캐시 (gitignore)
 │   ├── SG161222--RealVisXL_V4.0/
 │   ├── John6666--bss-equinox-il-semi-realistic-model-v25-sdxl/
 │   ├── cagliostrolab--animagine-xl-3.1/
-│   └── stabilityai--stable-diffusion-xl-base-1.0/
+│   ├── stabilityai--stable-diffusion-xl-base-1.0/
+│   └── controlnet-{canny,depth,openpose}-sdxl/  # ControlNet 모델들
 ├── test_images/                     # 테스트 결과물
-└── test_workflow.py                 # ✅ 테스트 스크립트
+├── test_workflow.py                 # ✅ T2I 테스트 스크립트
+└── test_controlnet.py               # ✅ I2I ControlNet 테스트 스크립트
 ```
 
 ---
@@ -182,7 +199,7 @@ NEGATIVE_PROMPT = (
 
 ```python
 from workflow import ImageGenerationWorkflow
-from nodes.generation import Text2ImageNode
+from nodes.text2image import Text2ImageNode
 
 # Ultra Realistic 스타일
 workflow = ImageGenerationWorkflow(name="AdGeneration")
@@ -220,58 +237,114 @@ result = workflow.run({
 })
 ```
 
+### **ControlNet Image-to-Image 워크플로우**
+
+```python
+from workflow import ImageGenerationWorkflow
+from nodes.controlnet import ControlNetPreprocessorNode, ControlNetLoaderNode
+from nodes.image2image import Image2ImageControlNetNode
+from PIL import Image
+
+# 제품 이미지 로드
+product_image = Image.open("product_sample.jpg")
+
+# ControlNet I2I 워크플로우
+workflow = ImageGenerationWorkflow(name="ControlNetI2I")
+workflow.add_node(ControlNetPreprocessorNode(control_type="canny"))
+workflow.add_node(ControlNetLoaderNode(control_type="canny"))
+workflow.add_node(Image2ImageControlNetNode(
+    model_id="SG161222/RealVisXL_V4.0",
+    auto_unload=True
+))
+
+result = workflow.run({
+    "image": product_image,
+    "prompt": "professional food photography of Korean salt bread roll, oval-shaped golden brown bread with white salt crystals on top",
+    "style": "ultra_realistic",
+    "aspect_ratio": "1:1",
+    "num_inference_steps": 40,
+    "controlnet_conditioning_scale": 0.8
+})
+
+# result["image"]: 형태는 유지하고 스타일만 변환된 이미지
+```
+
 ---
 
 ## 🎯 Backend API 연동 인터페이스
 
-### **현재 사용 가능한 인터페이스**
+### **통합 진입점: generate_and_save_image()**
 
 ```python
-from workflow import ImageGenerationWorkflow
-from nodes.generation import Text2ImageNode
-from config import generation_config
+from generator import generate_and_save_image
+from PIL import Image
 
-# 워크플로우 생성
-workflow = ImageGenerationWorkflow(name="AdGeneration")
-workflow.add_node(Text2ImageNode(
-    model_id="SG161222/RealVisXL_V4.0",  # 스타일에 따라 선택
-    auto_unload=True
-))
+# Text-to-Image (reference_image=None)
+result = generate_and_save_image(
+    prompt="professional bakery interior with fresh croissants",
+    style="ultra_realistic",
+    aspect_ratio="16:9",
+    business_id="user123"
+)
 
-# 이미지 생성
-result = workflow.run({
-    "prompt": image_prompt,  # 배현석님의 PromptTemplateManager에서 생성
-    "aspect_ratio": aspect_ratio,
-    "negative_prompt": generation_config.NEGATIVE_PROMPT
-})
-
-# 결과 사용
-image = result["image"]  # PIL.Image
-seed = result["seed"]
-width = result["width"]
-height = result["height"]
+# Image-to-Image (reference_image 제공 시 자동 I2I 모드)
+reference = Image.open("product_photo.jpg")
+result = generate_and_save_image(
+    prompt="professional food photography of Korean salt bread roll",
+    reference_image=reference,  # I2I 자동 분기
+    control_type="canny",
+    style="ultra_realistic",
+    aspect_ratio="1:1",
+    controlnet_conditioning_scale=0.8,
+    business_id="user123"
+)
 ```
 
-### **입력 형식**
+### **입력 형식 (Text-to-Image)**
 ```python
 {
     "prompt": str,                    # 필수: 생성할 이미지 설명
+    "style": str,                     # 기본: "ultra_realistic"
     "aspect_ratio": str,              # 기본: "1:1"
-    "negative_prompt": str,           # 기본: config.NEGATIVE_PROMPT
+    "negative_prompt": str,           # 기본: 스타일별 자동 선택
     "num_inference_steps": int,       # 기본: 40
     "guidance_scale": float,          # 기본: 7.5
     "seed": Optional[int],            # 재현성 위해 (None이면 랜덤)
     "industry": Optional[str],        # 업종 프리셋 적용
+    "business_id": str,               # 필수: 저장 경로용
+}
+```
+
+### **입력 형식 (Image-to-Image)**
+```python
+{
+    "prompt": str,                         # 필수: 생성할 이미지 설명
+    "reference_image": PIL.Image,          # 필수: 제품 사진 등
+    "control_type": str,                   # 기본: "canny" (또는 "depth", "openpose")
+    "controlnet_conditioning_scale": float, # 기본: 0.8 (형태 유지 강도)
+    "style": str,                          # 기본: "ultra_realistic"
+    "aspect_ratio": str,                   # 기본: "1:1"
+    "num_inference_steps": int,            # 기본: 40
+    "guidance_scale": float,               # 기본: 7.5
+    "business_id": str,                    # 필수: 저장 경로용
 }
 ```
 
 ### **출력 형식**
 ```python
 {
-    "image": PIL.Image,         # 생성된 이미지 객체
-    "seed": int,               # 사용된 시드값
-    "width": int,              # 이미지 너비
-    "height": int,             # 이미지 높이
+    "success": bool,                # 성공 여부
+    "image_path": str,             # 절대 경로
+    "relative_path": str,          # 상대 경로 (DB 저장용)
+    "filename": str,               # 파일명
+    "width": int,                  # 이미지 너비
+    "height": int,                 # 이미지 높이
+    "style": str,                  # 사용된 스타일
+    "seed": int,                   # 사용된 시드
+    "generation_time": float,      # 생성 시간 (초)
+    "control_type": str,           # I2I인 경우 ControlNet 타입
+    "controlnet_scale": float,     # I2I인 경우 강도값
+    "error": Optional[str]         # 실패 시 에러 메시지
 }
 ```
 
@@ -322,14 +395,17 @@ python test_workflow.py
 - [x] config.py 작성 (해상도 템플릿, negative prompt, 업종 프리셋)
 - [x] nodes/base.py (BaseNode + NodeMetadata)
 - [x] workflow.py (ImageGenerationWorkflow + 메타데이터 수집)
-- [x] nodes/generation.py (Text2ImageNode + 멀티 모델)
+- [x] nodes/text2image.py (Text2ImageNode + 멀티 모델)
+- [x] nodes/image2image.py (Image2ImageControlNetNode)
+- [x] nodes/controlnet.py (Preprocessor + Loader)
+- [x] generator.py (T2I/I2I 자동 분기 처리)
 - [x] 로컬 모델 캐싱 시스템
 - [x] 자동 언로드 메모리 관리
 - [x] Variant fallback 처리
-- [x] 테스트 스크립트 (9개 케이스)
+- [x] test_workflow.py (T2I 9개 케이스)
+- [x] test_controlnet.py (I2I ControlNet 테스트)
 
 ### **🚧 진행 중**
-- [ ] generator.py (UnifiedImageGenerator) - 백엔드 연동용
 - [ ] nodes/preprocessing.py (배경 제거, 이미지 품질 분석)
 - [ ] nodes/postprocessing.py (텍스트 오버레이, 압축)
 
@@ -359,4 +435,4 @@ python test_workflow.py
 
 ---
 
-**최종 수정일**: 2026-01-05
+**최종 수정일**: 2026-01-06
