@@ -50,7 +50,7 @@ image = pipe(
 
 elapsed_time = time.time() - start_time
 
-image.save('test_output.png')
+image.save('./src/generation/image_generation/text/test_output.png')
 print(f"\n✅ Success! Generated in {elapsed_time:.2f} seconds")
 print(f"📐 Image size: {image.size}")
 print(f"💾 Saved to: test_output.png")

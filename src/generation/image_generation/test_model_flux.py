@@ -1,16 +1,24 @@
-from diffusers import FluxPipeline
-import torch
-import time
-
 # Hugging Face 로그인 필요
 # 터미널에서 먼저 실행: huggingface-cli login
 # 또는 프로젝트 루트에 .env 파일 생성 후 HF_TOKEN=your_token 추가
 
+from diffusers import FluxPipeline, FluxTransformer2DModel
+from safetensors.torch import load_file
+from huggingface_hub import hf_hub_download
+import torch
+import os
+import time
+
+from diffusers import FluxPipeline
+
 pipe = FluxPipeline.from_pretrained(
-    "black-forest-labs/FLUX.1-dev",
-    torch_dtype=torch.bfloat16,
+    "wangkanai/flux-dev-fp8",  # 미리 양자화된 버전
+    torch_dtype=torch.float16,
 )
-pipe.to("cuda")
+
+pipe.enable_model_cpu_offload()
+pipe.vae.enable_slicing()
+pipe.vae.enable_tiling()
 
 prompt = """
 professional coffee shop advertisement poster,
@@ -37,7 +45,7 @@ image = pipe(
     prompt=prompt,
     negative_prompt=negative_prompt,
     num_inference_steps=28,
-    guidance_scale=7.5,
+    guidance_scale=3.5,
     height=1024,
     width=1024,
 ).images[0]
