@@ -1,0 +1,956 @@
+# ============================================
+# SDXL Industries Configuration
+# Civitai 벤치마크 기반 Hybrid Prompting 템플릿
+# ============================================
+#
+# 버전: 2.0.0
+# 업데이트: 2026-01-07
+# 기반: Civitai Top 프롬프트 패턴 분석
+#
+# 핵심 원칙:
+# 1. 자연어 구문 + 키워드 혼합
+# 2. Quality tags 제거 (masterpiece, 8k 등)
+# 3. Negative prompt 최소화 (5-7개)
+# 4. 사진가 용어 사용 (카메라, 조명, 렌즈)
+
+# ============================================
+# CAFE (카페)
+# ============================================
+cafe:
+  name: "Cafe / Coffee Shop"
+  name_ko: "카페"
+  description: "Coffee shop, cafe, beverage photography"
+  
+  # Hybrid Prompting Templates
+  prompt_template:
+    # Subject Patterns (자연어 문장)
+    subject_patterns:
+      - "Professional food photography of {drink_name} on {surface}"
+      - "Commercial photograph of {drink_name} in {container} at {setting}"
+      - "Close-up of {drink_name} with {decoration}"
+      - "Overhead shot of {drink_name} served on {surface}"
+      - "Barista creating {drink_name} with {technique}"
+    
+    # Setting Patterns (자연어 배경)
+    setting_patterns:
+      - "minimalist cafe interior with natural light"
+      - "cozy coffee shop atmosphere with warm lighting"
+      - "modern cafe setting with clean aesthetics"
+      - "rustic cafe environment with wooden elements"
+      - "contemporary coffee bar with professional equipment"
+    
+    # Composition Keywords (키워드)
+    composition_keywords:
+      - "overhead shot"
+      - "45-degree angle"
+      - "eye-level view"
+      - "top-down perspective"
+      - "angled shot"
+      - "macro close-up"
+    
+    # Lighting Phrases (구문)
+    lighting_phrases:
+      - "soft natural window light streaming from left"
+      - "warm afternoon sunlight with gentle shadows"
+      - "bright morning light through large windows"
+      - "golden hour ambient lighting"
+      - "diffused natural daylight"
+      - "soft studio lighting for product"
+    
+    # Style Keywords (키워드)
+    style_keywords:
+      - "professional food photography"
+      - "commercial beverage photography"
+      - "lifestyle photography style"
+      - "editorial cafe aesthetic"
+      - "instagram-worthy composition"
+    
+    # Color Phrases (구문)
+    color_phrases:
+      - "warm pastel pink and beige tones"
+      - "soft earth color palette"
+      - "natural warm hues"
+      - "creamy white and brown tones"
+      - "muted pastel colors"
+    
+    # Details Keywords (키워드)
+    details_keywords:
+      - "creamy foam texture"
+      - "delicate latte art"
+      - "smooth surface"
+      - "steam rising elegantly"
+      - "shallow depth of field"
+      - "condensation droplets"
+      - "rich crema formation"
+    
+    # Technical Keywords (키워드)
+    technical_keywords:
+      - "85mm lens"
+      - "f/1.8 aperture"
+      - "50mm lens"
+      - "bokeh background"
+      - "soft focus"
+      - "Canon 5D Mark IV"
+      - "Nikon D850"
+      - "100mm macro lens"
+  
+  # Required Layers (평가용)
+  required_layers:
+    - subject
+    - setting
+    - lighting
+    - style
+  
+  # Industry Keywords (업종 특화)
+  keywords:
+    - latte
+    - coffee
+    - espresso
+    - cappuccino
+    - cafe
+    - barista
+    - foam
+    - crema
+    - pour-over
+    - drip coffee
+  
+  # Negative Prompt
+  negative_keywords:
+    - artificial
+    - plastic-looking
+    - fake
+    - unappetizing
+
+# ============================================
+# GYM (헬스장)
+# ============================================
+gym:
+  name: "Gym / Fitness Center"
+  name_ko: "헬스장"
+  description: "Fitness, gym, workout photography"
+  
+  prompt_template:
+    subject_patterns:
+      - "Professional sports photography of {person_type} doing {activity}"
+      - "Dynamic {activity} session in {setting}"
+      - "Athletic {person_type} engaged in {activity}"
+      - "Commercial product photograph of {equipment}"
+      - "Fitness training moment capturing {focus}"
+    
+    setting_patterns:
+      - "modern gym interior with professional equipment"
+      - "energetic fitness center atmosphere"
+      - "athletic training facility environment"
+      - "contemporary gym studio with large mirrors"
+      - "well-equipped fitness space"
+    
+    composition_keywords:
+      - "dynamic action shot"
+      - "motion captured"
+      - "side angle view"
+      - "full body shot"
+      - "close-up detail"
+    
+    lighting_phrases:
+      - "dramatic side lighting highlighting muscle definition"
+      - "natural gym lighting with strong shadows"
+      - "professional studio lighting setup"
+      - "bright overhead lighting"
+      - "backlit with rim light effect"
+    
+    style_keywords:
+      - "professional sports photography"
+      - "fitness editorial style"
+      - "motivational aesthetic"
+      - "athletic documentary style"
+      - "commercial gym advertising"
+    
+    color_phrases:
+      - "vibrant energetic color palette"
+      - "bold contrast with deep blacks"
+      - "saturated athletic tones"
+      - "dynamic color grading"
+    
+    details_keywords:
+      - "defined muscle tone visible"
+      - "sweat droplets catching light"
+      - "motion blur on equipment"
+      - "focused expression"
+      - "athletic physique"
+      - "reflective gym surfaces"
+    
+    technical_keywords:
+      - "70-200mm lens"
+      - "f/2.8 aperture"
+      - "high shutter speed"
+      - "sports photography"
+      - "Canon EOS R5"
+      - "fast lens"
+  
+  required_layers:
+    - subject
+    - setting
+    - lighting
+    - technical
+  
+  keywords:
+    - gym
+    - fitness
+    - workout
+    - exercise
+    - training
+    - athlete
+    - muscle
+    - equipment
+    - barbell
+    - dumbbell
+  
+  negative_keywords:
+    - poor anatomy
+    - static pose
+    - unrealistic body
+    - bad form
+
+# ============================================
+# LAUNDRY (세탁소)
+# ============================================
+laundry:
+  name: "Laundry / Dry Cleaning"
+  name_ko: "세탁소"
+  description: "Laundry service, dry cleaning, fabric care"
+  
+  prompt_template:
+    subject_patterns:
+      - "Professional product photograph of {item} {state}"
+      - "Commercial photograph of {service} with {detail}"
+      - "Close-up of {process} showing {focus}"
+      - "Clean and {quality} {item} in {setting}"
+      - "{activity} scene in professional laundry facility"
+    
+    setting_patterns:
+      - "clean minimalist laundry service interior"
+      - "professional laundromat with bright lighting"
+      - "modern self-service laundry facility"
+      - "hygienic commercial laundry environment"
+      - "organized laundry service workspace"
+    
+    composition_keywords:
+      - "overhead arrangement"
+      - "neatly stacked"
+      - "product focus"
+      - "detail shot"
+      - "environmental portrait"
+    
+    lighting_phrases:
+      - "soft natural window light on white fabric"
+      - "bright clean lighting emphasizing freshness"
+      - "even studio lighting for product clarity"
+      - "natural daylight through large windows"
+      - "crisp white lighting"
+    
+    style_keywords:
+      - "commercial laundry service photography"
+      - "product advertising style"
+      - "clean professional aesthetic"
+      - "lifestyle service photography"
+    
+    color_phrases:
+      - "clean white and blue tones"
+      - "fresh crisp color palette"
+      - "pure white with soft accents"
+      - "hygienic white dominated"
+    
+    details_keywords:
+      - "crisp folded fabric"
+      - "smooth pressed texture"
+      - "fresh clean appearance"
+      - "sharp fabric creases"
+      - "professional pressing quality"
+      - "steam visible"
+    
+    technical_keywords:
+      - "macro lens detail"
+      - "f/2.8 aperture"
+      - "50mm lens"
+      - "product photography lighting"
+      - "soft focus background"
+  
+  required_layers:
+    - subject
+    - setting
+    - lighting
+    - details
+  
+  keywords:
+    - laundry
+    - clean
+    - washing
+    - ironing
+    - fabric
+    - folded
+    - pressed
+    - fresh
+    - crisp
+    - steam
+  
+  negative_keywords:
+    - dirty
+    - wrinkled
+    - stained
+    - messy
+
+# ============================================
+# BAKERY (베이커리)
+# ============================================
+bakery:
+  name: "Bakery / Patisserie"
+  name_ko: "베이커리"
+  description: "Bakery, bread, pastry photography"
+  
+  prompt_template:
+    subject_patterns:
+      - "Professional food photography of {product} {presentation}"
+      - "Artisan {product} with {texture_detail}"
+      - "Close-up of {product} showing {feature}"
+      - "{product} display in {setting}"
+      - "Baker's hands working with {product}"
+    
+    setting_patterns:
+      - "rustic bakery interior with wooden shelves"
+      - "modern patisserie display case"
+      - "warm artisan bakery atmosphere"
+      - "authentic bakery production area"
+      - "elegant bakery showcase"
+    
+    composition_keywords:
+      - "shallow depth of field"
+      - "arranged display"
+      - "cross-section view"
+      - "overhead layout"
+      - "hero shot"
+    
+    lighting_phrases:
+      - "warm natural morning light through windows"
+      - "soft golden bakery lighting"
+      - "natural window light highlighting texture"
+      - "warm ambient interior lighting"
+      - "professional food photography lighting"
+    
+    style_keywords:
+      - "professional food photography"
+      - "artisan bakery aesthetic"
+      - "rustic authentic style"
+      - "commercial bakery advertising"
+      - "editorial pastry photography"
+    
+    color_phrases:
+      - "warm golden brown tones"
+      - "rich buttery colors"
+      - "natural wheat and brown hues"
+      - "appetizing warm palette"
+    
+    details_keywords:
+      - "flaky layers visible"
+      - "golden brown crust"
+      - "rustic texture"
+      - "buttery sheen"
+      - "crumb structure detailed"
+      - "powdered sugar dusted"
+      - "glazed surface"
+    
+    technical_keywords:
+      - "50mm lens"
+      - "f/1.8 aperture"
+      - "100mm macro"
+      - "natural light"
+      - "food photography setup"
+  
+  required_layers:
+    - subject
+    - setting
+    - lighting
+    - details
+  
+  keywords:
+    - bread
+    - croissant
+    - pastry
+    - bakery
+    - baked
+    - crust
+    - dough
+    - artisan
+    - fresh
+    - golden
+  
+  negative_keywords:
+    - plastic-looking
+    - artificial
+    - unappetizing
+    - flat
+
+# ============================================
+# RESTAURANT (레스토랑)
+# ============================================
+restaurant:
+  name: "Restaurant / Dining"
+  name_ko: "레스토랑"
+  description: "Restaurant, food, dining photography"
+  
+  prompt_template:
+    subject_patterns:
+      - "Professional food photography of {dish} {plating}"
+      - "Gourmet {dish} presentation on {surface}"
+      - "{cuisine_style} {dish} artfully plated"
+      - "Fine dining {dish} with {garnish}"
+      - "Chef preparing {dish} in {setting}"
+    
+    setting_patterns:
+      - "upscale restaurant ambiance"
+      - "modern fine dining interior"
+      - "cozy restaurant atmosphere"
+      - "professional kitchen environment"
+      - "elegant dining table setting"
+    
+    composition_keywords:
+      - "overhead plating shot"
+      - "45-degree angle"
+      - "hero dish composition"
+      - "table setting context"
+      - "ingredient close-up"
+    
+    lighting_phrases:
+      - "warm restaurant ambient lighting"
+      - "soft spotlight on dish"
+      - "natural window light on table"
+      - "dramatic side lighting"
+      - "professional food lighting setup"
+    
+    style_keywords:
+      - "professional food photography"
+      - "fine dining editorial"
+      - "gourmet presentation style"
+      - "culinary magazine quality"
+    
+    color_phrases:
+      - "rich vibrant food colors"
+      - "appetizing natural hues"
+      - "warm inviting tones"
+      - "sophisticated color palette"
+    
+    details_keywords:
+      - "garnish detail"
+      - "sauce artistry"
+      - "texture variation"
+      - "steam rising"
+      - "fresh ingredients"
+      - "plating precision"
+    
+    technical_keywords:
+      - "85mm lens"
+      - "f/2.0 aperture"
+      - "macro detail"
+      - "food photography"
+      - "shallow DOF"
+  
+  required_layers:
+    - subject
+    - setting
+    - lighting
+    - details
+  
+  keywords:
+    - food
+    - dish
+    - plate
+    - cuisine
+    - gourmet
+    - chef
+    - restaurant
+    - dining
+    - garnish
+    - plating
+  
+  negative_keywords:
+    - unappetizing
+    - fake food
+    - artificial
+    - cold-looking
+
+# ============================================
+# HAIR_SALON (미용실)
+# ============================================
+hair_salon:
+  name: "Hair Salon / Barber"
+  name_ko: "미용실"
+  description: "Hair salon, hairstyling, beauty service"
+  
+  prompt_template:
+    subject_patterns:
+      - "Professional {service} scene at {setting}"
+      - "{stylist} working on {style} in modern salon"
+      - "Close-up of {technique} hair styling"
+      - "{result} hair showcasing {quality}"
+      - "Salon {activity} with professional equipment"
+    
+    setting_patterns:
+      - "modern upscale hair salon interior"
+      - "contemporary beauty salon atmosphere"
+      - "professional styling station"
+      - "bright clean salon environment"
+      - "stylish salon with large mirrors"
+    
+    composition_keywords:
+      - "mirror reflection"
+      - "stylist action shot"
+      - "hair detail close-up"
+      - "salon environment"
+      - "before-after comparison"
+    
+    lighting_phrases:
+      - "professional salon lighting"
+      - "bright clean overhead lights"
+      - "natural light from salon windows"
+      - "soft flattering lighting"
+      - "even studio-quality lighting"
+    
+    style_keywords:
+      - "professional beauty photography"
+      - "salon editorial style"
+      - "lifestyle service photography"
+      - "commercial beauty advertising"
+    
+    color_phrases:
+      - "bright clean color palette"
+      - "professional salon tones"
+      - "fresh modern colors"
+      - "inviting warm hues"
+    
+    details_keywords:
+      - "hair texture detail"
+      - "styling precision"
+      - "sleek finish"
+      - "professional result"
+      - "clean cut edges"
+      - "styled volume"
+    
+    technical_keywords:
+      - "50mm lens"
+      - "f/2.8 aperture"
+      - "natural light"
+      - "beauty photography"
+      - "soft focus"
+  
+  required_layers:
+    - subject
+    - setting
+    - lighting
+    - style
+  
+  keywords:
+    - hair
+    - salon
+    - styling
+    - cut
+    - color
+    - stylist
+    - beauty
+    - haircut
+    - trim
+    - treatment
+  
+  negative_keywords:
+    - messy
+    - unprofessional
+    - damaged hair
+    - uneven
+
+# ============================================
+# NAIL_SALON (네일샵)
+# ============================================
+nail_salon:
+  name: "Nail Salon / Manicure"
+  name_ko: "네일샵"
+  description: "Nail art, manicure, pedicure service"
+  
+  prompt_template:
+    subject_patterns:
+      - "Professional close-up of {service} with {design}"
+      - "Manicured {focus} showcasing {style}"
+      - "Nail art {technique} in {setting}"
+      - "{artist} applying {service} to client"
+      - "Detailed shot of {design} nail work"
+    
+    setting_patterns:
+      - "clean modern nail salon interior"
+      - "professional manicure station"
+      - "elegant nail bar atmosphere"
+      - "organized nail service workspace"
+      - "bright hygienic salon environment"
+    
+    composition_keywords:
+      - "extreme close-up"
+      - "hand model pose"
+      - "detail macro shot"
+      - "service in progress"
+      - "nail display"
+    
+    lighting_phrases:
+      - "bright white professional lighting"
+      - "clean overhead studio lights"
+      - "soft diffused lighting on hands"
+      - "professional beauty lighting setup"
+      - "ring light close-up"
+    
+    style_keywords:
+      - "professional beauty photography"
+      - "nail art portfolio style"
+      - "commercial salon advertising"
+      - "editorial beauty close-up"
+    
+    color_phrases:
+      - "vibrant nail polish colors"
+      - "clean white and pink tones"
+      - "sophisticated color combination"
+      - "trendy nail color palette"
+    
+    details_keywords:
+      - "precise nail art"
+      - "smooth polish finish"
+      - "clean cuticles"
+      - "glossy surface"
+      - "intricate design"
+      - "manicured perfection"
+    
+    technical_keywords:
+      - "100mm macro lens"
+      - "f/2.8 aperture"
+      - "macro photography"
+      - "sharp detail"
+      - "beauty close-up"
+  
+  required_layers:
+    - subject
+    - lighting
+    - details
+    - technical
+  
+  keywords:
+    - nail
+    - manicure
+    - pedicure
+    - polish
+    - nail art
+    - design
+    - hands
+    - fingers
+    - salon
+    - treatment
+  
+  negative_keywords:
+    - uneven
+    - sloppy
+    - chipped
+    - messy
+
+# ============================================
+# FLOWER_SHOP (꽃집)
+# ============================================
+flower_shop:
+  name: "Flower Shop / Florist"
+  name_ko: "꽃집"
+  description: "Flower shop, floral arrangement, bouquet"
+  
+  prompt_template:
+    subject_patterns:
+      - "Professional floral photography of {arrangement} with {flowers}"
+      - "Beautiful {style} bouquet featuring {flowers}"
+      - "Fresh {flowers} arrangement in {container}"
+      - "Florist creating {arrangement} with {flowers}"
+      - "{flowers} display in {setting}"
+    
+    setting_patterns:
+      - "charming flower shop interior"
+      - "bright floral boutique atmosphere"
+      - "professional florist workspace"
+      - "natural flower market setting"
+      - "elegant flower display area"
+    
+    composition_keywords:
+      - "overhead arrangement"
+      - "close-up detail"
+      - "bouquet portrait"
+      - "flower texture focus"
+      - "full bloom display"
+    
+    lighting_phrases:
+      - "soft natural daylight on flowers"
+      - "bright window light highlighting petals"
+      - "gentle morning light"
+      - "diffused natural lighting"
+      - "fresh outdoor light"
+    
+    style_keywords:
+      - "professional floral photography"
+      - "botanical editorial style"
+      - "romantic flower aesthetic"
+      - "commercial florist advertising"
+    
+    color_phrases:
+      - "vibrant natural flower colors"
+      - "soft pastel floral tones"
+      - "rich saturated petals"
+      - "fresh spring color palette"
+    
+    details_keywords:
+      - "fresh petals"
+      - "delicate flower texture"
+      - "natural bloom"
+      - "vibrant colors"
+      - "dewy freshness"
+      - "arranged elegantly"
+    
+    technical_keywords:
+      - "85mm lens"
+      - "f/2.0 aperture"
+      - "macro floral"
+      - "natural light"
+      - "botanical photography"
+  
+  required_layers:
+    - subject
+    - setting
+    - lighting
+    - details
+  
+  keywords:
+    - flower
+    - bouquet
+    - arrangement
+    - florist
+    - petals
+    - bloom
+    - fresh
+    - floral
+    - botanical
+    - garden
+  
+  negative_keywords:
+    - wilted
+    - artificial flowers
+    - fake
+    - dead
+
+# ============================================
+# CLOTHING_STORE (옷가게)
+# ============================================
+clothing_store:
+  name: "Clothing Store / Fashion Boutique"
+  name_ko: "옷가게"
+  description: "Fashion retail, clothing store, apparel"
+  
+  prompt_template:
+    subject_patterns:
+      - "Fashion retail photography of {item} {display}"
+      - "Stylish {item} presentation in {setting}"
+      - "Contemporary {item} on {display_method}"
+      - "Fashion {style} featuring {item}"
+      - "Store display showcasing {item}"
+    
+    setting_patterns:
+      - "modern fashion boutique interior"
+      - "contemporary clothing store atmosphere"
+      - "stylish retail space"
+      - "organized fashion showroom"
+      - "trendy apparel store environment"
+    
+    composition_keywords:
+      - "product display"
+      - "mannequin presentation"
+      - "hanging arrangement"
+      - "lifestyle context"
+      - "detail shot"
+    
+    lighting_phrases:
+      - "bright retail store lighting"
+      - "clean white overhead lights"
+      - "natural light through storefront"
+      - "professional retail illumination"
+      - "soft spotlights on merchandise"
+    
+    style_keywords:
+      - "fashion retail photography"
+      - "commercial clothing advertising"
+      - "lifestyle fashion style"
+      - "editorial retail aesthetic"
+    
+    color_phrases:
+      - "coordinated color scheme"
+      - "trendy fashion palette"
+      - "seasonal color collection"
+      - "complementary clothing tones"
+    
+    details_keywords:
+      - "fabric texture"
+      - "clean presentation"
+      - "well-pressed"
+      - "styled display"
+      - "quality material"
+      - "fashion detail"
+    
+    technical_keywords:
+      - "50mm lens"
+      - "f/2.8 aperture"
+      - "retail photography"
+      - "product lighting"
+      - "commercial style"
+  
+  required_layers:
+    - subject
+    - setting
+    - lighting
+    - style
+  
+  keywords:
+    - clothing
+    - fashion
+    - apparel
+    - outfit
+    - style
+    - retail
+    - store
+    - garment
+    - wardrobe
+    - display
+  
+  negative_keywords:
+    - poor fit
+    - wrinkled
+    - messy
+    - cluttered
+
+# ============================================
+# GENERAL (일반/기타)
+# ============================================
+general:
+  name: "General Business"
+  name_ko: "일반 업종"
+  description: "General small business, service photography"
+  
+  prompt_template:
+    subject_patterns:
+      - "Professional commercial photography of {subject}"
+      - "Business {service} scene with {focus}"
+      - "{subject} in professional {setting}"
+      - "Commercial {activity} showing {detail}"
+      - "Service {interaction} at {location}"
+    
+    setting_patterns:
+      - "professional business environment"
+      - "clean modern commercial space"
+      - "organized service area"
+      - "contemporary business interior"
+      - "welcoming commercial setting"
+    
+    composition_keywords:
+      - "professional composition"
+      - "business context"
+      - "service focus"
+      - "commercial angle"
+      - "clear presentation"
+    
+    lighting_phrases:
+      - "professional commercial lighting"
+      - "bright clean illumination"
+      - "natural business environment light"
+      - "well-lit professional space"
+      - "commercial photography lighting"
+    
+    style_keywords:
+      - "professional commercial photography"
+      - "business editorial style"
+      - "corporate advertising aesthetic"
+      - "service industry photography"
+    
+    color_phrases:
+      - "professional color palette"
+      - "clean business tones"
+      - "trustworthy colors"
+      - "modern commercial hues"
+    
+    details_keywords:
+      - "professional quality"
+      - "clean presentation"
+      - "organized space"
+      - "business detail"
+      - "service excellence"
+    
+    technical_keywords:
+      - "50mm lens"
+      - "f/2.8 aperture"
+      - "commercial photography"
+      - "professional lighting"
+      - "business style"
+  
+  required_layers:
+    - subject
+    - setting
+    - lighting
+    - style
+  
+  keywords:
+    - business
+    - service
+    - professional
+    - commercial
+    - store
+    - shop
+    - interior
+    - customer
+    - quality
+    - clean
+  
+  negative_keywords:
+    - generic
+    - amateur
+    - unprofessional
+    - messy
+
+# ============================================
+# Common Negative Keywords (모든 업종 공통)
+# ============================================
+common_negative:
+  base:
+    - cartoon
+    - illustration
+    - painting
+    - low quality
+    - blurry
+    - watermark
+    - text
+  
+  realistic_style:
+    - anime
+    - CGI
+    - 3D render
+    - drawing
+    - sketch
+  
+  quality_spam:  # 제거해야 할 것들 (사용 금지)
+    - masterpiece
+    - best quality
+    - high quality
+    - 8k
+    - 4k
+    - ultra detailed
+    - award-winning
+
+# ============================================
+# Metadata
+# ============================================
+metadata:
+  version: "2.0.0"
+  last_updated: "2026-01-07"
+  benchmark_source: "Civitai Top Prompts Analysis"
+  total_industries: 10
+  verified_prompts: 25
