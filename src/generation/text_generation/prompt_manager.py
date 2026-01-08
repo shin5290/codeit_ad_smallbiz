@@ -1,18 +1,32 @@
 """
-이미지 생성 프롬프트 관리 모듈
+키워드 추출 모듈 (GPT-4o 기반)
 작성자: 배현석
-버전: 1.1
+버전: 4.0 - 키워드 추출 전용
+
+역할: 한글 사용자 입력 → 영어 키워드 추출
+이후 prompt_templates.py에서 최종 프롬프트 생성
 """
 
+import sys
+import io
+
+# UTF-8 인코딩 강제 설정
+if sys.platform == 'win32':
+    sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 import os
+import json
 from dotenv import load_dotenv
 from openai import OpenAI
+from config_loader import industry_config
 
 load_dotenv()
 
 
 class PromptTemplateManager:
-    """이미지 생성용 프롬프트 관리 클래스"""
+    """한글 입력 → 영어 키워드 추출 (GPT-4o)"""
     
     def __init__(self):
         """초기화: OpenAI 클라이언트 설정"""
@@ -23,243 +37,259 @@ class PromptTemplateManager:
         self.client = OpenAI(api_key=api_key)
         self.model = "gpt-4o-mini"
     
-    def generate_image_prompt(self, user_input, style="realistic"):
+    def extract_keywords_english(self, user_input: str) -> dict:
         """
-        이미지 생성용 프롬프트(태그) 생성
+        한글 사용자 입력 → 영어 키워드 추출
         
         Args:
-            user_input (str): 사용자 요청
-                예: "카페 신메뉴 홍보, 따뜻한 느낌, 겨울"
-            style (str): 이미지 스타일 ("realistic", "illustration", "minimal")
+            user_input (str): 한글 사용자 요청
+                예: "카페 신메뉴 딸기라떼 홍보, 따뜻한 느낌"
         
         Returns:
-            dict: {"positive": str, "negative": str}
+            dict: 영어 키워드
                 예: {
-                    "positive": "cafe interior, new menu board, warm lighting, ...",
-                    "negative": "low quality, blurry, text, ..."
+                    "product": "strawberry latte",
+                    "activity": "promotion", 
+                    "theme": "warm",
+                    "mood": "cozy"
                 }
         """
         
-        print(f"🎨 이미지 프롬프트 생성 중...")
+        print(f"🔍 키워드 추출 중...")
         print(f"   입력: {user_input}")
-        print(f"   스타일: {style}")
         
         try:
-            # 1. 시스템 프롬프트
-            system_prompt = self._get_system_prompt(style)
+            # 1. 업종 자동 감지
+            industry = self._detect_industry(user_input)
+            print(f"   감지된 업종: {industry}")
             
-            # 2. 사용자 프롬프트
-            user_prompt = self._build_user_prompt(user_input)
+            # 2. 시스템 프롬프트 (키워드 추출용)
+            system_prompt = self._get_system_prompt_for_extraction(industry)
             
-            # 3. GPT API 호출
+            # 3. 사용자 프롬프트
+            user_prompt = self._build_user_prompt_for_extraction(user_input, industry)
+            
+            # 4. GPT API 호출
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.5,
-                max_tokens=200
+                temperature=0.1,  # 일관성 최대
+                max_tokens=150    # 짧은 JSON만
             )
             
-            # 4. 응답 추출
-            prompt = response.choices[0].message.content.strip()
+            # 5. 응답 추출
+            result = response.choices[0].message.content.strip()
             
-            # 5. 후처리
-            positive_prompt = self._postprocess(prompt, style)
+            # 6. JSON 파싱 (```json``` 제거)
+            if "```json" in result:
+                result = result.split("```json")[1].split("```")[0].strip()
+            elif "```" in result:
+                result = result.split("```")[1].split("```")[0].strip()
             
-            # 6. Negative 프롬프트 생성
-            negative_prompt = self._get_negative_prompt(style)
+            keywords = json.loads(result)
             
-            print(f"✅ 생성 완료")
-            print(f"   Positive: {positive_prompt[:60]}...")
-            print(f"   Negative: {negative_prompt[:60]}...")
+            print(f"✅ 추출 완료: {keywords}")
             
-            return {
-                "positive": positive_prompt,
-                "negative": negative_prompt
-            }
+            return keywords
             
         except Exception as e:
             print(f"❌ 오류 발생: {e}")
-            return {
-                "positive": self._get_fallback_prompt(style),
-                "negative": self._get_negative_prompt(style)
-            }
+            import traceback
+            traceback.print_exc()
+            # Fallback: 빈 딕셔너리 반환
+            return {}
     
-    def _get_system_prompt(self, style):
-        """스타일에 따른 시스템 프롬프트"""
+    def _detect_industry(self, user_input: str) -> str:
+        """
+        사용자 입력에서 업종 자동 감지 (YAML 기반)
         
-        base_prompt = """You are an expert in creating image generation prompts for Stable Diffusion.
-Convert Korean user input into English tags that AI image generators can understand.
+        Args:
+            user_input: 사용자 입력 텍스트
+        
+        Returns:
+            str: 감지된 업종 ("cafe", "gym", ...) 또는 "general"
+        """
+        if industry_config is None:
+            return "general"
+        
+        return industry_config.detect_industry(user_input)
+    
+    def _get_system_prompt_for_extraction(self, industry: str) -> str:
+        """
+        키워드 추출용 시스템 프롬프트
+        
+        구조: Base (공통) + Specialized (업종별 특화)
+        
+        Args:
+            industry: 감지된 업종
+        
+        Returns:
+            str: 시스템 프롬프트
+        """
+        
+        # ====================================================================
+        # Base Prompt (모든 업종 공통)
+        # ====================================================================
+        base_prompt = """You are a keyword extraction expert for image generation prompts.
+
+Your task: Extract keywords from Korean user input and translate them to English.
 
 CRITICAL RULES:
-1. Output ONLY English tags
-2. Separate tags with commas
-3. Focus on VISUAL elements only (no abstract concepts)
-4. Maximum 20 tags
-5. Include: subject, setting, atmosphere, lighting, style, quality
+1. Output ONLY English keywords (NEVER Korean characters - 절대 한글 금지!)
+2. Extract visual elements only (no abstract marketing concepts)
+3. Translate product/service names accurately
+4. Output ONLY valid JSON format
+5. Be specific with names (not generic terms)
+
+COMMON FIELDS (extract if present in input):
+- product/item/dish: Main product/item name (구체적으로!)
+- activity/service: Action or service being performed
+- person_type: Subject person (if person involved)
+- state: Condition (fresh, warm, cold, clean, etc)
+- presentation: Display method (on board, in glass, etc)
+- surface: Surface type (marble table, wooden counter, etc)
+- theme: Overall mood (warm, minimal, cozy, etc)
+- mood: Atmosphere (energetic, calm, professional, etc)
+- time: Time of day (morning, afternoon, evening)
+- focus: What to emphasize (texture, color, etc)
 
 Output format example:
-cafe interior, new menu board, warm lighting, cozy atmosphere, winter season, coffee cups, wooden table, soft focus, professional photography, high quality"""
+{
+  "product": "strawberry latte",
+  "activity": "promotion",
+  "theme": "warm",
+  "surface": "marble table"
+}
 
-        style_guides = {
-            "realistic": """
-Style focus: Photorealistic, professional photography
-Include: natural lighting, detailed textures, realistic colors, sharp focus
-Avoid: cartoon, anime, illustration, painting""",
+IMPORTANT:
+- Only include fields that are clearly mentioned in input
+- Translate ALL Korean to English
+- Use simple, descriptive English words
+- Do NOT include marketing language (translate core meaning only)"""
+
+        # ====================================================================
+        # Specialized Guides (복잡한 업종만)
+        # ====================================================================
+        specialized_guides = {
+            "cafe": """
+
+CAFE SPECIALIZATION:
+- product: Exact beverage name (예: "strawberry latte", "iced americano", "cappuccino")
+  ⚠️  NOT generic: "beverage", "drink" (too vague!)
+- Common states: "iced", "hot", "fresh"
+- Common presentations: "in tall glass", "with latte art", "topped with cream"
+- Common surfaces: "marble table", "wooden counter", "cafe table\"""",
             
-            "illustration": """
-Style focus: Hand-drawn, artistic illustration
-Include: soft colors, artistic style, illustrated, painted, creative
-Avoid: photorealistic, photograph, 3D render""",
+            "gym": """
+
+GYM SPECIALIZATION:
+- person_type: Describe fitness level (예: "athletic man", "fitness woman", "muscular person")
+  ⚠️  NOT generic: "person" (be specific!)
+- activity: Specific exercise (예: "barbell squat", "bench press", "deadlift", "running")
+  ⚠️  NOT generic: "workout", "exercise" (name the exercise!)
+- focus: What to highlight (예: "muscle definition", "form", "strength", "power")""",
             
-            "minimal": """
-Style focus: Clean, simple, minimalist design
-Include: minimal, clean, simple, white background, modern, elegant
-Avoid: cluttered, busy, complex, detailed"""
+            "bakery": """
+
+BAKERY SPECIALIZATION:
+- product: Exact baked good (예: "croissant", "baguette", "sourdough bread", "chocolate cake")
+  ⚠️  NOT generic: "bread", "pastry" (be specific!)
+- state: Freshness indicator (예: "freshly baked", "warm", "golden brown", "crispy")
+- presentation: Display method (예: "on wooden board", "in wicker basket", "on display shelf")""",
+            
+            "restaurant": """
+
+RESTAURANT SPECIALIZATION:
+- dish: Complete dish name (예: "pasta carbonara", "grilled ribeye steak", "caesar salad")
+  ⚠️  NOT generic: "pasta", "meat" (include full dish name!)
+- plating: Plating style (예: "elegantly plated", "rustic presentation", "modern plating")
+- cuisine_style: Cuisine type (예: "italian", "french", "japanese", "korean")"""
         }
         
-        style_guide = style_guides.get(style, style_guides["realistic"])
+        # ====================================================================
+        # 조합: Base + Specialized (있으면)
+        # ====================================================================
+        # laundry, hair_salon, nail_salon 등은 base만으로 충분
+        specialized = specialized_guides.get(industry, "")
         
-        return f"{base_prompt}\n\n{style_guide}"
+        return base_prompt + specialized
     
-    def _build_user_prompt(self, user_input):
-        """사용자 프롬프트 구성"""
+    def _build_user_prompt_for_extraction(self, user_input: str, industry: str) -> str:
+        """
+        키워드 추출용 사용자 프롬프트
         
-        return f"""Convert this Korean description into English image generation tags:
+        Args:
+            user_input: 사용자 입력
+            industry: 감지된 업종
+        
+        Returns:
+            str: 사용자 프롬프트
+        """
+        
+        return f"""Extract keywords from this Korean input and translate to English.
 
-{user_input}
+User input: {user_input}
+Detected industry: {industry}
 
-Remember:
-- ONLY English tags
-- Comma-separated
-- Visual elements only
-- 20 tags maximum
+Output ONLY valid JSON with English values.
+Include only the fields that are clearly present in the input.
 
-Tags:"""
-    
-    def _postprocess(self, prompt, style):
-        """프롬프트 후처리"""
-        
-        # 1. 한글 제거 (혹시 있다면)
-        prompt = ''.join(char for char in prompt if ord(char) < 0x3131 or ord(char) > 0x318e)
-        prompt = ''.join(char for char in prompt if ord(char) < 0xac00 or ord(char) > 0xd7a3)
-        
-        # 2. 불필요한 문자 정리
-        prompt = prompt.replace('"', '').replace("'", "").strip()
-        
-        # 3. 품질 태그 추가
-        quality_tags = self._get_quality_tags(style)
-        
-        # 이미 품질 태그가 있는지 확인
-        if "high quality" not in prompt.lower():
-            prompt = f"{prompt}, {quality_tags}"
-        
-        # 4. 중복 제거
-        tags = [tag.strip() for tag in prompt.split(',')]
-        unique_tags = []
-        seen = set()
-        
-        for tag in tags:
-            tag_lower = tag.lower()
-            if tag_lower not in seen and tag:
-                unique_tags.append(tag)
-                seen.add(tag_lower)
-        
-        # 5. 20개 제한
-        if len(unique_tags) > 20:
-            unique_tags = unique_tags[:20]
-        
-        return ', '.join(unique_tags)
-    
-    def _get_quality_tags(self, style):
-        """스타일별 품질 태그"""
-        
-        quality_tags = {
-            "realistic": "high quality, detailed, professional photography, sharp focus, 4k",
-            "illustration": "high quality, detailed artwork, professional illustration, artistic",
-            "minimal": "high quality, clean design, professional, elegant, modern"
-        }
-        
-        return quality_tags.get(style, quality_tags["realistic"])
-    
-    def _get_fallback_prompt(self, style):
-        """GPT 실패 시 기본 프롬프트"""
-        
-        fallback = {
-            "realistic": "professional photography, high quality, detailed, sharp focus, natural lighting",
-            "illustration": "artistic illustration, hand-drawn style, colorful, creative, high quality",
-            "minimal": "minimal design, clean, simple, modern, elegant, white background"
-        }
-        
-        return fallback.get(style, fallback["realistic"])
-    
-    def _get_negative_prompt(self, style):
-        """스타일별 Negative 프롬프트 생성"""
-        
-        # 모든 스타일 공통 negative
-        base_negative = "low quality, blurry, text, watermark, bad anatomy, distorted, deformed"
-        
-        # 스타일별 추가 negative
-        style_negatives = {
-            "realistic": ", cartoon, anime, illustration, painting, drawing, sketch, 3d render",
-            "illustration": ", photorealistic, photograph, photo, realistic, 3d render, cgi",
-            "minimal": ", cluttered, busy, complex, detailed background, ornate, messy, crowded"
-        }
-        
-        additional = style_negatives.get(style, "")
-        
-        return base_negative + additional
+JSON:"""
 
 
+# ============================================
+# 유틸리티 함수
+# ============================================
+
+def clean_input(text):
+    """
+    입력 텍스트 정제 - surrogate 문자 제거
+    """
+    if not text:
+        return ""
+    
+    try:
+        cleaned = text.encode('utf-8', errors='ignore').decode('utf-8', errors='ignore')
+        cleaned = ''.join(char for char in cleaned if char.isprintable() or char in '\n\t ')
+        return cleaned.strip()
+    except Exception as e:
+        print(f"⚠️  입력 정제 중 오류: {e}")
+        return ''.join(char for char in text if ord(char) < 128).strip()
+
+
+# ============================================
 # 테스트 코드
+# ============================================
+
 if __name__ == "__main__":
     print("=" * 80)
-    print("🎨 PromptTemplateManager 테스트")
+    print("🔍 Keyword Extraction Module (GPT-4o)")
     print("=" * 80)
     
     manager = PromptTemplateManager()
     
-    # 테스트 케이스들
+    # 테스트 케이스
     test_cases = [
-        {
-            "input": "카페 신메뉴 홍보, 따뜻한 느낌, 겨울 시즌, 라떼 아트",
-            "style": "realistic"
-        },
-        {
-            "input": "식당 가족 모임, 편안한 분위기, 한식",
-            "style": "realistic"
-        },
-        {
-            "input": "헬스장 홍보, 현대적인 시설, 운동 기구",
-            "style": "minimal"
-        }
+        "카페 신메뉴 딸기라떼 홍보, 따뜻한 느낌",
+        "헬스장 근육맨 스쿼트하는 모습",
+        "빵집 갓 구운 크루아상 나무 보드에 올린 사진",
+        "레스토랑 파스타 까르보나라 예쁘게 플레이팅"
     ]
     
+    print("\n📝 테스트 케이스:")
     for i, test in enumerate(test_cases, 1):
         print(f"\n{'='*80}")
-        print(f"테스트 {i}")
+        print(f"Test {i}: {test}")
         print(f"{'='*80}")
         
-        result = manager.generate_image_prompt(
-            user_input=test["input"],
-            style=test["style"]
-        )
+        result = manager.extract_keywords_english(test)
         
-        # 검증
-        positive_tags = result["positive"].split(',')
-        has_korean = any(
-            '\uac00' <= char <= '\ud7a3' or '\u3131' <= char <= '\u318e' 
-            for char in result["positive"]
-        )
-        
-        print(f"\n📊 검증 결과:")
-        print(f"   ✅ Positive 태그: {len(positive_tags)}개")
-        print(f"   ✅ 한글 포함: {'❌ 있음' if has_korean else '✅ 없음'}")
-        print(f"   ✅ Positive 프롬프트:\n   {result['positive']}")
-        print(f"   🚫 Negative 프롬프트:\n   {result['negative']}")
+        print(f"\n결과:")
+        print(json.dumps(result, indent=2, ensure_ascii=False))
     
     print(f"\n{'='*80}")
-    print("✅ 모든 테스트 완료!")
+    print("✅ 테스트 완료")
     print(f"{'='*80}")
