@@ -45,7 +45,7 @@ class Image2ImageControlNetNode(BaseNode):
     """
 
     # 클래스 변수: VAE 캐시 (Text2ImageNode와 공유)
-    from .text2image import Text2ImageNode
+    from .text2image_backup import Text2ImageNode
     _vae_cache = Text2ImageNode._vae_cache
 
     def __init__(
@@ -85,7 +85,7 @@ class Image2ImageControlNetNode(BaseNode):
         local_model_path = MODELS_DIR / self.model_id.replace("/", "--")
 
         # VAE 로드 (Text2ImageNode와 공유)
-        from .text2image import Text2ImageNode
+        from .text2image_backup import Text2ImageNode
         if Text2ImageNode._vae_cache is None:
             print(f"[{self.node_name}] Loading VAE (first time)...")
             Text2ImageNode._vae_cache = AutoencoderKL.from_pretrained(

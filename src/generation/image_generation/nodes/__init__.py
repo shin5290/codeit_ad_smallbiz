@@ -3,7 +3,7 @@ Image Generation Nodes
 """
 
 from .base import BaseNode
-from .text2image import Text2ImageNode
+from .text2image_backup import Text2ImageNode
 from .image2image import Image2ImageControlNetNode
 from .controlnet import ControlNetPreprocessorNode, ControlNetLoaderNode
 
