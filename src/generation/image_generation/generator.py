@@ -12,17 +12,36 @@ from typing import Optional, Literal, Dict, Any
 from pathlib import Path
 from datetime import datetime
 import uuid
+import hashlib
 
 from PIL import Image
 
 from .workflow import ImageGenerationWorkflow
-from .nodes.text2image import Text2ImageNode
+from .nodes.text2image_backup import Text2ImageNode
 from .nodes.controlnet import ControlNetPreprocessorNode, ControlNetLoaderNode
 from .nodes.image2image import Image2ImageControlNetNode
 
 
+# 프로젝트 루트 자동 탐지
+def _find_project_root() -> Path:
+    """
+    현재 파일에서 시작해서 상위 디렉토리를 탐색하며 프로젝트 루트 찾기
+    프로젝트 루트 기준: src/ 디렉토리가 있는 곳
+    """
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / "src").exists() and (parent / "src").is_dir():
+            return parent
+    raise RuntimeError(
+        f"프로젝트 루트를 찾을 수 없습니다. "
+        f"현재 파일: {Path(__file__).resolve()}\n"
+        f"src/ 디렉토리가 있는 상위 디렉토리를 찾지 못했습니다."
+    )
+
+PROJECT_ROOT = _find_project_root()
+
 # 기본 저장 경로 (나중에 config로 분리 가능)
-DEFAULT_STORAGE_DIR = Path("storage/generated_images")
+DEFAULT_STORAGE_DIR = PROJECT_ROOT / "data" / "generated"
 DEFAULT_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 # 스타일별 모델 매핑
@@ -31,9 +50,6 @@ STYLE_MODEL_MAP = {
     "semi_realistic": "John6666/bss-equinox-il-semi-realistic-model-v25-sdxl",
     "anime": "cagliostrolab/animagine-xl-3.1",
 }
-
-# 프로젝트 루트 (GCP VM에서 실행될 때)
-PROJECT_ROOT = Path("/home/codeit_ad_smallbiz")
 
 
 def generate_and_save_image(
@@ -44,7 +60,6 @@ def generate_and_save_image(
     num_inference_steps: int = 40,
     guidance_scale: float = 7.5,
     seed: Optional[int] = None,
-    business_id: Optional[str] = None,
     filename: Optional[str] = None,
     storage_dir: Optional[Path] = None,
     reference_image: Optional[Image.Image] = None,
@@ -86,14 +101,9 @@ def generate_and_save_image(
             - 낮음(5-6): 창의적
             - 높음(9-12): 프롬프트에 충실
         seed: 랜덤 시드 (재현성, 선택)
-        business_id: 사업체 ID (저장 경로 구성용, 선택)
-            - 제공 시: storage/generated_images/{business_id}/{filename}
-            - 미제공 시: storage/generated_images/{filename}
-        filename: 파일명 (선택)
-            - 제공 시: 그대로 사용
-            - 미제공 시: {timestamp}_{uuid}.png 형식 자동 생성
+        filename: 커스텀 파일명 (선택, 사용 안 함 - 해시 기반 자동 생성)
         storage_dir: 커스텀 저장 디렉토리 (선택)
-            - 기본: storage/generated_images/
+            - 기본: {PROJECT_ROOT}/data/generated
         reference_image: 레퍼런스 이미지 (선택, PIL.Image)
             - None: Text-to-Image 실행
             - 제공: Image-to-Image (ControlNet) 실행
@@ -110,30 +120,38 @@ def generate_and_save_image(
         Dict[str, Any]: 생성 결과
             {
                 "success": bool,           # 성공 여부
-                "image_path": str,         # 저장된 이미지 절대 경로 (백엔드가 파일 서빙용)
-                "relative_path": str,      # 상대 경로 (storage/ 기준)
-                "filename": str,           # 파일명
+                "image_path": str,         # 저장된 이미지 절대 경로
+                "filename": str,           # 파일명 (해시값)
                 "width": int,              # 이미지 너비
                 "height": int,             # 이미지 높이
                 "style": str,              # 사용된 스타일
                 "seed": int or None,       # 사용된 시드
                 "generation_time": float,  # 생성 소요 시간 (초)
+                "control_type": str,       # I2I인 경우 ControlNet 타입
+                "controlnet_scale": float, # I2I인 경우 강도값
                 "error": str or None       # 에러 메시지 (실패 시)
             }
 
     Example:
-        >>> # Text Generator 결과를 받아서 이미지 생성
+        >>> # Text-to-Image
         >>> result = generate_and_save_image(
-        ...     prompt="modern cafe interior with wooden furniture",  # Text Generator 출력
+        ...     prompt="modern cafe interior with wooden furniture",
         ...     style="ultra_realistic",
         ...     aspect_ratio="16:9",
-        ...     industry="cafe",
-        ...     business_id="user123"
+        ...     industry="cafe"
         ... )
-        >>> print(result["image_path"])  # 백엔드가 파일 서빙용 절대 경로
-        >>> # "/home/codeit_ad_smallbiz/storage/generated_images/user123/20260105_143022_a1b2c3d4.png"
-        >>> print(result["relative_path"])  # DB 저장용 상대 경로
-        >>> # "generated_images/user123/20260105_143022_a1b2c3d4.png"
+        >>> print(result["image_path"])
+        >>> # "/home/spai0415/codeit_ad_smallbiz/data/generated/a1/a1b2c3d4e5f6...hash.jpg"
+
+        >>> # Image-to-Image
+        >>> from PIL import Image
+        >>> ref_img = Image.open("product.jpg")
+        >>> result = generate_and_save_image(
+        ...     prompt="professional product photo",
+        ...     reference_image=ref_img,
+        ...     control_type="canny",
+        ...     style="ultra_realistic"
+        ... )
     """
     # 분기 처리: reference_image가 있으면 I2I, 없으면 T2I
     if reference_image is not None:
@@ -149,7 +167,6 @@ def generate_and_save_image(
             guidance_scale=guidance_scale,
             controlnet_conditioning_scale=controlnet_conditioning_scale,
             seed=seed,
-            business_id=business_id,
             filename=filename,
             storage_dir=storage_dir,
         )
@@ -163,22 +180,7 @@ def generate_and_save_image(
         if storage_dir is None:
             storage_dir = DEFAULT_STORAGE_DIR
 
-        # business_id가 있으면 하위 폴더 생성
-        if business_id:
-            save_dir = storage_dir / business_id
-        else:
-            save_dir = storage_dir
-
-        save_dir.mkdir(parents=True, exist_ok=True)
-
-        # 파일명 생성
-        if filename is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            unique_id = str(uuid.uuid4())[:8]
-            filename = f"{timestamp}_{unique_id}.png"
-
-        # 전체 저장 경로
-        save_path = save_dir / filename
+        storage_dir.mkdir(parents=True, exist_ok=True)
 
         # 스타일에 맞는 모델 선택
         model_id = STYLE_MODEL_MAP.get(style, STYLE_MODEL_MAP["ultra_realistic"])
@@ -209,19 +211,22 @@ def generate_and_save_image(
         result = workflow.run(inputs)
         image = result["image"]
 
+        filename = hashlib.sha256(image).hexdigest()
+        subdir = filename[:2]
+
+        # 전체 저장 경로
+        save_path = storage_dir / subdir / f"{filename}.jpg"
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+
         # 이미지 저장
         image.save(save_path)
 
         # 생성 시간 계산
         generation_time = time.time() - start_time
 
-        # 상대 경로 계산 (storage/ 기준)
-        relative_path = str(save_path.relative_to(Path("storage")))
-
         return {
             "success": True,
-            "image_path": str(save_path.absolute()),
-            "relative_path": relative_path,
+            "image_path": str(save_path.absolute()),  # 절대 경로 (PROJECT_ROOT 기반)
             "filename": filename,
             "width": result["width"],
             "height": result["height"],
@@ -349,7 +354,6 @@ def generate_with_controlnet(
     guidance_scale: float = 7.5,
     controlnet_conditioning_scale: float = 0.8,
     seed: Optional[int] = None,
-    business_id: Optional[str] = None,
     filename: Optional[str] = None,
     storage_dir: Optional[Path] = None,
 ) -> Dict[str, Any]:
@@ -388,29 +392,29 @@ def generate_with_controlnet(
             - 형태 강하게 유지: 0.9~1.0
             - 형태 약하게 유지: 0.5~0.7
         seed: 랜덤 시드
-        business_id: 사업체 ID
-        filename: 파일명
-        storage_dir: 저장 디렉토리
+        filename: 커스텀 파일명 (선택, 사용 안 함 - 해시 기반 자동 생성)
+        storage_dir: 커스텀 저장 디렉토리 (선택)
+            - 기본: {PROJECT_ROOT}/data/generated
 
     Returns:
         Dict[str, Any]: 생성 결과 (generate_and_save_image와 동일)
             {
                 "success": bool,
-                "image_path": str,
-                "relative_path": str,
-                "filename": str,
+                "image_path": str,             # 절대 경로
+                "filename": str,               # 파일명 (해시값)
                 "width": int,
                 "height": int,
                 "style": str,
                 "seed": int or None,
                 "generation_time": float,
-                "control_type": str,           # 추가: 사용된 ControlNet 타입
-                "controlnet_scale": float,     # 추가: ControlNet 강도
+                "control_type": str,           # 사용된 ControlNet 타입
+                "controlnet_scale": float,     # ControlNet 강도
                 "error": str or None
             }
 
     Example:
         >>> # 실사 커피잔 사진을 ultra_realistic 광고로 재생성
+        >>> from PIL import Image
         >>> product_photo = Image.open("coffee_cup.jpg")
         >>> result = generate_with_controlnet(
         ...     prompt="professional product photo of artisan coffee cup on wooden cafe table, warm lighting",
@@ -418,11 +422,10 @@ def generate_with_controlnet(
         ...     control_type="canny",
         ...     style="ultra_realistic",
         ...     aspect_ratio="1:1",
-        ...     industry="cafe",
-        ...     business_id="user123"
+        ...     industry="cafe"
         ... )
         >>> print(result["image_path"])
-        >>> # → 커피잔 형태는 유지 + ultra_realistic 스타일로 재생성
+        >>> # "/home/spai0415/codeit_ad_smallbiz/data/generated/a1/a1b2c3d4e5f6...hash.jpg"
     """
     import time
     start_time = time.time()
@@ -432,21 +435,9 @@ def generate_with_controlnet(
         if storage_dir is None:
             storage_dir = DEFAULT_STORAGE_DIR
 
-        if business_id:
-            save_dir = storage_dir / business_id
-        else:
-            save_dir = storage_dir
+        storage_dir.mkdir(parents=True, exist_ok=True)
 
-        save_dir.mkdir(parents=True, exist_ok=True)
-
-        # 파일명 생성
-        if filename is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            unique_id = str(uuid.uuid4())[:8]
-            filename = f"controlnet_{control_type}_{timestamp}_{unique_id}.png"
-
-        # 전체 저장 경로
-        save_path = save_dir / filename
+        # 이미지 생성 먼저 수행 (해시 계산을 위해)
 
         # 스타일에 맞는 모델 선택
         model_id = STYLE_MODEL_MAP.get(style, STYLE_MODEL_MAP["ultra_realistic"])
@@ -487,19 +478,23 @@ def generate_with_controlnet(
         result = workflow.run(inputs)
         image = result["image"]
 
+        # 해시 기반 파일명 생성
+        filename = hashlib.sha256(image).hexdigest()
+        subdir = filename[:2]
+
+        # 전체 저장 경로
+        save_path = storage_dir / subdir / f"{filename}.jpg"
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+
         # 이미지 저장
         image.save(save_path)
 
         # 생성 시간 계산
         generation_time = time.time() - start_time
 
-        # 상대 경로 계산
-        relative_path = str(save_path.relative_to(Path("storage")))
-
         return {
             "success": True,
-            "image_path": str(save_path.absolute()),
-            "relative_path": relative_path,
+            "image_path": str(save_path.absolute()),  # 절대 경로 (PROJECT_ROOT 기반)
             "filename": filename,
             "width": result["width"],
             "height": result["height"],
