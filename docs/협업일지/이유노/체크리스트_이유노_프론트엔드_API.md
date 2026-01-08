@@ -75,62 +75,62 @@
 **GET /status/{task_id} 엔드포인트**
 - [V] Task ID로 상태 조회
 - [V] TaskStatus 스키마 반환
-- [ ] 404 에러 처리
+- [V] 404 에러 처리
 
 **로컬 테스트**
-- [ ] uvicorn 서버 실행
+- [V] uvicorn 서버 실행
   ```bash
   uvicorn src.backend.routes:app --reload --host 0.0.0.0 --port 8000
   ```
-- [ ] Postman으로 API 테스트
-  - [ ] POST /generate 호출
-  - [ ] GET /status/{task_id} 호출
-- [ ] Swagger UI 확인 (http://localhost:8000/docs)
+- [V] Postman으로 API 테스트
+  - [V] POST /generate 호출
+  - [V] GET /status/{task_id} 호출
+- [V] Swagger UI 확인 (http://localhost:8000/docs)
 
 #### 1주차: Day 5-7 (1/2-1/4): 챗봇 UI 프로토타입
 
 **App.svelte 기본 레이아웃**
-- [ ] 파일 생성: `src/frontend/src/App.svelte`
-- [ ] Header 컴포넌트 영역
-  - [ ] 로고 또는 타이틀
-  - [ ] 로그인/회원가입 버튼 영역 (빈 버튼)
-- [ ] MainContent 영역
-- [ ] 상태 변수 정의
+- [V] 파일 생성: `src/frontend/src/App.svelte`
+- [V] Header 컴포넌트 영역
+  - [V] 로고 또는 타이틀
+  - [V] 로그인/회원가입 버튼 영역 (빈 버튼)
+- [V] MainContent 영역
+- [V] 상태 변수 정의
   ```javascript
   let isLoggedIn = false;
   let currentUser = null;
   ```
 
 **ChatbotUI.svelte 생성**
-- [ ] 파일 생성: `src/frontend/src/lib/components/ChatbotUI.svelte`
-- [ ] 텍스트 입력 필드 (`<textarea>`)
-- [ ] 이미지 비율 선택 UI
-  - [ ] 라디오 버튼: 1:1, 4:3, 3:4
-  - [ ] 기본값: 1:1
-- [ ] 생성 버튼
-- [ ] 대화 이력 표시 영역
-  - [ ] `messages` 배열 상태 변수
-  - [ ] 메시지 렌더링 루프
+- [V] 파일 생성: `src/frontend/src/lib/components/ChatbotUI.svelte`
+- [V] 텍스트 입력 필드 (`<textarea>`)
+- [V] 이미지 비율 선택 UI
+  - [V] 라디오 버튼: 1:1, 4:3, 3:4
+  - [V] 기본값: 1:1
+- [V] 생성 버튼
+- [V] 대화 이력 표시 영역
+  - [V] `messages` 배열 상태 변수
+  - [V] 메시지 렌더링 루프
 
 **backendClient.js 기본 구조**
-- [ ] 파일 생성: `src/frontend/src/lib/api/backendClient.js`
-- [ ] API_URL 환경 변수 설정
+- [V] 파일 생성: `src/frontend/src/lib/api/backendClient.js`
+- [V] API_URL 환경 변수 설정
   ```javascript
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
   ```
-- [ ] `generateAd()` 함수 구현
+- [V] `generateAd()` 함수 구현
   ```javascript
   async function generateAd({user_id, input_text, aspect_ratio})
   ```
-- [ ] `checkTaskStatus()` 함수 구현
+- [V] `checkTaskStatus()` 함수 구현
   ```javascript
   async function checkTaskStatus(task_id)
   ```
 
 **통합 테스트**
-- [ ] 프론트엔드에서 백엔드 API 호출 테스트
-- [ ] Task ID 수신 확인
-- [ ] 네트워크 탭에서 요청/응답 확인
+- [V] 프론트엔드에서 백엔드 API 호출 테스트
+- [V] Task ID 수신 확인
+- [V] 네트워크 탭에서 요청/응답 확인
 
 **✅ 1주차 마일스톤**: 프론트엔드 → 백엔드 API 호출 → Task ID 수신 확인
 
@@ -141,11 +141,11 @@
 #### Day 8-9 (1/5-1/6): 결과 표시 UI
 
 **ChatbotUI에 결과 렌더링 추가**
-- [ ] 이미지 URL 처리
-  - [ ] `<img>` 태그로 표시
-  - [ ] API_URL 연결: `${API_URL}/static/images/${image_url}`
-- [ ] 광고 문구 텍스트 표시
-  - [ ] 메시지 객체에 `content` 필드
+- [V] 이미지 URL 처리
+  - [V] `<img>` 태그로 표시
+  - [V] API_URL 연결: `${API_URL}/static/images/${image_url}`
+- [V] 광고 문구 텍스트 표시
+  - [V] 메시지 객체에 `content` 필드
 - [ ] 다운로드 버튼 추가 (선택)
   - [ ] 이미지 다운로드 링크
 
