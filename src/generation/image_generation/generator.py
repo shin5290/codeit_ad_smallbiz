@@ -55,7 +55,7 @@ def generate_and_save_image(
     Text Generator에서 받은 프롬프트로 이미지 생성 후 저장
 
     이 함수가 Image Generation 모듈의 메인 진입점입니다.
-    Backend → Text Generator → 이 함수 → 이미지 생성 + 저장 → 경로 반환
+    Backend → 이 함수 → 이미지 생성 + 저장 → 경로 반환
 
     **자동 분기 처리**:
     - reference_image=None: Text-to-Image (T2I)

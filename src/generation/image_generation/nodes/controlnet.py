@@ -30,8 +30,10 @@ except ImportError:
 
 
 # 모델 캐싱 디렉토리
-MODELS_DIR = Path(__file__).parent.parent / "models"
-MODELS_DIR.mkdir(exist_ok=True)
+# VM 공용 스토리지 경로 (환경변수로 오버라이드 가능)
+import os
+MODELS_DIR = Path(os.getenv("MODELS_DIR", "/opt/ai-models/sdxl"))
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class ControlNetPreprocessorNode(BaseNode):
