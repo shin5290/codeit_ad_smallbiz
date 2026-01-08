@@ -51,7 +51,7 @@ class Text2ImageNode(BaseNode):
             device: 실행할 디바이스 ("cuda", "cpu" 등)
                     None이면 config.py의 설정 사용
             model_id: 사용할 SDXL 모델 ID (HuggingFace repo)
-                      None이면 기본 SDXL (stabilityai/stable-diffusion-xl-base-1.0)
+                      None이면 기본 SDXL (SG161222/RealVisXL_V4.0)
                       예: "SG161222/RealVisXL_V4.0", "cagliostrolab/animagine-xl-3.1"
 
                       모델은 자동으로 image_generation/models/ 에 다운로드되어 캐싱됨

@@ -13,7 +13,7 @@ class ModelConfig:
 
     # SDXL 모델 설정
     MODEL_TYPE: str = "sdxl"
-    MODEL_ID: str = "stabilityai/stable-diffusion-xl-base-1.0"
+    MODEL_ID: str = "SG161222/RealVisXL_V4.0"
 
     # VAE 설정 (개선된 VAE 사용)
     VAE_ID: str = "madebyollin/sdxl-vae-fp16-fix"
