@@ -15,7 +15,7 @@ project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.generation.image_generation.workflow import ImageGenerationWorkflow
-from generation.image_generation.nodes.text2image import Text2ImageNode
+from src.generation.image_generation.nodes.text2image import Text2ImageNode
 
 # 출력 디렉토리 생성
 OUTPUT_DIR = Path(__file__).parent / "test_images"
