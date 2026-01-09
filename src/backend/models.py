@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, Text, ForeignKey,
-    DateTime, Boolean, func, Index, CheckConstraint
+    DateTime, func, Index, CheckConstraint
 )
 from sqlalchemy.orm import relationship, declarative_base
 
@@ -38,7 +38,6 @@ class ChatSession(Base):
     """
     채팅 세션
     - 절대 삭제하지 않음
-    - is_active / closed_at 으로만 상태 관리
     """
     __tablename__ = "chat_session"
 
@@ -50,8 +49,6 @@ class ChatSession(Base):
         index=True,
     )
     created_at = Column(DateTime, server_default=func.now())
-    is_active = Column(Boolean, default=True)
-    closed_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="sessions")
 

@@ -2,7 +2,7 @@ from typing import Optional
 import uuid
 from sqlalchemy.orm import Session
 
-import backend.process_db as process_db
+from src.backend import process_db
 
 def normalize_session_id(session_id: Optional[str]) -> str:
     if not session_id or str(session_id) in ("undefined", "null", "Null", "None"):

@@ -1,9 +1,10 @@
 import os, hashlib
-from fastapi import HTTPException, FileResponse, UploadFile
+from fastapi import HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from typing import Optional, List
 from sqlalchemy.orm import Session
 
-import backend.process_db as process_db
+from src.backend import process_db
 
 def sha256_hex(data: bytes) -> str:
     """
@@ -46,13 +47,13 @@ async def save_uploaded_images(*, images: List[UploadFile], base_dir: str) -> Li
         os.makedirs(subdir, exist_ok=True)
 
         filename = f"{file_hash}{ext}"
-        disk_path = os.path.join(subdir, filename)
+        file_directory = os.path.join(subdir, filename)
 
-        if not os.path.exists(disk_path):
-            with open(disk_path, "wb") as out:
+        if not os.path.exists(file_directory):
+            with open(file_directory, "wb") as out:
                 out.write(contents)
 
-        payloads.append({"bytes": contents, "path": disk_path})
+        payloads.append({"file_hash": file_hash, "file_directory": file_directory})
 
     return payloads
 
@@ -70,4 +71,3 @@ def get_image_file_response(db: Session, file_hash: str) -> FileResponse:
         raise HTTPException(status_code=404, detail="File missing on disk")
 
     return FileResponse(path)
-

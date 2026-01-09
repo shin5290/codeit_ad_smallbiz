@@ -1,12 +1,12 @@
-import os
+import os,sys
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 # 현재 config.py 파일의 위치를 기준으로 절대 경로 계산
 # __file__은 이 코드가 실행되는 파일의 위치를 가리킵니다.
 current_dir = os.path.dirname(os.path.abspath(__file__)) # src/utils
-project_root = os.path.abspath(os.path.join(current_dir, "../../")) # 최상위 루트
-env_path = os.path.join(project_root, ".env")
+PROJECT_ROOT = os.path.abspath(os.path.join(current_dir, "../../")) # 최상위 루트
+env_path = os.path.join(PROJECT_ROOT, ".env")
 
 # 디버깅용: 서버 실행 시 터미널에 경로가 출력
 #print(f"[*] Loading .env from: {env_path}")
