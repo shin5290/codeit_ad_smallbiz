@@ -5,6 +5,29 @@
 4. 로컬 **alpha** 브랜치에서 작업을 수행하고, **origin/alpha** 브랜치를 연결하여 `git push` 한다.
 5. 커밋 시 커밋 메시지에 본인 이름 이니셜을 [ABC] 등의 형태로 해서 누가 커밋한 것인지 바로 확인할 수 있게 하기
 
+# Python 라이브러리 임포트 규칙
+```python
+# 표준 라이브러리
+import os
+import sys
+from datetime import datetime
+
+# 서드파티 라이브러리
+import numpy as np
+import pandas as pd
+from flask import Flask, render_template
+
+# 로컬 모듈
+from myapp.utils import helper_function
+from myapp.models import User
+```
+- 로컬 임포트 시 절대 임포트 선호, 상대 임포트는 필요시에만 사용
+- 각 임포트는 별도 줄에 작성
+- from 임포트는 한 줄에 여러 개 가능
+- 와일드카드 임포트 지양 (`from module import *`)
+- 각 그룹 내에서는 **알파벳 순**으로 정렬
+- 규칙들을 자동 적용하기 위해 `isort`나 `black` 같은 도구들 사용 가능
+
 # 객체 지향 프로그래밍: 모듈화
 1. 경계 나누기(안정한 쪽과 불안정한 쪽) + 캡슐화
 2. 파일 간의 의존성을 줄이고 응집도를 높임
@@ -12,7 +35,7 @@
 
 # 유지보수하기 좋은 코드
 1. 읽기 쉽고, 일정한 규칙과 흐름(메인 로직)을 유지해야 한다.
-2. 함수는 한 가지 기능만 수행해야 한다.
+2. 함수는 **한 가지 기능만** 수행해야 한다.
 3. 같은 톤의 함수들을 묶어서 배치한다.
 4. 디버그 로깅, 예외 처리는 메인 스토리와 구분하여 한 곳에서 다루게 한다.
 
