@@ -4,17 +4,16 @@ from typing import Optional
 
 # 현재 config.py 파일의 위치를 기준으로 절대 경로 계산
 # __file__은 이 코드가 실행되는 파일의 위치를 가리킵니다.
-current_dir = os.path.dirname(os.path.abspath(__file__)) # src/backend
-project_root = os.path.abspath(os.path.join(current_dir, "../../../")) # 최상위 루트
+current_dir = os.path.dirname(os.path.abspath(__file__)) # src/utils
+project_root = os.path.abspath(os.path.join(current_dir, "../../")) # 최상위 루트
 env_path = os.path.join(project_root, ".env")
 
-# 디버깅용: 서버 실행 시 터미널에 경로가 출력되게 합니다.
+# 디버깅용: 서버 실행 시 터미널에 경로가 출력
 #print(f"[*] Loading .env from: {env_path}")
 if not os.path.exists(env_path):
     print("[!] Warning: .env file not found at this path!")
 
 class Settings(BaseSettings):
-    # 기본값을 주지 말고 필수값으로 설정하면, 로드 실패 시 명확한 에러가 납니다.
     DATABASE_URL: str 
     OPENAI_API_KEY: Optional[str] = None
     JWT_SECRET_KEY: Optional[str] = None
