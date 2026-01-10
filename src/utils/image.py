@@ -5,6 +5,7 @@ from typing import Optional, List
 from sqlalchemy.orm import Session
 
 from src.backend import process_db
+from .analyze import ImageReference
 
 def sha256_hex(data: bytes) -> str:
     """
@@ -27,7 +28,8 @@ def ext_from_content_type(ct: Optional[str]) -> str:
 async def save_uploaded_images(*, images: List[UploadFile], base_dir: str) -> List[dict]:
     """
     업로드 이미지 디스크 저장
-    - 반환: [{"bytes": ..., "path": ...}]
+    - 입력값: UploadFile 리스트(fastapi), 저장 베이스 디렉토리(/data/uploads 등)
+    - 반환: [{"file_hash": ..., "file_directory": ...}]
     """
     if not images:
         return []
@@ -60,7 +62,7 @@ async def save_uploaded_images(*, images: List[UploadFile], base_dir: str) -> Li
 
 def get_image_file_response(db: Session, file_hash: str) -> FileResponse:
     """
-    파일 경로 조회 및 FileResponse 반환
+    파일 경로 조회 및 FileResponse 반환(프론트용)
     """
     img = process_db.get_image_by_hash(db, file_hash)
     if not img:
@@ -71,3 +73,28 @@ def get_image_file_response(db: Session, file_hash: str) -> FileResponse:
         raise HTTPException(status_code=404, detail="File missing on disk")
 
     return FileResponse(path)
+
+
+def resolve_image_reference(
+    *,
+    db: Session,
+    user_id: int,
+    image_reference: Optional[ImageReference],
+    before_chat_history_id: Optional[int] = None,
+):
+    """
+    ImageReference를 실제 이미지로 해석한다.
+    - 유저 전체 히스토리 기준
+    - before_chat_history_id가 있으면 이전 이미지 판단에 사용
+    """
+    if not image_reference:
+        return None
+
+    return process_db.resolve_image_reference(
+        db=db,
+        user_id=user_id,
+        role=image_reference.role,
+        position=image_reference.position,
+        index=image_reference.index,
+        before_chat_history_id=before_chat_history_id,
+    )

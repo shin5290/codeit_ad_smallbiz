@@ -30,10 +30,9 @@ def ensure_chat_session(
     user_id: Optional[int],
 ) -> str:
     """
-    - session_id 있으면 조회
-    - 없거나 DB에 없으면 생성
-    - user_id 있으면 귀속
-    - 반드시 ChatSession을 반환
+    - session_id 조회
+    - 없으면 DB에 생성
+        - user_id 있으면 귀속
     """
     chat_session = process_db.get_chat_session(db, session_id)
     

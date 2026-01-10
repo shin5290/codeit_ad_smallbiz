@@ -296,6 +296,118 @@ def _to_history_dicts(messages: list[models.ChatHistory]):
     return history
 
 
+def _collect_user_history_images(
+    db: Session,
+    user_id: int,
+    role: Optional[str] = None,
+) -> List[Dict]:
+    allowed_roles = ("input", "output")
+    if role is not None and role not in allowed_roles:
+        return []
+
+    results = []
+
+    chat_q = (
+        db.query(models.HistoryImage, models.ImageMatching)
+        .join(models.ImageMatching, models.ImageMatching.id == models.HistoryImage.image_id)
+        .join(models.ChatHistory, models.ChatHistory.id == models.HistoryImage.chat_history_id)
+        .join(models.ChatSession, models.ChatSession.session_id == models.ChatHistory.session_id)
+        .filter(models.ChatSession.user_id == user_id)
+    )
+    if role:
+        chat_q = chat_q.filter(models.HistoryImage.role == role)
+    else:
+        chat_q = chat_q.filter(models.HistoryImage.role.in_(allowed_roles))
+
+    for history_image, image in chat_q.all():
+        results.append({
+            "history_image_id": history_image.id,
+            "image_id": image.id,
+            "role": history_image.role,
+            "created_at": history_image.created_at,
+            "image": image,
+        })
+
+    gen_q = (
+        db.query(models.HistoryImage, models.ImageMatching)
+        .join(models.ImageMatching, models.ImageMatching.id == models.HistoryImage.image_id)
+        .join(models.GenerationHistory, models.GenerationHistory.id == models.HistoryImage.generation_history_id)
+        .join(models.ChatSession, models.ChatSession.session_id == models.GenerationHistory.session_id)
+        .filter(models.ChatSession.user_id == user_id)
+    )
+    if role:
+        gen_q = gen_q.filter(models.HistoryImage.role == role)
+    else:
+        gen_q = gen_q.filter(models.HistoryImage.role.in_(allowed_roles))
+
+    for history_image, image in gen_q.all():
+        results.append({
+            "history_image_id": history_image.id,
+            "image_id": image.id,
+            "role": history_image.role,
+            "created_at": history_image.created_at,
+            "image": image,
+        })
+
+    deduped = {}
+    for entry in results:
+        key = (entry["image_id"], entry["role"])
+        if key not in deduped or entry["created_at"] > deduped[key]["created_at"]:
+            deduped[key] = entry
+
+    return list(deduped.values())
+
+
+def resolve_image_reference(
+    db: Session,
+    user_id: int,
+    role: Optional[str] = None,
+    position: Optional[str] = None,
+    index: Optional[int] = None,
+    before_chat_history_id: Optional[int] = None,
+) -> models.ImageMatching | None:
+    """
+    ImageReference를 실제 이미지로 해석한다.
+    기준: 유저 전체 히스토리 (ChatHistory + GenerationHistory)
+    """
+    candidates = []
+    if role is None:
+        candidates = _collect_user_history_images(db=db, user_id=user_id, role="output")
+        if not candidates:
+            candidates = _collect_user_history_images(db=db, user_id=user_id, role=None)
+    else:
+        candidates = _collect_user_history_images(db=db, user_id=user_id, role=role)
+
+    if not candidates:
+        return None
+
+    if position == "previous":
+        anchor_time = None
+        if before_chat_history_id is not None:
+            anchor_time = (
+                db.query(models.ChatHistory.created_at)
+                .filter(models.ChatHistory.id == before_chat_history_id)
+                .scalar()
+            )
+        if anchor_time:
+            candidates = [c for c in candidates if c["created_at"] < anchor_time]
+            if not candidates:
+                return None
+
+    candidates.sort(key=lambda x: (x["created_at"], x["history_image_id"]))
+
+    if position == "first":
+        picked = candidates[0]
+    elif position == "nth" or (position is None and index):
+        if index is None or index < 1 or index > len(candidates):
+            return None
+        picked = candidates[index - 1]
+    else:
+        picked = candidates[-1]
+
+    return picked["image"]
+
+
 def get_all_chat_history_for_user(db: Session, user_id: int, limit: int | None = None):
     """
     유저가 가진 모든 session의 chat_history를 시간순으로 합쳐서 반환
@@ -402,5 +514,55 @@ def get_session_history_page(db, session_id, cursor_id=None, limit=20):
 
 
 # -----------------------------
-# Generation History 저장/조회
+# Generation History 저장
 # -----------------------------
+def save_generation_history(db: Session, data: Dict):
+    """
+    GenerationHistory 저장
+    이미지 연결은 attach_images_to_generation(...)로 별도 처리 .
+    """
+    gen_history = models.GenerationHistory(
+        session_id=data["session_id"],
+        content_type=data["content_type"],
+        input_text=data.get("input_text"),
+        output_text=data.get("output_text"),
+        generation_method=data.get("generation_method"),
+        style=data.get("style"),
+        industry=data.get("industry"),
+        seed=data.get("seed"),
+        aspect_ratio=data.get("aspect_ratio"),
+    )
+    db.add(gen_history)
+    db.commit()
+    db.refresh(gen_history)
+    return gen_history
+
+def attach_images_to_generation(
+    db: Session,
+    generation_history_id: int,
+    images: List[ImagePayload],
+    role: str,
+    position: Optional[int] = None,
+):
+    """
+    generation_history_id에 이미지 여러 장을 role(input/output)로 연결
+    이미지 디스크 저장은 이미 attach_images_to_chat(...)에서 처리됨.
+    images: [{"file_hash": <file hash>, "file_directory": <file_directory>}, ...]
+    """
+    if not images:
+        return
+
+    for idx, img in enumerate(images):
+        image_row = get_image_by_hash(db=db, file_hash=img["file_hash"])
+        if not image_row:
+            continue
+        db.add(
+            models.HistoryImage(
+                generation_history_id=generation_history_id,
+                image_id=image_row.id,
+                role=role,
+                position=position if position is not None else idx,
+            )
+        )
+    db.commit()
+    
