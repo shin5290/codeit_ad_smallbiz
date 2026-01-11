@@ -14,7 +14,7 @@ class IndustryConfigLoader:
     industries.yaml 로더
     """
     
-    def __init__(self, config_path: str = "config/industries.yaml"):
+    def __init__(self, config_path: str = "src/generation/text_generation/config/industries.yaml"):
         """
         Args:
             config_path: YAML 설정 파일 경로
@@ -98,7 +98,7 @@ class PromptGenerator:
     IndustryConfigLoader + HybridPromptBuilder 통합
     """
     
-    def __init__(self, config_path: str = "config/industries.yaml"):
+    def __init__(self, config_path: str = "src/generation/text_generation/config/industries.yaml"):
         """
         Args:
             config_path: YAML 설정 파일 경로
