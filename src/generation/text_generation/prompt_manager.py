@@ -239,6 +239,79 @@ Include only the fields that are clearly present in the input.
 
 JSON:"""
 
+    def generate_image_prompt(self, user_input: str, style: str = "realistic") -> dict:
+        """
+        한글 사용자 입력 → 영어 프롬프트 생성 (통합 메서드)
+
+        이 메서드는 전체 파이프라인을 실행합니다:
+        1. 한글 입력 → 영어 키워드 추출
+        2. 업종 자동 감지
+        3. Positive/Negative 프롬프트 생성
+
+        Args:
+            user_input (str): 한글 사용자 요청
+                예: "카페 신메뉴 딸기라떼 홍보, 따뜻한 느낌"
+            style (str): 스타일 (realistic, anime 등)
+
+        Returns:
+            dict: {
+                "positive": "프롬프트...",
+                "negative": "프롬프트...",
+                "industry": "cafe"
+            }
+        """
+
+        print(f"\n{'='*80}")
+        print(f"🎨 이미지 프롬프트 생성 파이프라인 시작")
+        print(f"{'='*80}")
+
+        try:
+            # 1. 영어 키워드 추출
+            keywords = self.extract_keywords_english(user_input)
+
+            if not keywords:
+                print("⚠️  키워드 추출 실패, 기본값 사용")
+                keywords = {"product": "item"}
+
+            # 2. 업종 자동 감지
+            industry = self._detect_industry(user_input)
+            print(f"   업종: {industry}")
+
+            # 3. PromptGenerator로 프롬프트 생성
+            from config_loader import PromptGenerator
+
+            generator = PromptGenerator(config_path="src/generation/text_generation/industries.yaml")
+
+            result = generator.generate(
+                industry=industry,
+                user_input=keywords,
+                composition=None,  # 자동 선택
+                apply_weights=False
+            )
+
+            print(f"\n✅ 프롬프트 생성 완료!")
+            print(f"   Positive: {len(result['positive'])} chars")
+            print(f"   Negative: {len(result['negative'])} chars")
+            print(f"{'='*80}\n")
+
+            return {
+                "positive": result["positive"],
+                "negative": result["negative"],
+                "industry": industry
+            }
+
+        except Exception as e:
+            print(f"❌ 프롬프트 생성 오류: {e}")
+            import traceback
+            traceback.print_exc()
+
+            # Fallback: 기본 프롬프트 반환
+            return {
+                "positive": "professional commercial photography, high quality, detailed",
+                "negative": "cartoon, illustration, low quality, blurry",
+                "industry": "general"
+            }
+
 
 # ============================================
 # 유틸리티 함수
@@ -250,7 +323,7 @@ def clean_input(text):
     """
     if not text:
         return ""
-    
+
     try:
         cleaned = text.encode('utf-8', errors='ignore').decode('utf-8', errors='ignore')
         cleaned = ''.join(char for char in cleaned if char.isprintable() or char in '\n\t ')
