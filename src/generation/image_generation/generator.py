@@ -11,13 +11,14 @@ Text Generator에서 받은 프롬프트와 설정으로 이미지 생성 후 �
 from typing import Optional, Literal, Dict, Any
 from pathlib import Path
 from datetime import datetime
+import io
 import uuid
 import hashlib
 
 from PIL import Image
 
 from .workflow import ImageGenerationWorkflow
-from .nodes.text2image_backup import Text2ImageNode
+from .nodes.text2image import Text2ImageNode
 from .nodes.controlnet import ControlNetPreprocessorNode, ControlNetLoaderNode
 from .nodes.image2image import Image2ImageControlNetNode
 
@@ -211,7 +212,13 @@ def generate_and_save_image(
         result = workflow.run(inputs)
         image = result["image"]
 
-        filename = hashlib.sha256(image).hexdigest()
+        # PIL Image를 bytes로 변환 (해시 생성용)
+        buffer = io.BytesIO()
+        image.save(buffer, format='JPEG', quality=95)
+        image_bytes = buffer.getvalue()
+
+        # 해시 기반 파일명 생성
+        filename = hashlib.sha256(image_bytes).hexdigest()
         subdir = filename[:2]
 
         # 전체 저장 경로
@@ -219,7 +226,7 @@ def generate_and_save_image(
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
         # 이미지 저장
-        image.save(save_path)
+        image.save(save_path, format='JPEG', quality=95)
 
         # 생성 시간 계산
         generation_time = time.time() - start_time
@@ -478,8 +485,13 @@ def generate_with_controlnet(
         result = workflow.run(inputs)
         image = result["image"]
 
+        # PIL Image를 bytes로 변환 (해시 생성용)
+        buffer = io.BytesIO()
+        image.save(buffer, format='JPEG', quality=95)
+        image_bytes = buffer.getvalue()
+
         # 해시 기반 파일명 생성
-        filename = hashlib.sha256(image).hexdigest()
+        filename = hashlib.sha256(image_bytes).hexdigest()
         subdir = filename[:2]
 
         # 전체 저장 경로
@@ -487,7 +499,7 @@ def generate_with_controlnet(
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
         # 이미지 저장
-        image.save(save_path)
+        image.save(save_path, format='JPEG', quality=95)
 
         # 생성 시간 계산
         generation_time = time.time() - start_time
