@@ -11,34 +11,20 @@ Text Generator에서 받은 프롬프트와 설정으로 이미지 생성 후 �
 from typing import Optional, Literal, Dict, Any
 from pathlib import Path
 from datetime import datetime
+import io
 import uuid
 import hashlib
 
 from PIL import Image
 
+from src.utils.config import PROJECT_ROOT as _PROJECT_ROOT
 from .workflow import ImageGenerationWorkflow
-from .nodes.text2image_backup import Text2ImageNode
+from .nodes.text2image import Text2ImageNode
 from .nodes.controlnet import ControlNetPreprocessorNode, ControlNetLoaderNode
 from .nodes.image2image import Image2ImageControlNetNode
 
 
-# 프로젝트 루트 자동 탐지
-def _find_project_root() -> Path:
-    """
-    현재 파일에서 시작해서 상위 디렉토리를 탐색하며 프로젝트 루트 찾기
-    프로젝트 루트 기준: src/ 디렉토리가 있는 곳
-    """
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / "src").exists() and (parent / "src").is_dir():
-            return parent
-    raise RuntimeError(
-        f"프로젝트 루트를 찾을 수 없습니다. "
-        f"현재 파일: {Path(__file__).resolve()}\n"
-        f"src/ 디렉토리가 있는 상위 디렉토리를 찾지 못했습니다."
-    )
-
-PROJECT_ROOT = _find_project_root()
+PROJECT_ROOT = Path(_PROJECT_ROOT)
 
 # 기본 저장 경로 (나중에 config로 분리 가능)
 DEFAULT_STORAGE_DIR = PROJECT_ROOT / "data" / "generated"
@@ -211,7 +197,13 @@ def generate_and_save_image(
         result = workflow.run(inputs)
         image = result["image"]
 
-        filename = hashlib.sha256(image).hexdigest()
+        # PIL Image를 bytes로 변환 (해시 생성용)
+        buffer = io.BytesIO()
+        image.save(buffer, format='JPEG', quality=95)
+        image_bytes = buffer.getvalue()
+
+        # 해시 기반 파일명 생성
+        filename = hashlib.sha256(image_bytes).hexdigest()
         subdir = filename[:2]
 
         # 전체 저장 경로
@@ -219,7 +211,7 @@ def generate_and_save_image(
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
         # 이미지 저장
-        image.save(save_path)
+        image.save(save_path, format='JPEG', quality=95)
 
         # 생성 시간 계산
         generation_time = time.time() - start_time
@@ -478,8 +470,13 @@ def generate_with_controlnet(
         result = workflow.run(inputs)
         image = result["image"]
 
+        # PIL Image를 bytes로 변환 (해시 생성용)
+        buffer = io.BytesIO()
+        image.save(buffer, format='JPEG', quality=95)
+        image_bytes = buffer.getvalue()
+
         # 해시 기반 파일명 생성
-        filename = hashlib.sha256(image).hexdigest()
+        filename = hashlib.sha256(image_bytes).hexdigest()
         subdir = filename[:2]
 
         # 전체 저장 경로
@@ -487,7 +484,7 @@ def generate_with_controlnet(
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
         # 이미지 저장
-        image.save(save_path)
+        image.save(save_path, format='JPEG', quality=95)
 
         # 생성 시간 계산
         generation_time = time.time() - start_time
