@@ -17,29 +17,14 @@ import hashlib
 
 from PIL import Image
 
+from src.utils.config import PROJECT_ROOT as _PROJECT_ROOT
 from .workflow import ImageGenerationWorkflow
 from .nodes.text2image import Text2ImageNode
 from .nodes.controlnet import ControlNetPreprocessorNode, ControlNetLoaderNode
 from .nodes.image2image import Image2ImageControlNetNode
 
 
-# 프로젝트 루트 자동 탐지
-def _find_project_root() -> Path:
-    """
-    현재 파일에서 시작해서 상위 디렉토리를 탐색하며 프로젝트 루트 찾기
-    프로젝트 루트 기준: src/ 디렉토리가 있는 곳
-    """
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / "src").exists() and (parent / "src").is_dir():
-            return parent
-    raise RuntimeError(
-        f"프로젝트 루트를 찾을 수 없습니다. "
-        f"현재 파일: {Path(__file__).resolve()}\n"
-        f"src/ 디렉토리가 있는 상위 디렉토리를 찾지 못했습니다."
-    )
-
-PROJECT_ROOT = _find_project_root()
+PROJECT_ROOT = Path(_PROJECT_ROOT)
 
 # 기본 저장 경로 (나중에 config로 분리 가능)
 DEFAULT_STORAGE_DIR = PROJECT_ROOT / "data" / "generated"
