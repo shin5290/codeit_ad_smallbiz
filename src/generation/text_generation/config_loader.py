@@ -6,7 +6,7 @@ industries.yaml을 로드하고 Hybrid Prompting 시스템과 통합
 import yaml
 from pathlib import Path
 from typing import Dict, List, Optional
-from prompt_templates import HybridPromptBuilder, NegativePromptBuilder, PromptStructure
+from src.generation.text_generation.prompt_templates import HybridPromptBuilder, NegativePromptBuilder, PromptStructure
 
 
 class IndustryConfigLoader:
@@ -150,7 +150,7 @@ class PromptGenerator:
         
         # 4. 가중치 적용 (옵션)
         if apply_weights and weights:
-            from prompt_templates import apply_prompt_weights
+            from src.generation.text_generation.prompt_templates import apply_prompt_weights
             positive_prompt = apply_prompt_weights(positive_prompt, weights)
         
         # 5. Negative Prompt 생성

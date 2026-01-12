@@ -20,7 +20,7 @@ import os
 import json
 from dotenv import load_dotenv
 from openai import OpenAI
-from config_loader import industry_config
+from src.generation.text_generation.config_loader import industry_config
 
 load_dotenv()
 
@@ -278,7 +278,7 @@ JSON:"""
             print(f"   업종: {industry}")
 
             # 3. PromptGenerator로 프롬프트 생성
-            from config_loader import PromptGenerator
+            from src.generation.text_generation.config_loader import PromptGenerator
 
             generator = PromptGenerator(config_path="src/generation/text_generation/industries.yaml")
 

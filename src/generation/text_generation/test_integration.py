@@ -14,7 +14,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from ad_generator import generate_advertisement
+from src.generation.text_generation.ad_generator import generate_advertisement
 
 
 def test_backend_integration():

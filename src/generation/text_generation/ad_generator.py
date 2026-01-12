@@ -207,7 +207,7 @@ if __name__ == "__main__":
     print("📌 실제 사용 예제 (JupyterHub에서 실행)")
     print("=" * 80)
     print("""
-from ad_generator import generate_advertisement
+from src.generation.text_generation.ad_generator import generate_advertisement
 
 # 광고 생성
 result = generate_advertisement(
