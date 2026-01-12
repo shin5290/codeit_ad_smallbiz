@@ -280,7 +280,7 @@ JSON:"""
             # 3. PromptGenerator로 프롬프트 생성
             from src.generation.text_generation.config_loader import PromptGenerator
 
-            generator = PromptGenerator(config_path="src/generation/text_generation/industries.yaml")
+            generator = PromptGenerator()
 
             result = generator.generate(
                 industry=industry,
