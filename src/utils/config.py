@@ -2,10 +2,23 @@ import os,sys
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
-# 현재 config.py 파일의 위치를 기준으로 절대 경로 계산
-# __file__은 이 코드가 실행되는 파일의 위치를 가리킵니다.
-current_dir = os.path.dirname(os.path.abspath(__file__)) # src/utils
-PROJECT_ROOT = os.path.abspath(os.path.join(current_dir, "../../")) # 최상위 루트
+def _find_project_root(start_path: str) -> str:
+    """
+    현재 파일 위치에서 상위로 올라가며 src/ 디렉토리를 가진 루트를 찾는다.
+    """
+    current = os.path.abspath(start_path)
+    if os.path.isfile(current):
+        current = os.path.dirname(current)
+
+    while True:
+        if os.path.isdir(os.path.join(current, "src")):
+            return current
+        parent = os.path.dirname(current)
+        if parent == current:
+            raise RuntimeError("프로젝트 루트를 찾을 수 없습니다.")
+        current = parent
+
+PROJECT_ROOT = _find_project_root(__file__)
 env_path = os.path.join(PROJECT_ROOT, ".env")
 
 # 디버깅용: 서버 실행 시 터미널에 경로가 출력

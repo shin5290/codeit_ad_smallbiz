@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, Text, ForeignKey,
-    DateTime, func, Index, CheckConstraint
+    DateTime, func, Index
 )
 from sqlalchemy.orm import relationship, declarative_base
 
@@ -73,7 +73,7 @@ class ChatSession(Base):
 class ChatHistory(Base):
     """
     채팅 메시지 단위 로그
-    - 이미지 직접 FK 없음
+    - 단일 이미지 FK
     """
     __tablename__ = "chat_history"
 
@@ -88,17 +88,18 @@ class ChatHistory(Base):
 
     role = Column(String(20), nullable=False)  # user / assistant
     content = Column(Text, nullable=False)
+    image_id = Column(
+        Integer,
+        ForeignKey("image_matching.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     created_at = Column(DateTime, server_default=func.now())
 
     session = relationship("ChatSession", back_populates="chat_histories")
 
-    history_images = relationship(
-        "HistoryImage",
-        back_populates="chat_history",
-        cascade="save-update, merge",
-        passive_deletes=True,
-    )
+    image = relationship("ImageMatching", back_populates="chat_histories")
 
 
 # =====================================================
@@ -107,7 +108,6 @@ class ChatHistory(Base):
 class GenerationHistory(Base):
     """
     광고/이미지/텍스트 생성 이벤트 로그
-    - 이미지는 HistoryImage 통해 연결
     """
     __tablename__ = "generation_history"
 
@@ -120,12 +120,26 @@ class GenerationHistory(Base):
         index=True,
     )
 
-    content_type = Column(String(20), nullable=False)  # image / text / both
+    content_type = Column(String(20), nullable=False)  # image / text
 
     input_text = Column(Text)
     output_text = Column(Text)
+    prompt = Column(Text)  # 이미지 생성용 프롬프트
 
-    generation_method = Column(String(50))
+    input_image_id = Column(
+        Integer,
+        ForeignKey("image_matching.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    output_image_id = Column(
+        Integer,
+        ForeignKey("image_matching.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    generation_method = Column(String(50))  # control_type (canny, depth, openpose)
     style = Column(String(50))
     industry = Column(String(50))
     seed = Column(Integer)
@@ -133,13 +147,17 @@ class GenerationHistory(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     session = relationship("ChatSession", back_populates="generation_histories")
-
-    history_images = relationship(
-        "HistoryImage",
-        back_populates="generation_history",
-        cascade="save-update, merge",
-        passive_deletes=True,
+    input_image = relationship(
+        "ImageMatching",
+        back_populates="generation_input_histories",
+        foreign_keys=[input_image_id],
     )
+    output_image = relationship(
+        "ImageMatching",
+        back_populates="generation_output_histories",
+        foreign_keys=[output_image_id],
+    )
+
 
 
 # =====================================================
@@ -157,63 +175,23 @@ class ImageMatching(Base):
     file_directory = Column(Text, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
-    history_images = relationship(
-        "HistoryImage",
+    chat_histories = relationship(
+        "ChatHistory",
         back_populates="image",
         passive_deletes=True,
     )
-
-
-# =====================================================
-# HistoryImage (공용 연결 테이블)
-# =====================================================
-class HistoryImage(Base):
-    """
-    ChatHistory / GenerationHistory 공용 이미지 연결 테이블
-    - 이미지 역할(role) 관리
-    - 둘 중 하나의 FK만 채워져야 함
-    """
-
-    __tablename__ = "history_image"
-
-    id = Column(Integer, primary_key=True)
-
-    chat_history_id = Column(
-        Integer,
-        ForeignKey("chat_history.id", ondelete="RESTRICT"),
-        nullable=True,
-        index=True,
+    generation_input_histories = relationship(
+        "GenerationHistory",
+        back_populates="input_image",
+        foreign_keys="GenerationHistory.input_image_id",
+        passive_deletes=True,
     )
-
-    generation_history_id = Column(
-        Integer,
-        ForeignKey("generation_history.id", ondelete="RESTRICT"),
-        nullable=True,
-        index=True,
+    generation_output_histories = relationship(
+        "GenerationHistory",
+        back_populates="output_image",
+        foreign_keys="GenerationHistory.output_image_id",
+        passive_deletes=True,
     )
-
-    image_id = Column(
-        Integer,
-        ForeignKey("image_matching.id", ondelete="RESTRICT"),
-        nullable=False,
-        index=True,
-    )
-
-    role = Column(String(20), nullable=False)  # input / output / reference / mask
-    position = Column(Integer, nullable=True)
-    created_at = Column(DateTime, server_default=func.now())
-
-    __table_args__ = (
-        CheckConstraint(
-            "(chat_history_id IS NOT NULL AND generation_history_id IS NULL) OR "
-            "(chat_history_id IS NULL AND generation_history_id IS NOT NULL)",
-            name="ck_history_image_owner",
-        ),
-    )
-
-    chat_history = relationship("ChatHistory", back_populates="history_images")
-    generation_history = relationship("GenerationHistory", back_populates="history_images")
-    image = relationship("ImageMatching", back_populates="history_images")
 
 
 # =====================================================
@@ -225,13 +203,6 @@ Index(
     GenerationHistory.session_id,
     GenerationHistory.created_at,
 )
-Index(
-    "idx_history_image_chat_role",
-    HistoryImage.chat_history_id,
-    HistoryImage.role,
-)
-Index(
-    "idx_history_image_generation_role",
-    HistoryImage.generation_history_id,
-    HistoryImage.role,
-)
+Index("idx_chat_history_image", ChatHistory.image_id)
+Index("idx_generation_input_image", GenerationHistory.input_image_id)
+Index("idx_generation_output_image", GenerationHistory.output_image_id)

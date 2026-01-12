@@ -1,11 +1,13 @@
-import os, hashlib
+import os, hashlib, logging
 from fastapi import HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from typing import Optional, List
 from sqlalchemy.orm import Session
 
+from PIL import Image
 from src.backend import process_db
-from .analyze import ImageReference
+
+logger = logging.getLogger(__name__)
 
 def sha256_hex(data: bytes) -> str:
     """
@@ -25,39 +27,71 @@ def ext_from_content_type(ct: Optional[str]) -> str:
         return ".webp"
     return ".bin"
 
-async def save_uploaded_images(*, images: List[UploadFile], base_dir: str) -> List[dict]:
+async def save_uploaded_image(*, image: UploadFile, base_dir: str) -> Optional[dict]:
     """
     업로드 이미지 디스크 저장
-    - 입력값: UploadFile 리스트(fastapi), 저장 베이스 디렉토리(/data/uploads 등)
-    - 반환: [{"file_hash": ..., "file_directory": ...}]
+    - 입력값: UploadFile (fastapi), 저장 베이스 디렉토리(/data/uploads 등)
+    - 반환: {"file_hash": ..., "file_directory": ...}
     """
-    if not images:
-        return []
+    if not image:
+        logger.warning("save_uploaded_image: image is None")
+        return None
 
-    os.makedirs(base_dir, exist_ok=True)
+    try:
+        # 베이스 디렉토리 생성
+        os.makedirs(base_dir, exist_ok=True)
+        logger.info(f"save_uploaded_image: base_dir={base_dir}")
 
-    payloads = []
-    for f in images:
-        contents = await f.read()
+        # 이미지 데이터 읽기
+        contents = await image.read()
         if not contents:
-            continue
+            logger.warning("save_uploaded_image: image contents is empty")
+            return None
 
+        logger.info(f"save_uploaded_image: read {len(contents)} bytes from {getattr(image, 'filename', 'unknown')}")
+
+        # 해시 계산 및 파일명 생성
         file_hash = sha256_hex(contents)
-        ext = ext_from_content_type(getattr(f, "content_type", None))
+        ext = ext_from_content_type(getattr(image, "content_type", None))
+        logger.info(f"save_uploaded_image: file_hash={file_hash}, ext={ext}, content_type={getattr(image, 'content_type', None)}")
 
+        # 서브디렉토리 생성 (해시 앞 2자리)
         subdir = os.path.join(base_dir, file_hash[:2])
         os.makedirs(subdir, exist_ok=True)
+        logger.info(f"save_uploaded_image: created subdir={subdir}")
 
+        # 전체 파일 경로
         filename = f"{file_hash}{ext}"
         file_directory = os.path.join(subdir, filename)
 
+        # 파일 저장
         if not os.path.exists(file_directory):
             with open(file_directory, "wb") as out:
                 out.write(contents)
+            logger.info(f"save_uploaded_image: saved file to {file_directory}")
+        else:
+            logger.info(f"save_uploaded_image: file already exists at {file_directory}")
 
-        payloads.append({"file_hash": file_hash, "file_directory": file_directory})
+        result = {"file_hash": file_hash, "file_directory": file_directory}
+        logger.info(f"save_uploaded_image: returning {result}")
+        return result
 
-    return payloads
+    except Exception as e:
+        logger.error(f"save_uploaded_image: error occurred: {e}", exc_info=True)
+        raise
+
+
+def load_image_from_payload(payload: Optional[dict]) -> Optional[Image.Image]:
+    """
+    payload를 PIL Image로 변환
+    payload: {"file_hash": ..., "file_directory": ...}
+    """
+    if not payload:
+        return None
+    image_path = payload.get("file_directory")
+    if not image_path or not os.path.exists(image_path):
+        return None
+    return Image.open(image_path)
 
 
 def get_image_file_response(db: Session, file_hash: str) -> FileResponse:
@@ -73,28 +107,3 @@ def get_image_file_response(db: Session, file_hash: str) -> FileResponse:
         raise HTTPException(status_code=404, detail="File missing on disk")
 
     return FileResponse(path)
-
-
-def resolve_image_reference(
-    *,
-    db: Session,
-    user_id: int,
-    image_reference: Optional[ImageReference],
-    before_chat_history_id: Optional[int] = None,
-):
-    """
-    ImageReference를 실제 이미지로 해석한다.
-    - 유저 전체 히스토리 기준
-    - before_chat_history_id가 있으면 이전 이미지 판단에 사용
-    """
-    if not image_reference:
-        return None
-
-    return process_db.resolve_image_reference(
-        db=db,
-        user_id=user_id,
-        role=image_reference.role,
-        position=image_reference.position,
-        index=image_reference.index,
-        before_chat_history_id=before_chat_history_id,
-    )
