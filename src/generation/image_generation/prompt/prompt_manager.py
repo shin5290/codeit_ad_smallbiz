@@ -20,7 +20,7 @@ import os
 import json
 from dotenv import load_dotenv
 from openai import OpenAI
-from src.generation.text_generation.config_loader import industry_config
+from .config_loader import industry_config
 
 load_dotenv()
 

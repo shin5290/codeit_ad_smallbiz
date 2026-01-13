@@ -22,6 +22,7 @@ from .workflow import ImageGenerationWorkflow
 from .nodes.text2image import Text2ImageNode
 from .nodes.controlnet import ControlNetPreprocessorNode, ControlNetLoaderNode
 from .nodes.image2image import Image2ImageControlNetNode
+from .prompt import PromptGenerator
 
 
 PROJECT_ROOT = Path(_PROJECT_ROOT)
@@ -39,7 +40,7 @@ STYLE_MODEL_MAP = {
 
 
 def generate_and_save_image(
-    prompt: str,
+    user_input: str,
     style: Literal["ultra_realistic", "semi_realistic", "anime"] = "ultra_realistic",
     aspect_ratio: Literal["1:1", "3:4", "4:3", "16:9", "9:16"] = "1:1",
     industry: Optional[Literal["cafe", "restaurant", "retail", "service"]] = None,
@@ -53,18 +54,19 @@ def generate_and_save_image(
     controlnet_conditioning_scale: float = 0.8,
 ) -> Dict[str, Any]:
     """
-    Text Generator에서 받은 프롬프트로 이미지 생성 후 저장
+    한글 사용자 입력으로 자동 프롬프트 생성 후 이미지 생성 및 저장
 
     이 함수가 Image Generation 모듈의 메인 진입점입니다.
-    Backend → 이 함수 → 이미지 생성 + 저장 → 경로 반환
+    Backend → 이 함수 → 프롬프트 자동 생성 → 이미지 생성 + 저장 → 경로 반환
 
     **자동 분기 처리**:
     - reference_image=None: Text-to-Image (T2I)
     - reference_image 제공: Image-to-Image (I2I) with ControlNet
 
     Args:
-        prompt: 생성할 이미지 설명 (Text Generator에서 생성된 프롬프트)
-            예: "modern cafe interior with wooden furniture and warm lighting"
+        user_input: 한글 사용자 입력 (자동으로 영어 프롬프트로 변환)
+            예: "카페 신메뉴 딸기라떼 홍보, 따뜻한 느낌"
+            → GPT-4o로 영어 키워드 추출 → SDXL 프롬프트 자동 생성
         style: 이미지 스타일
             - "ultra_realistic": 초사실적 사진 스타일
             - "semi_realistic": 반사실적 (사진 + 일러스트 중간)
@@ -119,9 +121,9 @@ def generate_and_save_image(
             }
 
     Example:
-        >>> # Text-to-Image
+        >>> # Text-to-Image (한글 입력)
         >>> result = generate_and_save_image(
-        ...     prompt="modern cafe interior with wooden furniture",
+        ...     user_input="카페 신메뉴 딸기라떼 홍보, 따뜻한 느낌",
         ...     style="ultra_realistic",
         ...     aspect_ratio="16:9",
         ...     industry="cafe"
@@ -129,21 +131,31 @@ def generate_and_save_image(
         >>> print(result["image_path"])
         >>> # "/home/spai0415/codeit_ad_smallbiz/data/generated/a1/a1b2c3d4e5f6...hash.jpg"
 
-        >>> # Image-to-Image
+        >>> # Image-to-Image (제품 이미지 + 한글 입력)
         >>> from PIL import Image
         >>> ref_img = Image.open("product.jpg")
         >>> result = generate_and_save_image(
-        ...     prompt="professional product photo",
+        ...     user_input="전문적인 제품 사진, 깔끔한 배경",
         ...     reference_image=ref_img,
         ...     control_type="canny",
         ...     style="ultra_realistic"
         ... )
     """
-    # 분기 처리: reference_image가 있으면 I2I, 없으면 T2I
+    # 1. 프롬프트 자동 생성 (한글 → 영어 SDXL 프롬프트)
+    prompt_gen = PromptGenerator()
+    prompt_result = prompt_gen.generate(
+        industry=industry or "general",
+        user_input=user_input
+    )
+    prompt = prompt_result["positive"]
+    negative_prompt = prompt_result["negative"]
+
+    # 2. 분기 처리: reference_image가 있으면 I2I, 없으면 T2I
     if reference_image is not None:
         # Image-to-Image (ControlNet) 실행
         return generate_with_controlnet(
             prompt=prompt,
+            negative_prompt=negative_prompt,
             reference_image=reference_image,
             control_type=control_type,
             style=style,
@@ -181,6 +193,7 @@ def generate_and_save_image(
         # 입력 데이터 준비
         inputs = {
             "prompt": prompt,
+            "negative_prompt": negative_prompt,
             "style": style,
             "aspect_ratio": aspect_ratio,
             "num_inference_steps": num_inference_steps,
@@ -338,6 +351,7 @@ def generate_batch_images(
 def generate_with_controlnet(
     prompt: str,
     reference_image: Image.Image,
+    negative_prompt: Optional[str] = None,
     control_type: Literal["canny", "depth", "openpose"] = "canny",
     style: Literal["ultra_realistic", "semi_realistic", "anime"] = "ultra_realistic",
     aspect_ratio: Literal["1:1", "3:4", "4:3", "16:9", "9:16"] = "1:1",
@@ -432,7 +446,7 @@ def generate_with_controlnet(
         # 이미지 생성 먼저 수행 (해시 계산을 위해)
 
         # 스타일에 맞는 모델 선택
-        model_id = STYLE_MODEL_MAP.get(style, STYLE_MODEL_MAP["ultra_realistic"])
+        model_id = STYLE_MODEL_MAP.get(style, STYLE_MODEL_MAP[style])
 
         # 워크플로우 생성
         workflow = ImageGenerationWorkflow(name=f"ControlNet_{control_type}_{style}")
@@ -453,6 +467,7 @@ def generate_with_controlnet(
         inputs = {
             "image": reference_image,  # Preprocessor에 전달
             "prompt": prompt,
+            "negative_prompt": negative_prompt,
             "style": style,
             "aspect_ratio": aspect_ratio,
             "num_inference_steps": num_inference_steps,

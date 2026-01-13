@@ -6,7 +6,7 @@ industries.yaml을 로드하고 Hybrid Prompting 시스템과 통합
 import yaml
 from pathlib import Path
 from typing import Dict, List, Optional
-from src.generation.text_generation.prompt_templates import HybridPromptBuilder, NegativePromptBuilder, PromptStructure
+from .prompt_templates import HybridPromptBuilder, NegativePromptBuilder, PromptStructure
 
 
 class IndustryConfigLoader:
@@ -14,12 +14,16 @@ class IndustryConfigLoader:
     industries.yaml 로더
     """
     
-    def __init__(self, config_path: str = "src/generation/text_generation/config/industries.yaml"):
+    def __init__(self, config_path: Optional[str] = None):
         """
         Args:
-            config_path: YAML 설정 파일 경로
+            config_path: YAML 설정 파일 경로 (None이면 자동으로 config/industries.yaml 사용)
         """
-        self.config_path = Path(config_path)
+        if config_path is None:
+            # 현재 파일 위치 기준으로 config/industries.yaml 찾기
+            self.config_path = Path(__file__).parent / "config" / "industries.yaml"
+        else:
+            self.config_path = Path(config_path)
         self.config = self._load_config()
     
     def _load_config(self) -> Dict:
@@ -98,10 +102,10 @@ class PromptGenerator:
     IndustryConfigLoader + HybridPromptBuilder 통합
     """
     
-    def __init__(self, config_path: str = "src/generation/text_generation/config/industries.yaml"):
+    def __init__(self, config_path: Optional[str] = None):
         """
         Args:
-            config_path: YAML 설정 파일 경로
+            config_path: YAML 설정 파일 경로 (None이면 자동으로 config/industries.yaml 사용)
         """
         self.loader = IndustryConfigLoader(config_path)
     
