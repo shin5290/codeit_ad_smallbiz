@@ -18,6 +18,10 @@ import os
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, project_root)
 
+# DATABASE_URL이 없으면 더미값 설정 (테스트용)
+if not os.getenv("DATABASE_URL"):
+    os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+
 from src.generation.image_generation.generator import generate_and_save_image
 
 
