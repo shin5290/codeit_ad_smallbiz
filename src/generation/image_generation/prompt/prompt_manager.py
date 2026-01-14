@@ -89,8 +89,7 @@ Remember:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.7,  # 창의성 높임
-                max_tokens=1000   # 긴 프롬프트 허용
+                temperature=0.7  # 창의성 높임
             )
 
             # 5. 응답 추출
@@ -284,8 +283,7 @@ IMPORTANT:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.1,  # 일관성 최대
-                max_tokens=150    # 짧은 JSON만
+                temperature=0.1  # 일관성 최대
             )
             
             # 5. 응답 추출
