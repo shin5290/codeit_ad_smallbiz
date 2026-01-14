@@ -215,4 +215,3 @@ __marimo__/
 src/generation/image_generation/models/
 
 /data
-__init__.py
