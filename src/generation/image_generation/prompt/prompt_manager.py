@@ -146,10 +146,11 @@ CRITICAL RULES:
 6. ALWAYS detect and include "style" field
 
 STYLE DETECTION (REQUIRED - 반드시 포함!):
-- style: Image style to generate
-  - "realistic" (default): 실사, 사진, 포토, photo, 상품사진, 광고사진
+- style: Image style to generate (CAREFULLY detect from keywords!)
+  - "anime": 캐릭터, 애니, 애니메이션, 만화, 2D, 귀여운 동물 캐릭터, 마스코트
+    → If input mentions "캐릭터", "귀여운 곰", "귀여운 토끼" etc, MUST use "anime"!
   - "semi_realistic": 반실사, 세미, 디지털아트, 일러스트풍
-  - "anime": 애니, 애니메이션, 만화, 2D, 캐릭터
+  - "realistic" (default): 실사, 사진, 포토, photo, 상품사진, 광고사진, 실제 사람/제품
 
 PURPOSE DETECTION (용도 감지):
 - purpose: What is this image for?

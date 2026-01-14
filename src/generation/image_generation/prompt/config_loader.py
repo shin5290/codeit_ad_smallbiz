@@ -163,6 +163,8 @@ class PromptGenerator:
             user_input.get('dish') or
             user_input.get('item') or
             user_input.get('subject') or
+            user_input.get('person_type') or  # 캐릭터, 사람 등
+            user_input.get('character') or    # 캐릭터 명시적 지정
             'subject'
         )
         structure.subject_phrase = StyleRouter.build_subject_phrase(

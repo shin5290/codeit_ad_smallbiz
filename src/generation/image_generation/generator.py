@@ -32,8 +32,10 @@ DEFAULT_STORAGE_DIR = PROJECT_ROOT / "data" / "generated"
 DEFAULT_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 # 스타일별 모델 매핑
+# Note: "realistic"과 "ultra_realistic" 모두 같은 모델 사용
 STYLE_MODEL_MAP = {
-    "ultra_realistic": "SG161222/RealVisXL_V4.0",
+    "realistic": "SG161222/RealVisXL_V4.0",
+    "ultra_realistic": "SG161222/RealVisXL_V4.0",  # alias
     "semi_realistic": "John6666/bss-equinox-il-semi-realistic-model-v25-sdxl",
     "anime": "cagliostrolab/animagine-xl-3.1",
 }
@@ -246,6 +248,8 @@ def generate_and_save_image(
             "style": style,
             "seed": result.get("seed"),
             "generation_time": generation_time,
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
             "error": None
         }
 
@@ -265,6 +269,8 @@ def generate_and_save_image(
             "style": style,
             "seed": seed,
             "generation_time": generation_time,
+            "prompt": prompt if 'prompt' in dir() else None,
+            "negative_prompt": negative_prompt if 'negative_prompt' in dir() else None,
             "error": error_msg
         }
 
@@ -523,6 +529,8 @@ def generate_with_controlnet(
             "generation_time": generation_time,
             "control_type": control_type,
             "controlnet_scale": controlnet_conditioning_scale,
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
             "error": None
         }
 
@@ -544,5 +552,7 @@ def generate_with_controlnet(
             "generation_time": generation_time,
             "control_type": control_type,
             "controlnet_scale": controlnet_conditioning_scale,
+            "prompt": prompt if 'prompt' in dir() else None,
+            "negative_prompt": negative_prompt if 'negative_prompt' in dir() else None,
             "error": error_msg
         }

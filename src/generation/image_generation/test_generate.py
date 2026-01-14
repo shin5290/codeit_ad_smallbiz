@@ -95,6 +95,10 @@ def run_generation(params):
         print(f"   크기: {result['width']}x{result['height']}")
         print(f"   스타일: {result['style']}")
         print(f"   시간: {result['generation_time']:.2f}초")
+        print(f"\n📝 Positive Prompt:")
+        print(f"   {result.get('prompt', 'N/A')}")
+        print(f"\n🚫 Negative Prompt:")
+        print(f"   {result.get('negative_prompt', 'N/A')}")
     else:
         print("❌ 생성 실패!")
         print(f"   에러: {result['error'][:200]}...")
