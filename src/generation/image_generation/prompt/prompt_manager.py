@@ -88,8 +88,7 @@ Remember:
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.7  # 창의성 높임
+                ]
             )
 
             # 5. 응답 추출
@@ -282,8 +281,7 @@ IMPORTANT:
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.1  # 일관성 최대
+                ]
             )
             
             # 5. 응답 추출
