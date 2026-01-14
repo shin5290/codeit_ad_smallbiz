@@ -26,16 +26,224 @@ load_dotenv()
 
 
 class PromptTemplateManager:
-    """한글 입력 → 영어 키워드 추출 (GPT-4o)"""
-    
+    """한글 입력 → 영어 프롬프트 생성 (GPT-4o)"""
+
     def __init__(self):
         """초기화: OpenAI 클라이언트 설정"""
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다.")
-        
+
         self.client = OpenAI(api_key=api_key)
-        self.model = "gpt-4o-mini"
+        self.model = "gpt-5-mini"
+
+    def generate_detailed_prompt(self, user_input: str, style: str = "realistic") -> dict:
+        """
+        한글 사용자 입력 → 상세한 영어 프롬프트 직접 생성 (GPT)
+
+        기존 extract_keywords_english + PromptGenerator 조합 대신
+        GPT가 직접 상세하고 창의적인 프롬프트를 생성합니다.
+
+        Args:
+            user_input (str): 한글 사용자 요청
+            style (str): 스타일 힌트 (realistic, semi_realistic, anime)
+
+        Returns:
+            dict: {
+                "positive": "상세한 positive prompt...",
+                "negative": "상세한 negative prompt...",
+                "style": "detected style",
+                "industry": "detected industry"
+            }
+        """
+        print(f"\n{'='*80}")
+        print(f"🎨 상세 프롬프트 생성 중... (GPT Direct)")
+        print(f"   입력: {user_input}")
+        print(f"{'='*80}")
+
+        try:
+            # 1. 업종 자동 감지
+            industry = self._detect_industry(user_input)
+            print(f"   감지된 업종: {industry}")
+
+            # 2. GPT 시스템 프롬프트 (상세 프롬프트 생성용)
+            system_prompt = self._get_system_prompt_for_detailed_generation()
+
+            # 3. 사용자 프롬프트
+            user_prompt = f"""Generate detailed SDXL prompts for this request:
+
+User Input (Korean): {user_input}
+Style Hint: {style}
+Detected Industry: {industry}
+
+Remember:
+- Be VERY detailed and creative (15-25 descriptive phrases)
+- Include specific visual elements, textures, lighting, composition
+- Match the style appropriately (anime = illustration style, realistic = photography style)
+- Output valid JSON with "positive", "negative", "style" fields"""
+
+            # 4. GPT API 호출
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.7,  # 창의성 높임
+                max_tokens=1000   # 긴 프롬프트 허용
+            )
+
+            # 5. 응답 추출
+            result = response.choices[0].message.content.strip()
+
+            # 6. JSON 파싱
+            if "```json" in result:
+                result = result.split("```json")[1].split("```")[0].strip()
+            elif "```" in result:
+                result = result.split("```")[1].split("```")[0].strip()
+
+            prompt_data = json.loads(result)
+
+            # 7. 결과 검증 및 보완
+            positive = prompt_data.get("positive", "")
+            negative = prompt_data.get("negative", "")
+            detected_style = prompt_data.get("style", style)
+
+            print(f"\n✅ 프롬프트 생성 완료!")
+            print(f"   Style: {detected_style}")
+            print(f"   Positive: {len(positive)} chars")
+            print(f"   Negative: {len(negative)} chars")
+            print(f"{'='*80}\n")
+
+            return {
+                "positive": positive,
+                "negative": negative,
+                "style": detected_style,
+                "industry": industry
+            }
+
+        except Exception as e:
+            print(f"❌ 상세 프롬프트 생성 오류: {e}")
+            import traceback
+            traceback.print_exc()
+
+            # Fallback: 기본 키워드 추출 방식으로
+            print("⚠️  Fallback: 기본 키워드 추출 방식 사용")
+            return self._fallback_prompt_generation(user_input, style)
+
+    def _get_system_prompt_for_detailed_generation(self) -> str:
+        """상세 프롬프트 생성용 시스템 프롬프트"""
+        return """You are an expert SDXL prompt engineer who creates highly detailed, creative image generation prompts.
+
+YOUR TASK: Transform Korean user input into detailed English SDXL prompts.
+
+OUTPUT FORMAT (JSON):
+{
+  "positive": "detailed positive prompt here...",
+  "negative": "detailed negative prompt here...",
+  "style": "realistic|semi_realistic|anime"
+}
+
+=== STYLE DETECTION (CRITICAL!) ===
+Detect style from Korean keywords:
+- "anime": 캐릭터, 애니, 만화, 2D, 귀여운 동물, 마스코트, 일러스트
+- "semi_realistic": 반실사, 세미, 디지털아트
+- "realistic": 실사, 사진, 포토, 상품사진 (DEFAULT)
+
+=== POSITIVE PROMPT GUIDELINES ===
+
+For ANIME/ILLUSTRATION style:
+- Start with: "cute illustrated [subject] design, hand drawn flat illustration style,"
+- Include: soft colors, simple shapes, clean lines, kawaii aesthetic
+- Add: background textures (lined paper, notebook, pastel gradients)
+- Include: decorative elements (flowers, leaves, sparkles, doodles)
+- Mention: "children book illustration style, korean stationery design"
+- End with: "clean vector illustration, flat design, high quality illustration"
+- Add: "not photography, not realistic, not 3d render"
+
+For REALISTIC/PHOTOGRAPHY style:
+- Start with: "professional commercial photography of [subject],"
+- Include: camera specs (shot on Canon EOS R5, 85mm lens, f/2.8)
+- Add: lighting details (soft natural lighting, studio lighting, golden hour)
+- Include: composition (rule of thirds, centered, overhead shot)
+- Mention: textures, materials, surfaces in detail
+- End with: "high resolution, sharp focus, professional color grading"
+
+For SEMI-REALISTIC style:
+- Start with: "highly detailed digital artwork of [subject],"
+- Include: painterly textures, soft rendering, cinematic lighting
+- Add: artistic composition, dramatic angles
+- End with: "digital painting, polished, artistic quality"
+
+=== NEGATIVE PROMPT GUIDELINES ===
+
+For ANIME style:
+- MUST include: "photo realistic, realistic lighting, 3d render, depth of field, cinematic, complex background, shadow heavy"
+- Add: "text artifacts, distorted text, watermark, logo, blurry, low quality"
+
+For REALISTIC style:
+- MUST include: "cartoon, illustration, anime, drawing, painting, sketch"
+- Add: "text, watermark, logo, blurry, low quality, artificial, plastic"
+
+=== CREATIVE EXPANSION ===
+Even from simple input, IMAGINE and ADD:
+1. Background details (setting, environment, atmosphere)
+2. Lighting conditions (time of day, light source, shadows)
+3. Color palette (warm/cool, specific colors, gradients)
+4. Textures and materials (smooth, rough, glossy, matte)
+5. Composition elements (framing, perspective, focal point)
+6. Mood and atmosphere (cozy, energetic, peaceful, dramatic)
+7. Small decorative details (flowers, patterns, accessories)
+8. Style-specific elements (for anime: sparkles, soft edges; for photo: bokeh, grain)
+
+=== EXAMPLES ===
+
+Input: "귀여운 곰 캐릭터가 헬스장에서 운동하는 광고"
+Output:
+{
+  "positive": "cute illustrated gym advertisement poster design, hand drawn flat illustration style, adorable cartoon bear character lifting dumbbells, simple kawaii bear with determined expression, pastel gym interior background, soft blue and pink color palette, exercise equipment silhouettes, motivational energetic mood, small sweat droplets, cute sneakers and workout outfit, decorative star and sparkle effects, children book illustration style, korean character design aesthetic, clean vector illustration, flat design poster, high quality illustration, not photography, not realistic, not 3d render",
+  "negative": "photo realistic, realistic lighting, 3d render, depth of field, cinematic, complex background, busy composition, shadow heavy, dark colors, scary, aggressive, text artifacts, distorted elements, watermark, logo, blurry, low quality",
+  "style": "anime"
+}
+
+Input: "카페 신메뉴 딸기라떼 홍보"
+Output:
+{
+  "positive": "professional commercial photography of strawberry latte in tall glass, fresh strawberries and cream topping, pink gradient drink layers, condensation droplets on glass, marble cafe table surface, soft natural window lighting, shallow depth of field, cozy cafe interior background blur, warm morning atmosphere, steam rising gently, artistic latte art, premium coffee shop aesthetic, shot on Canon EOS R5, 85mm lens f/2.8, high resolution, sharp focus, professional food photography, appetizing presentation, instagram worthy composition",
+  "negative": "cartoon, illustration, anime, drawing, painting, sketch, artificial colors, plastic looking, blurry, low quality, oversaturated, text, watermark, logo, messy background, harsh shadows, unflattering angle",
+  "style": "realistic"
+}
+
+IMPORTANT:
+- Output ONLY valid JSON
+- Be VERY detailed (15-25 phrases minimum)
+- Use comma-separated descriptive phrases
+- NO Korean characters in output
+- Match style appropriately to the request"""
+
+    def _fallback_prompt_generation(self, user_input: str, style: str) -> dict:
+        """Fallback: 기존 키워드 추출 방식"""
+        keywords = self.extract_keywords_english(user_input)
+        if not keywords:
+            keywords = {"subject": "item"}
+
+        industry = self._detect_industry(user_input)
+        detected_style = keywords.get("style", style)
+
+        from .config_loader import PromptGenerator
+        generator = PromptGenerator()
+
+        result = generator.generate(
+            industry=industry,
+            user_input={**keywords, "style": detected_style}
+        )
+
+        return {
+            "positive": result["positive"],
+            "negative": result["negative"],
+            "style": detected_style,
+            "industry": industry
+        }
     
     def extract_keywords_english(self, user_input: str) -> dict:
         """
