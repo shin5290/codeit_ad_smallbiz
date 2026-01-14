@@ -142,6 +142,21 @@ OUTPUT FORMAT (JSON):
   "style": "realistic|semi_realistic|anime"
 }
 
+=== EMPHASIS/WEIGHT SYNTAX (CRITICAL!) ===
+Use parentheses with weight values to emphasize important elements:
+- (keyword:1.3) = strong emphasis (main subject, key features)
+- (keyword:1.2) = medium emphasis (important details)
+- (keyword:1.1) = light emphasis (supporting elements)
+- (keyword:0.8) = de-emphasize (background elements)
+
+WEIGHT USAGE RULES:
+1. ALWAYS emphasize main subject: (cute bear character:1.3), (strawberry latte:1.3)
+2. Emphasize key visual style: (flat illustration:1.2), (professional photography:1.2)
+3. Emphasize important actions/poses: (lifting weights:1.2), (smiling expression:1.1)
+4. Emphasize requested mood/atmosphere: (energetic:1.2), (cozy:1.1)
+5. De-emphasize generic terms: (background:0.9), (simple:0.9)
+6. Use 1.3 sparingly (1-3 times max), use 1.2 moderately (3-5 times), 1.1 freely
+
 === STYLE DETECTION (CRITICAL!) ===
 Detect style from Korean keywords:
 - "anime": 캐릭터, 애니, 만화, 2D, 귀여운 동물, 마스코트, 일러스트
@@ -199,16 +214,16 @@ Even from simple input, IMAGINE and ADD:
 Input: "귀여운 곰 캐릭터가 헬스장에서 운동하는 광고"
 Output:
 {
-  "positive": "cute illustrated gym advertisement poster design, hand drawn flat illustration style, adorable cartoon bear character lifting dumbbells, simple kawaii bear with determined expression, pastel gym interior background, soft blue and pink color palette, exercise equipment silhouettes, motivational energetic mood, small sweat droplets, cute sneakers and workout outfit, decorative star and sparkle effects, children book illustration style, korean character design aesthetic, clean vector illustration, flat design poster, high quality illustration, not photography, not realistic, not 3d render",
-  "negative": "photo realistic, realistic lighting, 3d render, depth of field, cinematic, complex background, busy composition, shadow heavy, dark colors, scary, aggressive, text artifacts, distorted elements, watermark, logo, blurry, low quality",
+  "positive": "(cute cartoon bear character:1.3), (lifting dumbbells:1.2), gym advertisement poster design, (hand drawn flat illustration style:1.2), adorable kawaii bear with (determined expression:1.1), pastel gym interior background, (soft blue and pink color palette:1.1), exercise equipment silhouettes, (motivational energetic mood:1.2), small sweat droplets, cute sneakers and workout outfit, decorative star and sparkle effects, children book illustration style, korean character design aesthetic, (clean vector illustration:1.1), flat design poster, high quality illustration, not photography, not realistic, not 3d render",
+  "negative": "(photo realistic:1.3), (realistic lighting:1.2), 3d render, depth of field, cinematic, complex background, busy composition, shadow heavy, dark colors, scary, aggressive, text artifacts, distorted elements, watermark, logo, blurry, low quality",
   "style": "anime"
 }
 
 Input: "카페 신메뉴 딸기라떼 홍보"
 Output:
 {
-  "positive": "professional commercial photography of strawberry latte in tall glass, fresh strawberries and cream topping, pink gradient drink layers, condensation droplets on glass, marble cafe table surface, soft natural window lighting, shallow depth of field, cozy cafe interior background blur, warm morning atmosphere, steam rising gently, artistic latte art, premium coffee shop aesthetic, shot on Canon EOS R5, 85mm lens f/2.8, high resolution, sharp focus, professional food photography, appetizing presentation, instagram worthy composition",
-  "negative": "cartoon, illustration, anime, drawing, painting, sketch, artificial colors, plastic looking, blurry, low quality, oversaturated, text, watermark, logo, messy background, harsh shadows, unflattering angle",
+  "positive": "(strawberry latte:1.3) in tall glass, (professional commercial photography:1.2), (fresh strawberries and cream topping:1.2), pink gradient drink layers, condensation droplets on glass, marble cafe table surface, (soft natural window lighting:1.1), shallow depth of field, cozy cafe interior background blur, (warm morning atmosphere:1.1), steam rising gently, artistic latte art, premium coffee shop aesthetic, shot on Canon EOS R5, 85mm lens f/2.8, (high resolution:1.1), sharp focus, professional food photography, (appetizing presentation:1.2), instagram worthy composition",
+  "negative": "(cartoon:1.3), (illustration:1.2), anime, drawing, painting, sketch, artificial colors, plastic looking, blurry, low quality, oversaturated, text, watermark, logo, messy background, harsh shadows, unflattering angle",
   "style": "realistic"
 }
 

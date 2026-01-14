@@ -37,7 +37,7 @@ STYLE_MODEL_MAP = {
     "realistic": "SG161222/RealVisXL_V4.0",
     "ultra_realistic": "SG161222/RealVisXL_V4.0",  # alias
     "semi_realistic": "John6666/bss-equinox-il-semi-realistic-model-v25-sdxl",
-    "anime": "cagliostrolab/animagine-xl-3.1",
+    "anime": "KBlueLeaf/Kohaku-XL-Delta",
 }
 
 
