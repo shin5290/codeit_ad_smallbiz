@@ -436,21 +436,40 @@ class HybridPromptBuilder:
 
 class NegativePromptBuilder:
     """
-    Negative Prompt 빌더 (최소화 원칙)
-    
-    SDXL은 5-7개 키워드만 필요
+    Negative Prompt 빌더
+
+    텍스트 생성 방지를 최우선으로 함
     """
-    
+
+    # 텍스트 방지 키워드 (최우선 - 항상 포함)
+    ANTI_TEXT_KEYWORDS = [
+        "text",
+        "letters",
+        "words",
+        "watermark",
+        "signature",
+        "logo",
+        "caption",
+        "writing",
+        "typography",
+        "font",
+        "label"
+    ]
+
     # 모든 업종 공통 (Base)
     COMMON_NEGATIVE = [
-        "cartoon",
-        "illustration", 
-        "painting",
         "low quality",
         "blurry",
-        "watermark",
-        "text"
+        "deformed",
+        "ugly"
     ]
+
+    # 스타일별 Negative
+    STYLE_NEGATIVE = {
+        "realistic": ["cartoon", "illustration", "painting", "anime", "drawing"],
+        "semi_realistic": ["cartoon", "anime", "sketch", "unfinished"],
+        "anime": ["photorealistic", "photograph", "realistic", "3d render"]
+    }
     
     # 업종별 추가 Negative
     INDUSTRY_NEGATIVE = {
@@ -469,49 +488,46 @@ class NegativePromptBuilder:
     @classmethod
     def build(cls, industry: str, style: str = "realistic") -> str:
         """
-        업종별 Negative Prompt 생성
-        
+        Negative Prompt 생성
+
+        우선순위:
+        1. 텍스트 방지 키워드 (필수)
+        2. 스타일별 Negative
+        3. 업종별 Negative
+        4. 공통 Negative
+
         Args:
             industry: 업종 코드 (cafe, gym 등)
-            style: 스타일 (realistic, anime 등)
-        
+            style: 스타일 (realistic, anime, illustration)
+
         Returns:
-            str: Negative prompt (정확히 5-7개 키워드)
+            str: Negative prompt
         """
-        # Base common negatives (4개만 - 중복 없이)
-        negatives = cls.COMMON_NEGATIVE[:4].copy()  # cartoon, illustration, painting, low quality
-        
-        # 업종별 추가 (2개 - 총 6개)
+        negatives = []
+
+        # 1. 텍스트 방지 (최우선 - 핵심 5개)
+        negatives.extend(cls.ANTI_TEXT_KEYWORDS[:5])
+
+        # 2. 스타일별 Negative
+        style_specific = cls.STYLE_NEGATIVE.get(style, cls.STYLE_NEGATIVE["realistic"])
+        negatives.extend(style_specific[:3])
+
+        # 3. 업종별 Negative
         industry_specific = cls.INDUSTRY_NEGATIVE.get(industry, [])
-        if industry_specific:
-            # 중복 체크
-            for keyword in industry_specific[:2]:
-                if keyword not in negatives:
-                    negatives.append(keyword)
-        
-        # 부족하면 COMMON에서 추가 (최소 5개 보장)
-        if len(negatives) < 5:
-            for keyword in cls.COMMON_NEGATIVE[4:]:
-                if keyword not in negatives and len(negatives) < 7:
-                    negatives.append(keyword)
-        
-        # Style별 조정
-        if style == "anime":
-            # Anime는 realistic 계열 제거
-            negatives = [n for n in negatives if n not in ["cartoon", "illustration"]]
-            if "photorealistic" not in negatives:
-                negatives.append("photorealistic")
-            if "photograph" not in negatives and len(negatives) < 7:
-                negatives.append("photograph")
-        
-        # 정확히 5-7개로 제한
-        final_negatives = negatives[:7]
-        
-        # 최소 5개 보장
-        while len(final_negatives) < 5:
-            final_negatives.append("generic")
-        
-        return ", ".join(final_negatives)
+        negatives.extend(industry_specific[:2])
+
+        # 4. 공통 Negative
+        negatives.extend(cls.COMMON_NEGATIVE[:2])
+
+        # 중복 제거
+        seen = set()
+        unique_negatives = []
+        for neg in negatives:
+            if neg.lower() not in seen:
+                seen.add(neg.lower())
+                unique_negatives.append(neg)
+
+        return ", ".join(unique_negatives)
 
 
 # ============================================

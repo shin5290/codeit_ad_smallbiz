@@ -7,6 +7,7 @@ import yaml
 from pathlib import Path
 from typing import Dict, List, Optional
 from .prompt_templates import HybridPromptBuilder, NegativePromptBuilder, PromptStructure
+from .style_router import StyleRouter
 
 
 class IndustryConfigLoader:
@@ -119,11 +120,12 @@ class PromptGenerator:
     ) -> Dict[str, str]:
         """
         완전한 프롬프트 생성 (Positive + Negative)
-        
+
         Args:
             industry: 업종 코드 (cafe, gym 등)
             user_input: 사용자 입력
                 {
+                    "style": "realistic",  # realistic, semi_realistic, anime
                     "product": "strawberry latte",
                     "theme": "warm",
                     "mood": "cozy",
@@ -132,43 +134,64 @@ class PromptGenerator:
             composition: 구도 타입 (overhead, 45_degree 등)
             apply_weights: 가중치 적용 여부
             weights: 가중치 딕셔너리 {"keyword": 1.3}
-        
+
         Returns:
             Dict: {
                 "positive": "...",
                 "negative": "...",
+                "style": "...",
                 "structure": {...}  # 디버깅용
             }
         """
+        # 0. 스타일 추출 (기본값: realistic)
+        style = user_input.get("style", "realistic")
+        if not StyleRouter.is_valid_style(style):
+            style = "realistic"
+
         # 1. 업종 설정 로드
         industry_config = self.loader.get_industry(industry)
         if not industry_config:
             raise ValueError(f"Unknown industry: {industry}")
-        
-        # 2. Hybrid Prompt 빌드
+
+        # 2. Hybrid Prompt 빌드 (업종 템플릿 기반)
         builder = HybridPromptBuilder(industry_config)
         structure = builder.build_from_user_input(user_input, composition)
-        
-        # 3. 프롬프트 조립
+
+        # 3. 스타일별 Subject Phrase 교체
+        main_subject = (
+            user_input.get('product') or
+            user_input.get('dish') or
+            user_input.get('item') or
+            user_input.get('subject') or
+            'subject'
+        )
+        structure.subject_phrase = StyleRouter.build_subject_phrase(
+            style=style,
+            subject=main_subject,
+            additional_context=structure.setting
+        )
+
+        # 4. 스타일별 Technical 키워드 적용
+        structure.technical = StyleRouter.get_style_technical(style)[:2]
+
+        # 5. 프롬프트 조립
         positive_prompt = structure.build()
-        
-        # 4. 가중치 적용 (옵션)
+
+        # 6. 가중치 적용 (옵션)
         if apply_weights and weights:
             from .prompt_templates import apply_prompt_weights
             positive_prompt = apply_prompt_weights(positive_prompt, weights)
-        
-        # 5. Negative Prompt 생성
+
+        # 7. Negative Prompt 생성 (스타일 반영)
         negative_prompt = NegativePromptBuilder.build(
             industry=industry,
-            style="realistic"
+            style=style
         )
-        
-        # 주의: 업종별 Negative는 이미 NegativePromptBuilder.build()에 포함됨!
-        # 추가하지 말 것!
-        
+
         return {
             "positive": positive_prompt,
             "negative": negative_prompt,
+            "style": style,
             "structure": structure.to_dict()
         }
     

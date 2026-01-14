@@ -143,6 +143,20 @@ CRITICAL RULES:
 3. Translate product/service names accurately
 4. Output ONLY valid JSON format
 5. Be specific with names (not generic terms)
+6. ALWAYS detect and include "style" field
+
+STYLE DETECTION (REQUIRED - 반드시 포함!):
+- style: Image style to generate
+  - "realistic" (default): 실사, 사진, 포토, photo, 상품사진, 광고사진
+  - "semi_realistic": 반실사, 세미, 디지털아트, 일러스트풍
+  - "anime": 애니, 애니메이션, 만화, 2D, 캐릭터
+
+PURPOSE DETECTION (용도 감지):
+- purpose: What is this image for?
+  - "promotion": 홍보, 광고, 마케팅
+  - "menu": 메뉴판, 메뉴사진
+  - "sns": SNS, 인스타, 인스타그램
+  - "poster": 포스터, 현수막
 
 COMMON FIELDS (extract if present in input):
 - product/item/dish: Main product/item name (구체적으로!)
@@ -158,14 +172,16 @@ COMMON FIELDS (extract if present in input):
 
 Output format example:
 {
+  "style": "realistic",
+  "purpose": "promotion",
   "product": "strawberry latte",
-  "activity": "promotion",
   "theme": "warm",
   "surface": "marble table"
 }
 
 IMPORTANT:
-- Only include fields that are clearly mentioned in input
+- ALWAYS include "style" field (default: "realistic")
+- Only include other fields that are clearly mentioned in input
 - Translate ALL Korean to English
 - Use simple, descriptive English words
 - Do NOT include marketing language (translate core meaning only)"""

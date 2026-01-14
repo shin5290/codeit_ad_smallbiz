@@ -1,0 +1,42 @@
+# ============================================
+# Anime Style Template
+# 애니메이션 스타일 (Animagine XL 3.1)
+# ============================================
+
+style_name: "anime"
+model: "Animagine XL 3.1"
+
+# 프롬프트 시작 문구
+prefix: "anime style illustration of"
+
+# 기술 키워드
+technical_keywords:
+  - "anime aesthetic"
+  - "vibrant colors"
+  - "clean lineart"
+  - "detailed anime art"
+  - "modern anime style"
+  - "cel shading"
+
+# 품질 키워드
+quality_keywords:
+  - "studio quality"
+  - "detailed"
+  - "vibrant"
+  - "polished"
+
+# 조명 구문
+lighting_phrases:
+  - "soft anime lighting"
+  - "vibrant colors"
+  - "warm tones"
+  - "bright and colorful"
+  - "soft shading"
+
+# Negative 키워드
+negative_keywords:
+  - "photorealistic"
+  - "photograph"
+  - "realistic"
+  - "3d render"
+  - "cgi"
