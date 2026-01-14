@@ -22,7 +22,7 @@ from .workflow import ImageGenerationWorkflow
 from .nodes.text2image import Text2ImageNode
 from .nodes.controlnet import ControlNetPreprocessorNode, ControlNetLoaderNode
 from .nodes.image2image import Image2ImageControlNetNode
-from .prompt import PromptGenerator
+from .prompt import PromptGenerator, PromptTemplateManager
 
 
 PROJECT_ROOT = Path(_PROJECT_ROOT)
@@ -141,16 +141,24 @@ def generate_and_save_image(
         ...     style="ultra_realistic"
         ... )
     """
-    # 1. 프롬프트 자동 생성 (한글 → 영어 SDXL 프롬프트)
+    # 1. 한글 입력 → 영어 키워드 추출 (GPT-4o)
+    keyword_extractor = PromptTemplateManager()
+    keywords = keyword_extractor.extract_keywords_english(user_input)
+
+    if not keywords:
+        # Fallback: 기본 키워드
+        keywords = {"product": "item", "theme": "professional"}
+
+    # 2. 키워드 → SDXL 프롬프트 생성
     prompt_gen = PromptGenerator()
     prompt_result = prompt_gen.generate(
         industry=industry or "general",
-        user_input=user_input
+        user_input=keywords  # Dict 타입
     )
     prompt = prompt_result["positive"]
     negative_prompt = prompt_result["negative"]
 
-    # 2. 분기 처리: reference_image가 있으면 I2I, 없으면 T2I
+    # 3. 분기 처리: reference_image가 있으면 I2I, 없으면 T2I
     if reference_image is not None:
         # Image-to-Image (ControlNet) 실행
         return generate_with_controlnet(
