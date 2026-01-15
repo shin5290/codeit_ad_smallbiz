@@ -69,12 +69,26 @@ class PromptTemplateManager:
             # 2. GPT 시스템 프롬프트 (상세 프롬프트 생성용)
             system_prompt = self._get_system_prompt_for_detailed_generation()
 
-            # 3. 사용자 프롬프트
+            # 3. 업종별 참고 키워드 가져오기 (YAML에서)
+            reference_keywords = self._get_industry_reference_keywords(industry)
+
+            # 4. 사용자 프롬프트
             user_prompt = f"""Generate detailed SDXL prompts for this request:
 
 User Input (Korean): {user_input}
 Style Hint: {style}
 Detected Industry: {industry}
+
+===== REFERENCE KEYWORDS (FOR INSPIRATION ONLY) =====
+{reference_keywords}
+
+⚠️ CRITICAL WARNING ⚠️
+These keywords are ONLY for inspiration!
+DO NOT copy them directly!
+DO NOT use them as-is!
+Create your OWN unique, creative phrases inspired by these concepts.
+If I see any keyword copied exactly, that is a FAILURE.
+=================================================
 
 Remember:
 - Be VERY detailed and creative (15-25 descriptive phrases)
@@ -130,109 +144,82 @@ Remember:
             return self._fallback_prompt_generation(user_input, style)
 
     def _get_system_prompt_for_detailed_generation(self) -> str:
-        """상세 프롬프트 생성용 시스템 프롬프트"""
-        return """You are an expert SDXL prompt engineer who creates highly detailed, creative image generation prompts.
+        """상세 프롬프트 생성용 시스템 프롬프트 (압축 버전 ~1200 tokens)"""
+        return """SDXL prompt engineer. Korean → detailed English prompts. Output JSON only.
 
-YOUR TASK: Transform Korean user input into detailed English SDXL prompts.
+FORMAT: {"positive": "...", "negative": "...", "style": "realistic|semi_realistic|anime"}
 
-OUTPUT FORMAT (JSON):
-{
-  "positive": "detailed positive prompt here...",
-  "negative": "detailed negative prompt here...",
-  "style": "realistic|semi_realistic|anime"
-}
+WEIGHTS: (main_subject:1.3) 1-3x, (important:1.2) 3-5x, (detail:1.1) freely
 
-=== EMPHASIS/WEIGHT SYNTAX (CRITICAL!) ===
-Use parentheses with weight values to emphasize important elements:
-- (keyword:1.3) = strong emphasis (main subject, key features)
-- (keyword:1.2) = medium emphasis (important details)
-- (keyword:1.1) = light emphasis (supporting elements)
-- (keyword:0.8) = de-emphasize (background elements)
+STYLE DETECTION:
+- anime: 캐릭터, 애니, 만화, 마스코트, 귀여운, 일러스트
+- semi_realistic: 반실사, 디지털아트
+- realistic: 사진, 상품, 음식, 포토 (DEFAULT)
 
-WEIGHT USAGE RULES:
-1. ALWAYS emphasize main subject: (cute bear character:1.3), (strawberry latte:1.3)
-2. Emphasize key visual style: (flat illustration:1.2), (professional photography:1.2)
-3. Emphasize important actions/poses: (lifting weights:1.2), (smiling expression:1.1)
-4. Emphasize requested mood/atmosphere: (energetic:1.2), (cozy:1.1)
-5. De-emphasize generic terms: (background:0.9), (simple:0.9)
-6. Use 1.3 sparingly (1-3 times max), use 1.2 moderately (3-5 times), 1.1 freely
+IMAGE TYPE:
+- MULTI (이모티콘/스티커/여러포즈/다양한표정): use "character sheet, multiple poses, various expressions"
+- SINGLE (default): MUST use "single character, single pose, centered composition" + ONE action only
 
-=== STYLE DETECTION (CRITICAL!) ===
-Detect style from Korean keywords:
-- "anime": 캐릭터, 애니, 만화, 2D, 귀여운 동물, 마스코트, 일러스트
-- "semi_realistic": 반실사, 세미, 디지털아트
-- "realistic": 실사, 사진, 포토, 상품사진 (DEFAULT)
+POSITIVE GUIDELINES:
+- ANIME: flat illustration, kawaii, pastel colors, clean lines, sparkles, soft edges, "not photography, not 3d render"
+- REALISTIC: professional photography, Canon EOS R5 85mm f/2.8, natural lighting, sharp focus, bokeh, textures
+- SEMI: digital artwork, painterly, cinematic lighting, artistic composition
 
-=== POSITIVE PROMPT GUIDELINES ===
+NEGATIVE:
+- ANIME: "(photo realistic:1.3), 3d render, depth of field, complex background, shadow heavy"
+- REALISTIC: "(cartoon:1.3), illustration, anime, drawing, sketch, artificial"
 
-For ANIME/ILLUSTRATION style:
-- Start with: "cute illustrated [subject] design, hand drawn flat illustration style,"
-- Include: soft colors, simple shapes, clean lines, kawaii aesthetic
-- Add: background textures (lined paper, notebook, pastel gradients)
-- Include: decorative elements (flowers, leaves, sparkles, doodles)
-- Mention: "children book illustration style, korean stationery design"
-- End with: "clean vector illustration, flat design, high quality illustration"
-- Add: "not photography, not realistic, not 3d render"
-
-For REALISTIC/PHOTOGRAPHY style:
-- Start with: "professional commercial photography of [subject],"
-- Include: camera specs (shot on Canon EOS R5, 85mm lens, f/2.8)
-- Add: lighting details (soft natural lighting, studio lighting, golden hour)
-- Include: composition (rule of thirds, centered, overhead shot)
-- Mention: textures, materials, surfaces in detail
-- End with: "high resolution, sharp focus, professional color grading"
-
-For SEMI-REALISTIC style:
-- Start with: "highly detailed digital artwork of [subject],"
-- Include: painterly textures, soft rendering, cinematic lighting
-- Add: artistic composition, dramatic angles
-- End with: "digital painting, polished, artistic quality"
-
-=== NEGATIVE PROMPT GUIDELINES ===
-
-For ANIME style:
-- MUST include: "photo realistic, realistic lighting, 3d render, depth of field, cinematic, complex background, shadow heavy"
-- Add: "text artifacts, distorted text, watermark, logo, blurry, low quality"
-
-For REALISTIC style:
-- MUST include: "cartoon, illustration, anime, drawing, painting, sketch"
-- Add: "text, watermark, logo, blurry, low quality, artificial, plastic"
-
-=== CREATIVE EXPANSION ===
-Even from simple input, IMAGINE and ADD:
-1. Background details (setting, environment, atmosphere)
-2. Lighting conditions (time of day, light source, shadows)
-3. Color palette (warm/cool, specific colors, gradients)
-4. Textures and materials (smooth, rough, glossy, matte)
-5. Composition elements (framing, perspective, focal point)
-6. Mood and atmosphere (cozy, energetic, peaceful, dramatic)
-7. Small decorative details (flowers, patterns, accessories)
-8. Style-specific elements (for anime: sparkles, soft edges; for photo: bokeh, grain)
+CREATIVE: Add lighting, colors, textures, mood, composition, details (15-25 phrases total)
 
 === EXAMPLES ===
 
 Input: "귀여운 곰 캐릭터가 헬스장에서 운동하는 광고"
-Output:
-{
-  "positive": "(cute cartoon bear character:1.3), (lifting dumbbells:1.2), gym advertisement poster design, (hand drawn flat illustration style:1.2), adorable kawaii bear with (determined expression:1.1), pastel gym interior background, (soft blue and pink color palette:1.1), exercise equipment silhouettes, (motivational energetic mood:1.2), small sweat droplets, cute sneakers and workout outfit, decorative star and sparkle effects, children book illustration style, korean character design aesthetic, (clean vector illustration:1.1), flat design poster, high quality illustration, not photography, not realistic, not 3d render",
-  "negative": "(photo realistic:1.3), (realistic lighting:1.2), 3d render, depth of field, cinematic, complex background, busy composition, shadow heavy, dark colors, scary, aggressive, text artifacts, distorted elements, watermark, logo, blurry, low quality",
-  "style": "anime"
-}
+{"positive": "(cute cartoon bear character:1.3), (lifting dumbbells:1.2), single character, single pose, centered composition, gym advertisement poster, (flat illustration style:1.2), kawaii bear with (determined expression:1.1), pastel gym background, soft pink and blue colors, exercise equipment, (energetic mood:1.2), sweat droplets, workout outfit, star sparkles, clean vector illustration, high quality, not photography, not 3d render", "negative": "(photo realistic:1.3), (realistic lighting:1.2), 3d render, depth of field, complex background, dark colors, watermark, blurry, low quality", "style": "anime"}
 
 Input: "카페 신메뉴 딸기라떼 홍보"
-Output:
-{
-  "positive": "(strawberry latte:1.3) in tall glass, (professional commercial photography:1.2), (fresh strawberries and cream topping:1.2), pink gradient drink layers, condensation droplets on glass, marble cafe table surface, (soft natural window lighting:1.1), shallow depth of field, cozy cafe interior background blur, (warm morning atmosphere:1.1), steam rising gently, artistic latte art, premium coffee shop aesthetic, shot on Canon EOS R5, 85mm lens f/2.8, (high resolution:1.1), sharp focus, professional food photography, (appetizing presentation:1.2), instagram worthy composition",
-  "negative": "(cartoon:1.3), (illustration:1.2), anime, drawing, painting, sketch, artificial colors, plastic looking, blurry, low quality, oversaturated, text, watermark, logo, messy background, harsh shadows, unflattering angle",
-  "style": "realistic"
-}
+{"positive": "(strawberry latte:1.3) in tall glass, single subject, centered composition, (professional commercial photography:1.2), (fresh strawberries and cream:1.2), pink gradient layers, condensation droplets, marble table, (soft natural lighting:1.1), shallow depth of field, cozy cafe blur, (warm atmosphere:1.1), steam rising, Canon EOS R5 85mm f/2.8, (high resolution:1.1), sharp focus, (appetizing presentation:1.2)", "negative": "(cartoon:1.3), (illustration:1.2), anime, drawing, sketch, artificial colors, blurry, low quality, watermark, harsh shadows", "style": "realistic"}"""
 
-IMPORTANT:
-- Output ONLY valid JSON
-- Be VERY detailed (15-25 phrases minimum)
-- Use comma-separated descriptive phrases
-- NO Korean characters in output
-- Match style appropriately to the request"""
+    def _get_industry_reference_keywords(self, industry: str) -> str:
+        """
+        YAML에서 업종별 참고 키워드 추출 (GPT 참고용)
+
+        Args:
+            industry: 업종 코드 (cafe, gym 등)
+
+        Returns:
+            str: 참고용 키워드 문자열
+        """
+        try:
+            if industry_config is None:
+                return "No reference keywords available."
+
+            industry_data = industry_config.get_industry(industry)
+            if not industry_data or "prompt_template" not in industry_data:
+                return "No reference keywords available."
+
+            template = industry_data["prompt_template"]
+            keywords = []
+
+            # 주요 키워드 카테고리만 추출 (너무 길지 않게)
+            if "lighting_phrases" in template:
+                keywords.append(f"Lighting: {', '.join(template['lighting_phrases'][:3])}")
+            if "composition_keywords" in template:
+                keywords.append(f"Composition: {', '.join(template['composition_keywords'][:3])}")
+            if "color_phrases" in template:
+                keywords.append(f"Colors: {', '.join(template['color_phrases'][:3])}")
+            if "style_keywords" in template:
+                keywords.append(f"Style: {', '.join(template['style_keywords'][:3])}")
+            if "details_keywords" in template:
+                keywords.append(f"Details: {', '.join(template['details_keywords'][:3])}")
+
+            if not keywords:
+                return "No reference keywords available."
+
+            return "\n".join(keywords)
+
+        except Exception as e:
+            print(f"⚠️ 참고 키워드 로드 실패: {e}")
+            return "No reference keywords available."
 
     def _fallback_prompt_generation(self, user_input: str, style: str) -> dict:
         """Fallback: 기존 키워드 추출 방식"""
