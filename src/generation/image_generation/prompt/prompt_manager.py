@@ -169,15 +169,16 @@ NEGATIVE:
 - ANIME: "(photo realistic:1.3), 3d render, depth of field, complex background, shadow heavy"
 - REALISTIC: "(cartoon:1.3), illustration, anime, drawing, sketch, artificial"
 
-CREATIVE: Add lighting, colors, textures, mood, composition, details (15-25 phrases total)
+⚠️ TOKEN LIMIT: SDXL CLIP max 77 tokens! Keep positive prompt SHORT (50-70 tokens, ~12-15 phrases max)
+Prioritize: subject > style > action > mood > 1-2 key details. Skip verbose descriptions.
 
 === EXAMPLES ===
 
 Input: "귀여운 곰 캐릭터가 헬스장에서 운동하는 광고"
-{"positive": "(cute cartoon bear character:1.3), (lifting dumbbells:1.2), single character, single pose, centered composition, gym advertisement poster, (flat illustration style:1.2), kawaii bear with (determined expression:1.1), pastel gym background, soft pink and blue colors, exercise equipment, (energetic mood:1.2), sweat droplets, workout outfit, star sparkles, clean vector illustration, high quality, not photography, not 3d render", "negative": "(photo realistic:1.3), (realistic lighting:1.2), 3d render, depth of field, complex background, dark colors, watermark, blurry, low quality", "style": "anime"}
+{"positive": "(cute bear character:1.3), (lifting dumbbell:1.2), single pose, centered, gym poster, (flat illustration:1.2), kawaii, pastel colors, energetic mood, clean lines, high quality, not photography", "negative": "(photo realistic:1.3), 3d render, depth of field, complex background, dark colors, blurry, low quality", "style": "anime"}
 
 Input: "카페 신메뉴 딸기라떼 홍보"
-{"positive": "(strawberry latte:1.3) in tall glass, single subject, centered composition, (professional commercial photography:1.2), (fresh strawberries and cream:1.2), pink gradient layers, condensation droplets, marble table, (soft natural lighting:1.1), shallow depth of field, cozy cafe blur, (warm atmosphere:1.1), steam rising, Canon EOS R5 85mm f/2.8, (high resolution:1.1), sharp focus, (appetizing presentation:1.2)", "negative": "(cartoon:1.3), (illustration:1.2), anime, drawing, sketch, artificial colors, blurry, low quality, watermark, harsh shadows", "style": "realistic"}"""
+{"positive": "(strawberry latte:1.3) in glass, centered, (commercial photography:1.2), (fresh strawberries:1.2), pink layers, marble table, (soft lighting:1.1), shallow depth of field, warm mood, sharp focus", "negative": "(cartoon:1.3), illustration, anime, drawing, blurry, low quality, watermark", "style": "realistic"}"""
 
     def _get_industry_reference_keywords(self, industry: str) -> str:
         """
