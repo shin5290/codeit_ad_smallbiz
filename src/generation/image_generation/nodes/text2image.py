@@ -79,11 +79,12 @@ class Text2ImageNode(BaseNode):
                 scheduler=scheduler,
                 torch_dtype=torch.bfloat16,
                 local_files_only=True,
-                trust_remote_code=True 
+                trust_remote_code=True,
+                low_cpu_mem_usage=True  # 로딩 시 RAM 스파이크 방지
             )
-            
-            # CPU Offload & VAE Optimization
+
             pipe.enable_model_cpu_offload()
+            # VAE Optimization (고해상도 대응)
             pipe.vae.enable_tiling()
             pipe.vae.enable_slicing()
             
