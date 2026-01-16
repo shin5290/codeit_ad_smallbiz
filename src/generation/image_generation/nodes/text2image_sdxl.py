@@ -51,7 +51,7 @@ class Text2ImageNode(BaseNode):
             device: 실행할 디바이스 ("cuda", "cpu" 등)
                     None이면 config.py의 설정 사용
             model_id: 사용할 SDXL 모델 ID (HuggingFace repo)
-                      None이면 기본 SDXL (stabilityai/stable-diffusion-xl-base-1.0)
+                      None이면 기본 SDXL (SG161222/RealVisXL_V4.0)
                       예: "SG161222/RealVisXL_V4.0", "cagliostrolab/animagine-xl-3.1"
 
                       모델은 자동으로 image_generation/models/ 에 다운로드되어 캐싱됨
@@ -90,53 +90,29 @@ class Text2ImageNode(BaseNode):
         if Text2ImageNode._vae_cache is None:
             print(f"[{self.node_name}] Loading VAE (first time)...")
             Text2ImageNode._vae_cache = AutoencoderKL.from_pretrained(
-                model_config.VAE_ID,
+                str(MODELS_DIR / "madebyollin--sdxl-vae-fp16-fix"),
+                local_files_only=True,
                 torch_dtype=getattr(torch, model_config.DTYPE),
-                cache_dir=MODELS_DIR  # VAE도 models/ 폴더에 캐싱
             )
         else:
             print(f"[{self.node_name}] Using cached VAE...")
 
         vae = Text2ImageNode._vae_cache
 
-        # SDXL 파이프라인 로드 (로컬 우선, 없으면 다운로드)
-        if local_model_path.exists():
-            print(f"[{self.node_name}] Loading from local cache: {local_model_path}")
-            load_path = str(local_model_path)
-            # 로컬 캐시는 variant 없이 로드 (이미 저장된 형식 그대로)
-            self.pipe = StableDiffusionXLPipeline.from_pretrained(
-                load_path,
-                vae=vae,
-                torch_dtype=getattr(torch, model_config.DTYPE),
-                use_safetensors=True,
+        if not local_model_path.exists():
+            raise FileNotFoundError(
+                f"Local SDXL model not found: {local_model_path}"
             )
-        else:
-            print(f"[{self.node_name}] Downloading from HuggingFace: {self.model_id}")
-            # HuggingFace에서 다운로드 시 variant 사용 시도 (실패 시 variant 없이 재시도)
-            try:
-                self.pipe = StableDiffusionXLPipeline.from_pretrained(
-                    self.model_id,
-                    vae=vae,
-                    torch_dtype=getattr(torch, model_config.DTYPE),
-                    variant=model_config.VARIANT,
-                    use_safetensors=True,
-                )
-            except (OSError, ValueError) as e:
-                # variant가 없는 모델의 경우 variant 없이 재시도
-                if "variant" in str(e).lower():
-                    print(f"[{self.node_name}] No fp16 variant available, loading without variant...")
-                    self.pipe = StableDiffusionXLPipeline.from_pretrained(
-                        self.model_id,
-                        vae=vae,
-                        torch_dtype=getattr(torch, model_config.DTYPE),
-                        use_safetensors=True,
-                    )
-                else:
-                    raise
 
-            # 로컬 경로에 저장 (중복 방지)
-            print(f"[{self.node_name}] Saving to local cache: {local_model_path}")
-            self.pipe.save_pretrained(local_model_path)
+        print(f"[{self.node_name}] Loading local SDXL model: {local_model_path}")
+
+        self.pipe = StableDiffusionXLPipeline.from_pretrained(
+            str(local_model_path),
+            vae=vae,
+            local_files_only=True,
+            torch_dtype=getattr(torch, model_config.DTYPE),
+            use_safetensors=True,
+        )
 
         # GPU로 이동
         self.pipe.to(self.device)

@@ -1,10 +1,13 @@
 """
-키워드 추출 모듈 (GPT-4o 기반)
+프롬프트 생성 모듈 (Z-Image Turbo용)
 작성자: 배현석
-버전: 4.0 - 키워드 추출 전용
+버전: 5.0 - Z-Image Turbo 최적화
 
-역할: 한글 사용자 입력 → 영어 키워드 추출
-이후 prompt_templates.py에서 최종 프롬프트 생성
+Z-Image Turbo 특징:
+- Negative Prompt 미지원 (CFG 미사용)
+- 긴 프롬프트 권장 (512-1024 토큰, T5 인코더)
+- 자연어 문장 형태 선호 (카메라 지시처럼)
+- 가중치 문법 미지원
 """
 
 import sys
@@ -26,7 +29,7 @@ load_dotenv()
 
 
 class PromptTemplateManager:
-    """한글 입력 → 영어 프롬프트 생성 (GPT-4o)"""
+    """한글 입력 → Z-Image Turbo용 영어 프롬프트 생성 (GPT)"""
 
     def __init__(self):
         """초기화: OpenAI 클라이언트 설정"""
@@ -39,25 +42,28 @@ class PromptTemplateManager:
 
     def generate_detailed_prompt(self, user_input: str, style: str = "realistic") -> dict:
         """
-        한글 사용자 입력 → 상세한 영어 프롬프트 직접 생성 (GPT)
+        한글 사용자 입력 → Z-Image Turbo용 상세 영어 프롬프트 생성
 
-        기존 extract_keywords_english + PromptGenerator 조합 대신
-        GPT가 직접 상세하고 창의적인 프롬프트를 생성합니다.
+        Z-Image Turbo 특징:
+        - Negative Prompt 미지원 → positive만 생성
+        - 긴 자연어 프롬프트 권장 (80-250 단어)
+        - 카메라 지시 스타일 (구체적, 명확)
 
         Args:
             user_input (str): 한글 사용자 요청
             style (str): 스타일 힌트 (realistic, semi_realistic, anime)
+                         ※ LoRA로 적용되므로 프롬프트에는 반영 안함
 
         Returns:
             dict: {
-                "positive": "상세한 positive prompt...",
-                "negative": "상세한 negative prompt...",
+                "positive": "상세한 prompt...",
+                "negative": "",  # ZIT는 negative 미지원
                 "style": "detected style",
                 "industry": "detected industry"
             }
         """
         print(f"\n{'='*80}")
-        print(f"🎨 상세 프롬프트 생성 중... (GPT Direct)")
+        print(f"🎨 Z-Image Turbo 프롬프트 생성 중...")
         print(f"   입력: {user_input}")
         print(f"{'='*80}")
 
@@ -66,14 +72,14 @@ class PromptTemplateManager:
             industry = self._detect_industry(user_input)
             print(f"   감지된 업종: {industry}")
 
-            # 2. GPT 시스템 프롬프트 (상세 프롬프트 생성용)
-            system_prompt = self._get_system_prompt_for_detailed_generation()
+            # 2. GPT 시스템 프롬프트 (ZIT 최적화)
+            system_prompt = self._get_system_prompt_for_zit()
 
             # 3. 업종별 참고 키워드 가져오기 (YAML에서)
             reference_keywords = self._get_industry_reference_keywords(industry)
 
             # 4. 사용자 프롬프트
-            user_prompt = f"""Generate detailed SDXL prompts for this request:
+            user_prompt = f"""Generate a detailed Z-Image Turbo prompt for this request:
 
 User Input (Korean): {user_input}
 Style Hint: {style}
@@ -85,18 +91,17 @@ Detected Industry: {industry}
 ⚠️ CRITICAL WARNING ⚠️
 These keywords are ONLY for inspiration!
 DO NOT copy them directly!
-DO NOT use them as-is!
-Create your OWN unique, creative phrases inspired by these concepts.
-If I see any keyword copied exactly, that is a FAILURE.
+Create your OWN unique, creative description inspired by these concepts.
 =================================================
 
 Remember:
-- Be VERY detailed and creative (15-25 descriptive phrases)
-- Include specific visual elements, textures, lighting, composition
-- Match the style appropriately (anime = illustration style, realistic = photography style)
-- Output valid JSON with "positive", "negative", "style" fields"""
+- Write LONG, DETAILED natural language description (80-250 words)
+- Describe like you're directing a camera crew
+- Include: subject, action, setting, lighting, atmosphere, textures, colors
+- NO negative prompts (Z-Image Turbo doesn't support them)
+- Output valid JSON with "positive" and "style" fields only"""
 
-            # 4. GPT API 호출
+            # 5. GPT API 호출
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -105,10 +110,10 @@ Remember:
                 ]
             )
 
-            # 5. 응답 추출
+            # 6. 응답 추출
             result = response.choices[0].message.content.strip()
 
-            # 6. JSON 파싱
+            # 7. JSON 파싱
             if "```json" in result:
                 result = result.split("```json")[1].split("```")[0].strip()
             elif "```" in result:
@@ -116,69 +121,99 @@ Remember:
 
             prompt_data = json.loads(result)
 
-            # 7. 결과 검증 및 보완
+            # 8. 결과 검증
             positive = prompt_data.get("positive", "")
-            negative = prompt_data.get("negative", "")
             detected_style = prompt_data.get("style", style)
 
             print(f"\n✅ 프롬프트 생성 완료!")
             print(f"   Style: {detected_style}")
-            print(f"   Positive: {len(positive)} chars")
-            print(f"   Negative: {len(negative)} chars")
+            print(f"   Positive: {len(positive)} chars (~{len(positive.split())} words)")
             print(f"{'='*80}\n")
 
             return {
                 "positive": positive,
-                "negative": negative,
+                "negative": "",  # Z-Image Turbo는 negative 미지원
                 "style": detected_style,
                 "industry": industry
             }
 
         except Exception as e:
-            print(f"❌ 상세 프롬프트 생성 오류: {e}")
+            print(f"❌ 프롬프트 생성 오류: {e}")
             import traceback
             traceback.print_exc()
 
-            # Fallback: 기본 키워드 추출 방식으로
-            print("⚠️  Fallback: 기본 키워드 추출 방식 사용")
+            # Fallback: 기본 프롬프트 생성
+            print("⚠️  Fallback: 기본 프롬프트 사용")
             return self._fallback_prompt_generation(user_input, style)
 
-    def _get_system_prompt_for_detailed_generation(self) -> str:
-        """상세 프롬프트 생성용 시스템 프롬프트 (압축 버전 ~1200 tokens)"""
-        return """SDXL prompt engineer. Korean → detailed English prompts. Output JSON only.
+    def _get_system_prompt_for_zit(self) -> str:
+        """
+        Z-Image Turbo 최적화 시스템 프롬프트
 
-FORMAT: {"positive": "...", "negative": "...", "style": "realistic|semi_realistic|anime"}
+        핵심 원칙:
+        1. 긴 자연어 설명 (80-250 단어)
+        2. 카메라 지시 스타일 (구체적, 명확)
+        3. Negative prompt 없음
+        4. 가중치 문법 없음
+        5. 주요 키워드는 프롬프트 앞부분에 배치
+        """
+        return """You are a Z-Image Turbo prompt engineer. Convert Korean requests into detailed English image prompts.
 
-WEIGHTS: (main_subject:1.3) 1-3x, (important:1.2) 3-5x, (detail:1.1) freely
+## Z-IMAGE TURBO CHARACTERISTICS
+- T5 text encoder: supports LONG prompts (80-250 words optimal)
+- NO negative prompts supported (classifier-free guidance disabled)
+- NO weight syntax like (keyword:1.3)
+- Prefers NATURAL LANGUAGE over keyword lists
+- Put most important keywords (Subject + Text) at the VERY START
 
-STYLE DETECTION:
+## OUTPUT FORMAT
+{"positive": "detailed natural language prompt...", "style": "realistic|semi_realistic|anime"}
+
+## STYLE DETECTION (for LoRA selection)
 - anime: 캐릭터, 애니, 만화, 마스코트, 귀여운, 일러스트
-- semi_realistic: 반실사, 디지털아트
+- semi_realistic: 반실사, 디지털아트, 일러스트풍
 - realistic: 사진, 상품, 음식, 포토 (DEFAULT)
 
-IMAGE TYPE:
-- MULTI (이모티콘/스티커/여러포즈/다양한표정): use "character sheet, multiple poses, various expressions"
-- SINGLE (default): MUST use "single character, single pose, centered composition" + ONE action only
+## PROMPT STRUCTURE (4-Step Formula)
+1. **Subject & Action** (FIRST - most important): Who/what, doing what, in what pose
+2. **Visual Style & Medium**: Photography style, camera specs, or artistic medium
+3. **Lighting & Atmosphere**: Light source, mood, time of day
+4. **Details & Textures**: Skin texture, fabric detail, film grain, imperfections
 
-POSITIVE GUIDELINES:
-- ANIME: flat illustration, kawaii, pastel colors, clean lines, sparkles, soft edges, "not photography, not 3d render"
-- REALISTIC: professional photography, Canon EOS R5 85mm f/2.8, natural lighting, sharp focus, bokeh, textures
-- SEMI: digital artwork, painterly, cinematic lighting, artistic composition
+## IMAGE TYPE DETECTION
+- MULTI (이모티콘/스티커/여러포즈): "character sheet showing multiple poses and expressions"
+- SINGLE (default): Focus on ONE clear action, ONE composition
 
-NEGATIVE:
-- ANIME: "(photo realistic:1.3), 3d render, depth of field, complex background, shadow heavy"
-- REALISTIC: "(cartoon:1.3), illustration, anime, drawing, sketch, artificial"
+## STYLE-SPECIFIC GUIDELINES
 
-⚠️ TOKEN LIMIT: SDXL CLIP max 77 tokens! Keep positive prompt SHORT (50-70 tokens, ~12-15 phrases max)
-Prioritize: subject > style > action > mood > 1-2 key details. Skip verbose descriptions.
+### REALISTIC (Photography)
+Write like camera direction:
+"Shot on [camera] with [lens], [lighting description], [subject] [action] in [setting], [atmosphere], [technical details like depth of field, color grading]"
 
-=== EXAMPLES ===
+Example: "Shot on a Canon EOS R5 with 85mm f/1.4 lens, natural window light creating soft shadows. A freshly brewed strawberry latte in a tall glass sits centered on a white marble table, steam gently rising. The drink features beautiful pink and white layers with fresh strawberry slices. Shallow depth of field with creamy bokeh background, warm color tones, professional commercial food photography aesthetic."
 
-Input: "귀여운 곰 캐릭터가 헬스장에서 운동하는 광고"
-{"positive": "(cute bear character:1.3), (lifting dumbbell:1.2), single pose, centered, gym poster, (flat illustration:1.2), kawaii, pastel colors, energetic mood, clean lines, high quality, not photography", "negative": "(photo realistic:1.3), 3d render, depth of field, complex background, dark colors, blurry, low quality", "style": "anime"}
+### ANIME/ILLUSTRATION
+Focus on artistic elements:
+"[Style] illustration of [subject] [action], [artistic details], [color palette], [mood]"
 
-Input: "카페 신메뉴 딸기라떼 홍보"
-{"positive": "(strawberry latte:1.3) in glass, centered, (commercial photography:1.2), (fresh strawberries:1.2), pink layers, marble table, (soft lighting:1.1), shallow depth of field, warm mood, sharp focus", "negative": "(cartoon:1.3), illustration, anime, drawing, blurry, low quality, watermark", "style": "realistic"}"""
+Example: "Vibrant anime style illustration of a cheerful bear mascot character lifting dumbbells at a colorful gym. The character has round cute features, determined expression, wearing a red headband. Flat color shading with clean bold outlines, pastel background with energetic sparkle effects, kawaii aesthetic, dynamic pose suggesting movement and energy."
+
+### SEMI-REALISTIC
+Blend photography with artistic:
+"Highly detailed digital artwork of [subject], [cinematic elements], [artistic touches]"
+
+## CRITICAL RULES
+1. Start with the MAIN SUBJECT immediately
+2. Write in flowing sentences, not comma-separated keywords
+3. Include TEXTURE descriptions (skin pores, fabric weave, condensation drops)
+4. Specify LIGHTING source and quality
+5. If text/words needed in image, put them in "quotes"
+6. 80-250 words is optimal (model attention fades after ~75 tokens for key elements)
+
+## COMMON MISTAKES TO AVOID
+- Don't mix contradictory styles ("photorealistic anime")
+- Don't use generic terms ("beautiful", "amazing") - be SPECIFIC
+- Don't forget texture keywords (images look plastic without them)"""
 
     def _get_industry_reference_keywords(self, industry: str) -> str:
         """
@@ -201,7 +236,7 @@ Input: "카페 신메뉴 딸기라떼 홍보"
             template = industry_data["prompt_template"]
             keywords = []
 
-            # 주요 키워드 카테고리만 추출 (너무 길지 않게)
+            # 주요 키워드 카테고리 추출
             if "lighting_phrases" in template:
                 keywords.append(f"Lighting: {', '.join(template['lighting_phrases'][:3])}")
             if "composition_keywords" in template:
@@ -223,318 +258,38 @@ Input: "카페 신메뉴 딸기라떼 홍보"
             return "No reference keywords available."
 
     def _fallback_prompt_generation(self, user_input: str, style: str) -> dict:
-        """Fallback: 기존 키워드 추출 방식"""
-        keywords = self.extract_keywords_english(user_input)
-        if not keywords:
-            keywords = {"subject": "item"}
-
+        """Fallback: 기본 프롬프트 생성"""
         industry = self._detect_industry(user_input)
-        detected_style = keywords.get("style", style)
 
-        from .config_loader import PromptGenerator
-        generator = PromptGenerator()
-
-        result = generator.generate(
-            industry=industry,
-            user_input={**keywords, "style": detected_style}
-        )
+        # 스타일별 기본 프롬프트
+        if style == "anime":
+            prompt = f"Anime style illustration of {user_input}, vibrant colors, clean lineart, detailed artwork, professional quality"
+        elif style == "semi_realistic":
+            prompt = f"Highly detailed digital artwork of {user_input}, cinematic lighting, semi-realistic style, professional quality"
+        else:
+            prompt = f"Professional commercial photography of {user_input}, natural lighting, sharp focus, high quality, detailed textures"
 
         return {
-            "positive": result["positive"],
-            "negative": result["negative"],
-            "style": detected_style,
+            "positive": prompt,
+            "negative": "",  # Z-Image Turbo는 negative 미지원
+            "style": style,
             "industry": industry
         }
-    
-    def extract_keywords_english(self, user_input: str) -> dict:
-        """
-        한글 사용자 입력 → 영어 키워드 추출
-        
-        Args:
-            user_input (str): 한글 사용자 요청
-                예: "카페 신메뉴 딸기라떼 홍보, 따뜻한 느낌"
-        
-        Returns:
-            dict: 영어 키워드
-                예: {
-                    "product": "strawberry latte",
-                    "activity": "promotion", 
-                    "theme": "warm",
-                    "mood": "cozy"
-                }
-        """
-        
-        print(f"🔍 키워드 추출 중...")
-        print(f"   입력: {user_input}")
-        
-        try:
-            # 1. 업종 자동 감지
-            industry = self._detect_industry(user_input)
-            print(f"   감지된 업종: {industry}")
-            
-            # 2. 시스템 프롬프트 (키워드 추출용)
-            system_prompt = self._get_system_prompt_for_extraction(industry)
-            
-            # 3. 사용자 프롬프트
-            user_prompt = self._build_user_prompt_for_extraction(user_input, industry)
-            
-            # 4. GPT API 호출
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ]
-            )
-            
-            # 5. 응답 추출
-            result = response.choices[0].message.content.strip()
-            
-            # 6. JSON 파싱 (```json``` 제거)
-            if "```json" in result:
-                result = result.split("```json")[1].split("```")[0].strip()
-            elif "```" in result:
-                result = result.split("```")[1].split("```")[0].strip()
-            
-            keywords = json.loads(result)
-            
-            print(f"✅ 추출 완료: {keywords}")
-            
-            return keywords
-            
-        except Exception as e:
-            print(f"❌ 오류 발생: {e}")
-            import traceback
-            traceback.print_exc()
-            # Fallback: 빈 딕셔너리 반환
-            return {}
-    
+
     def _detect_industry(self, user_input: str) -> str:
         """
         사용자 입력에서 업종 자동 감지 (YAML 기반)
-        
+
         Args:
             user_input: 사용자 입력 텍스트
-        
+
         Returns:
             str: 감지된 업종 ("cafe", "gym", ...) 또는 "general"
         """
         if industry_config is None:
             return "general"
-        
+
         return industry_config.detect_industry(user_input)
-    
-    def _get_system_prompt_for_extraction(self, industry: str) -> str:
-        """
-        키워드 추출용 시스템 프롬프트
-        
-        구조: Base (공통) + Specialized (업종별 특화)
-        
-        Args:
-            industry: 감지된 업종
-        
-        Returns:
-            str: 시스템 프롬프트
-        """
-        
-        # ====================================================================
-        # Base Prompt (모든 업종 공통)
-        # ====================================================================
-        base_prompt = """You are a keyword extraction expert for image generation prompts.
-
-Your task: Extract keywords from Korean user input and translate them to English.
-
-CRITICAL RULES:
-1. Output ONLY English keywords (NEVER Korean characters - 절대 한글 금지!)
-2. Extract visual elements only (no abstract marketing concepts)
-3. Translate product/service names accurately
-4. Output ONLY valid JSON format
-5. Be specific with names (not generic terms)
-6. ALWAYS detect and include "style" field
-
-STYLE DETECTION (REQUIRED - 반드시 포함!):
-- style: Image style to generate (CAREFULLY detect from keywords!)
-  - "anime": 캐릭터, 애니, 애니메이션, 만화, 2D, 귀여운 동물 캐릭터, 마스코트
-    → If input mentions "캐릭터", "귀여운 곰", "귀여운 토끼" etc, MUST use "anime"!
-  - "semi_realistic": 반실사, 세미, 디지털아트, 일러스트풍
-  - "realistic" (default): 실사, 사진, 포토, photo, 상품사진, 광고사진, 실제 사람/제품
-
-PURPOSE DETECTION (용도 감지):
-- purpose: What is this image for?
-  - "promotion": 홍보, 광고, 마케팅
-  - "menu": 메뉴판, 메뉴사진
-  - "sns": SNS, 인스타, 인스타그램
-  - "poster": 포스터, 현수막
-
-COMMON FIELDS (extract if present in input):
-- product/item/dish: Main product/item name (구체적으로!)
-- activity/service: Action or service being performed
-- person_type: Subject person (if person involved)
-- state: Condition (fresh, warm, cold, clean, etc)
-- presentation: Display method (on board, in glass, etc)
-- surface: Surface type (marble table, wooden counter, etc)
-- theme: Overall mood (warm, minimal, cozy, etc)
-- mood: Atmosphere (energetic, calm, professional, etc)
-- time: Time of day (morning, afternoon, evening)
-- focus: What to emphasize (texture, color, etc)
-
-Output format example:
-{
-  "style": "realistic",
-  "purpose": "promotion",
-  "product": "strawberry latte",
-  "theme": "warm",
-  "surface": "marble table"
-}
-
-IMPORTANT:
-- ALWAYS include "style" field (default: "realistic")
-- Only include other fields that are clearly mentioned in input
-- Translate ALL Korean to English
-- Use simple, descriptive English words
-- Do NOT include marketing language (translate core meaning only)"""
-
-        # ====================================================================
-        # Specialized Guides (복잡한 업종만)
-        # ====================================================================
-        specialized_guides = {
-            "cafe": """
-
-CAFE SPECIALIZATION:
-- product: Exact beverage name (예: "strawberry latte", "iced americano", "cappuccino")
-  ⚠️  NOT generic: "beverage", "drink" (too vague!)
-- Common states: "iced", "hot", "fresh"
-- Common presentations: "in tall glass", "with latte art", "topped with cream"
-- Common surfaces: "marble table", "wooden counter", "cafe table\"""",
-            
-            "gym": """
-
-GYM SPECIALIZATION:
-- person_type: Describe fitness level (예: "athletic man", "fitness woman", "muscular person")
-  ⚠️  NOT generic: "person" (be specific!)
-- activity: Specific exercise (예: "barbell squat", "bench press", "deadlift", "running")
-  ⚠️  NOT generic: "workout", "exercise" (name the exercise!)
-- focus: What to highlight (예: "muscle definition", "form", "strength", "power")""",
-            
-            "bakery": """
-
-BAKERY SPECIALIZATION:
-- product: Exact baked good (예: "croissant", "baguette", "sourdough bread", "chocolate cake")
-  ⚠️  NOT generic: "bread", "pastry" (be specific!)
-- state: Freshness indicator (예: "freshly baked", "warm", "golden brown", "crispy")
-- presentation: Display method (예: "on wooden board", "in wicker basket", "on display shelf")""",
-            
-            "restaurant": """
-
-RESTAURANT SPECIALIZATION:
-- dish: Complete dish name (예: "pasta carbonara", "grilled ribeye steak", "caesar salad")
-  ⚠️  NOT generic: "pasta", "meat" (include full dish name!)
-- plating: Plating style (예: "elegantly plated", "rustic presentation", "modern plating")
-- cuisine_style: Cuisine type (예: "italian", "french", "japanese", "korean")"""
-        }
-        
-        # ====================================================================
-        # 조합: Base + Specialized (있으면)
-        # ====================================================================
-        # laundry, hair_salon, nail_salon 등은 base만으로 충분
-        specialized = specialized_guides.get(industry, "")
-        
-        return base_prompt + specialized
-    
-    def _build_user_prompt_for_extraction(self, user_input: str, industry: str) -> str:
-        """
-        키워드 추출용 사용자 프롬프트
-        
-        Args:
-            user_input: 사용자 입력
-            industry: 감지된 업종
-        
-        Returns:
-            str: 사용자 프롬프트
-        """
-        
-        return f"""Extract keywords from this Korean input and translate to English.
-
-User input: {user_input}
-Detected industry: {industry}
-
-Output ONLY valid JSON with English values.
-Include only the fields that are clearly present in the input.
-
-JSON:"""
-
-    def generate_image_prompt(self, user_input: str, style: str = "realistic") -> dict:
-        """
-        한글 사용자 입력 → 영어 프롬프트 생성 (통합 메서드)
-
-        이 메서드는 전체 파이프라인을 실행합니다:
-        1. 한글 입력 → 영어 키워드 추출
-        2. 업종 자동 감지
-        3. Positive/Negative 프롬프트 생성
-
-        Args:
-            user_input (str): 한글 사용자 요청
-                예: "카페 신메뉴 딸기라떼 홍보, 따뜻한 느낌"
-            style (str): 스타일 (realistic, anime 등)
-
-        Returns:
-            dict: {
-                "positive": "프롬프트...",
-                "negative": "프롬프트...",
-                "industry": "cafe"
-            }
-        """
-
-        print(f"\n{'='*80}")
-        print(f"🎨 이미지 프롬프트 생성 파이프라인 시작")
-        print(f"{'='*80}")
-
-        try:
-            # 1. 영어 키워드 추출
-            keywords = self.extract_keywords_english(user_input)
-
-            if not keywords:
-                print("⚠️  키워드 추출 실패, 기본값 사용")
-                keywords = {"product": "item"}
-
-            # 2. 업종 자동 감지
-            industry = self._detect_industry(user_input)
-            print(f"   업종: {industry}")
-
-            # 3. PromptGenerator로 프롬프트 생성
-            from .config_loader import PromptGenerator
-
-            generator = PromptGenerator()
-
-            result = generator.generate(
-                industry=industry,
-                user_input=keywords,
-                composition=None,  # 자동 선택
-                apply_weights=False
-            )
-
-            print(f"\n✅ 프롬프트 생성 완료!")
-            print(f"   Positive: {len(result['positive'])} chars")
-            print(f"   Negative: {len(result['negative'])} chars")
-            print(f"{'='*80}\n")
-
-            return {
-                "positive": result["positive"],
-                "negative": result["negative"],
-                "industry": industry
-            }
-
-        except Exception as e:
-            print(f"❌ 프롬프트 생성 오류: {e}")
-            import traceback
-            traceback.print_exc()
-
-            # Fallback: 기본 프롬프트 반환
-            return {
-                "positive": "professional commercial photography, high quality, detailed",
-                "negative": "cartoon, illustration, low quality, blurry",
-                "industry": "general"
-            }
 
 
 # ============================================
@@ -563,30 +318,32 @@ def clean_input(text):
 
 if __name__ == "__main__":
     print("=" * 80)
-    print("🔍 Keyword Extraction Module (GPT-4o)")
+    print("🔍 Z-Image Turbo Prompt Generator")
     print("=" * 80)
-    
+
     manager = PromptTemplateManager()
-    
+
     # 테스트 케이스
     test_cases = [
-        "카페 신메뉴 딸기라떼 홍보, 따뜻한 느낌",
-        "헬스장 근육맨 스쿼트하는 모습",
-        "빵집 갓 구운 크루아상 나무 보드에 올린 사진",
-        "레스토랑 파스타 까르보나라 예쁘게 플레이팅"
+        ("카페 신메뉴 딸기라떼 홍보, 따뜻한 느낌", "realistic"),
+        ("귀여운 곰 캐릭터가 헬스장에서 운동하는 광고", "anime"),
+        ("빵집 갓 구운 크루아상 나무 보드에 올린 사진", "realistic"),
     ]
-    
+
     print("\n📝 테스트 케이스:")
-    for i, test in enumerate(test_cases, 1):
+    for i, (test_input, test_style) in enumerate(test_cases, 1):
         print(f"\n{'='*80}")
-        print(f"Test {i}: {test}")
+        print(f"Test {i}: {test_input} (style: {test_style})")
         print(f"{'='*80}")
-        
-        result = manager.extract_keywords_english(test)
-        
+
+        result = manager.generate_detailed_prompt(test_input, test_style)
+
         print(f"\n결과:")
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-    
+        print(f"  Style: {result['style']}")
+        print(f"  Industry: {result['industry']}")
+        print(f"  Prompt ({len(result['positive'])} chars):")
+        print(f"  {result['positive'][:200]}...")
+
     print(f"\n{'='*80}")
     print("✅ 테스트 완료")
     print(f"{'='*80}")

@@ -1,13 +1,18 @@
 """
-Image Generation Nodes
-텍스트나 이미지를 입력받아 새로운 이미지를 생성하는 노드들
+Z-Image Turbo Text2Image Node
+Z-Image Turbo 모델을 사용한 고속 이미지 생성 노드
+
+특징:
+- 8 steps로 고품질 이미지 생성 (~1-2초)
+- 긴 프롬프트 지원 (CLIP 77 토큰 제한 없음, T5 기반)
+- LoRA를 통한 스타일 전환 지원
+- Negative Prompt 미지원 (CFG 미사용)
 """
 
 from typing import Dict, Any, Optional
 from pathlib import Path
 import torch
 from PIL import Image
-from diffusers import StableDiffusionXLPipeline, AutoencoderKL
 
 from .base import BaseNode
 from ..config import (
@@ -16,123 +21,121 @@ from ..config import (
     aspect_ratio_templates,
 )
 
-# 모델 캐시 디렉토리
-# VM 공용 스토리지 경로 (환경변수로 오버라이드 가능)
 import os
-MODELS_DIR = Path(os.getenv("MODELS_DIR", "/opt/ai-models/sdxl"))
-MODELS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Z-Image Turbo 모델 경로
+ZIT_MODELS_DIR = Path(os.getenv("ZIT_MODELS_DIR", "/opt/ai-models/zit"))
+ZIT_BASE_MODEL = ZIT_MODELS_DIR / "Z-Image-Turbo-Base"
+ZIT_LORA_DIR = ZIT_MODELS_DIR / "lora"
+
+# 스타일별 LoRA 매핑
+STYLE_LORA_MAP = {
+    "realistic": None,  # 베이스 모델 그대로 사용
+    "ultra_realistic": None,  # 베이스 모델 그대로 사용
+    "semi_realistic": "OB半写实肖像画2.0 OB Semi-Realistic Portraits z- image turbo(1).safetensors",
+    "anime": "Anime-Z.safetensors",
+}
 
 
 class Text2ImageNode(BaseNode):
     """
-    텍스트 프롬프트로부터 이미지를 생성하는 노드
+    Z-Image Turbo를 사용한 Text-to-Image 노드
 
-    SDXL 모델과 개선된 VAE를 사용하여 고품질 이미지 생성
+    SDXL 대비 장점:
+    - 8 steps로 고속 생성 (SDXL 40 steps 대비 5배 빠름)
+    - 긴 프롬프트 지원 (T5 인코더, 토큰 제한 없음)
+    - LoRA로 스타일 전환 간편
 
     Example:
         node = Text2ImageNode()
         result = node.execute({
-            "prompt": "cozy cafe interior",
-            "aspect_ratio": "16:9",
-            "negative_prompt": "blurry, low quality",
-            "num_inference_steps": 40,
-            "guidance_scale": 7.5,
+            "prompt": "귀여운 곰 캐릭터가 헬스장에서 운동하는 광고",
+            "aspect_ratio": "1:1",
+            "style": "anime",
             "seed": 42
         })
         image = result["image"]  # PIL.Image
     """
 
-    # 클래스 변수: 모든 인스턴스가 공유하는 VAE 캐시
-    _vae_cache = None
+    # 클래스 변수: 파이프라인 캐시 (스타일별)
+    _pipe_cache = {}
+    _current_lora = None
 
-    def __init__(self, device: Optional[str] = None, model_id: Optional[str] = None, auto_unload: bool = True):
+    def __init__(self, device: Optional[str] = None, auto_unload: bool = True):
         """
         Args:
             device: 실행할 디바이스 ("cuda", "cpu" 등)
-                    None이면 config.py의 설정 사용
-            model_id: 사용할 SDXL 모델 ID (HuggingFace repo)
-                      None이면 기본 SDXL (SG161222/RealVisXL_V4.0)
-                      예: "SG161222/RealVisXL_V4.0", "cagliostrolab/animagine-xl-3.1"
-
-                      모델은 자동으로 image_generation/models/ 에 다운로드되어 캐싱됨
             auto_unload: 이미지 생성 완료 후 자동으로 파이프라인 언로드 (기본: True)
         """
         super().__init__("Text2ImageNode")
 
-        # 디바이스 설정
         self.device = device or model_config.DEVICE
-
-        # 모델 ID 설정
-        self.model_id = model_id or model_config.MODEL_ID
-
-        # 자동 언로드 설정
         self.auto_unload = auto_unload
-
-        # 파이프라인 (처음엔 None, 매 실행마다 로드/언로드)
         self.pipe = None
 
-    def _load_pipeline(self):
+    def _load_pipeline(self, style: str = "realistic"):
         """
-        SDXL 파이프라인 로드 (models/ 폴더에서 캐싱)
+        Z-Image Turbo 파이프라인 로드
 
-        - 로컬 models/ 폴더에 모델이 있으면 그것을 사용
-        - 없으면 HuggingFace에서 다운로드하여 models/ 폴더에 저장
+        Args:
+            style: 스타일 (realistic, semi_realistic, anime)
         """
-        if self.pipe is not None:
-            return  # 이미 로드됨
+        from diffusers import ZImagePipeline
 
-        print(f"[{self.node_name}] Loading SDXL pipeline from {self.model_id}...")
+        # 이미 로드된 파이프라인이 있고 같은 스타일이면 재사용
+        if self.pipe is not None and Text2ImageNode._current_lora == STYLE_LORA_MAP.get(style):
+            return
 
-        # 로컬 모델 경로 확인
-        local_model_path = MODELS_DIR / self.model_id.replace("/", "--")
+        print(f"[{self.node_name}] Loading Z-Image Turbo pipeline...")
 
-        # 개선된 VAE 로드 (클래스 변수로 캐싱하여 재사용)
-        if Text2ImageNode._vae_cache is None:
-            print(f"[{self.node_name}] Loading VAE (first time)...")
-            Text2ImageNode._vae_cache = AutoencoderKL.from_pretrained(
-                str(MODELS_DIR / "madebyollin--sdxl-vae-fp16-fix"),
-                local_files_only=True,
-                torch_dtype=getattr(torch, model_config.DTYPE),
-            )
-        else:
-            print(f"[{self.node_name}] Using cached VAE...")
-
-        vae = Text2ImageNode._vae_cache
-
-        if not local_model_path.exists():
+        # 베이스 모델 로드
+        if not ZIT_BASE_MODEL.exists():
             raise FileNotFoundError(
-                f"Local SDXL model not found: {local_model_path}"
+                f"Z-Image Turbo model not found: {ZIT_BASE_MODEL}\n"
+                "Please run: python src/generation/image_generation/download_model_zit.py"
             )
 
-        print(f"[{self.node_name}] Loading local SDXL model: {local_model_path}")
-
-        self.pipe = StableDiffusionXLPipeline.from_pretrained(
-            str(local_model_path),
-            vae=vae,
+        # 파이프라인 로드 (bfloat16 권장)
+        self.pipe = ZImagePipeline.from_pretrained(
+            str(ZIT_BASE_MODEL),
+            torch_dtype=torch.bfloat16,
             local_files_only=True,
-            torch_dtype=getattr(torch, model_config.DTYPE),
-            use_safetensors=True,
         )
-
-        # GPU로 이동
         self.pipe.to(self.device)
 
-        print(f"[{self.node_name}] Pipeline loaded successfully!")
+        # LoRA 적용 (스타일에 따라)
+        lora_file = STYLE_LORA_MAP.get(style)
+        if lora_file:
+            lora_path = ZIT_LORA_DIR / lora_file
+            if lora_path.exists():
+                print(f"[{self.node_name}] Loading LoRA: {lora_file}")
+                self.pipe.load_lora_weights(str(lora_path))
+                Text2ImageNode._current_lora = lora_file
+            else:
+                print(f"[{self.node_name}] Warning: LoRA not found: {lora_path}")
+                Text2ImageNode._current_lora = None
+        else:
+            # LoRA 없이 베이스 모델 사용
+            if Text2ImageNode._current_lora is not None:
+                self.pipe.unload_lora_weights()
+            Text2ImageNode._current_lora = None
+
+        print(f"[{self.node_name}] Pipeline loaded successfully! (style: {style})")
 
     def process(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         텍스트 프롬프트로부터 이미지 생성
 
+        Z-Image Turbo는 Negative Prompt를 지원하지 않습니다.
+        모든 제약은 Positive Prompt에 포함해야 합니다.
+
         Args:
             inputs: 입력 데이터
-                - prompt (str, 필수): 생성할 이미지 설명
+                - prompt (str, 필수): 생성할 이미지 설명 (긴 자연어 권장)
                 - aspect_ratio (str, 선택): "1:1", "16:9" 등 (기본: "1:1")
-                - negative_prompt (str, 선택): 제외할 요소 (지정하지 않으면 style에 따라 자동 설정)
-                - style (str, 선택): 스타일 ("ultra_realistic", "semi_realistic", "anime")
-                - num_inference_steps (int, 선택): 생성 스텝 수 (기본: 40)
-                - guidance_scale (float, 선택): CFG 스케일 (기본: 7.5)
+                - style (str, 선택): 스타일 ("realistic", "semi_realistic", "anime")
+                - num_inference_steps (int, 선택): 생성 스텝 수 (기본: 8)
                 - seed (int, 선택): 랜덤 시드 (재현성 위해)
-                - industry (str, 선택): 업종 ("cafe", "restaurant" 등)
 
         Returns:
             출력 데이터
@@ -141,58 +144,45 @@ class Text2ImageNode(BaseNode):
                 - width (int): 이미지 너비
                 - height (int): 이미지 높이
         """
-        # 파이프라인 로드 (lazy loading)
-        self._load_pipeline()
-
         # 입력 파라미터 추출
         prompt = inputs["prompt"]
         aspect_ratio = inputs.get("aspect_ratio", generation_config.DEFAULT_ASPECT_RATIO)
-        style = inputs.get("style", "ultra_realistic")
-        # negative_prompt가 명시적으로 지정되지 않으면 스타일에 따라 자동 설정
-        negative_prompt = inputs.get("negative_prompt", generation_config.get_negative_prompt(style))
-        num_inference_steps = inputs.get("num_inference_steps", generation_config.DEFAULT_STEPS)
-        guidance_scale = inputs.get("guidance_scale", generation_config.DEFAULT_GUIDANCE_SCALE)
+        style = inputs.get("style", "realistic")
+        num_inference_steps = inputs.get("num_inference_steps", 8)  # Z-Image Turbo 기본값
         seed = inputs.get("seed", None)
-        industry = inputs.get("industry", None)
 
-        # 해상도 가져오기 (aspect_ratio_templates에서)
+        # 파이프라인 로드 (스타일에 맞게)
+        self._load_pipeline(style)
+
+        # 해상도 가져오기
         width, height = aspect_ratio_templates.get_size(aspect_ratio)
 
-        # 업종별 스타일 적용 (있을 경우)
-        if industry and industry in generation_config.INDUSTRY_STYLES:
-            style = generation_config.INDUSTRY_STYLES[industry]
-            # 프롬프트에 스타일 접미사 추가
-            prompt = f"{prompt}, {style['style_suffix']}"
-            # 네거티브 프롬프트에 추가 네거티브 추가
-            negative_prompt = f"{negative_prompt}, {style['negative_add']}"
-
-        # 시드 설정 (재현성)
+        # 시드 설정
         generator = None
         if seed is not None:
             generator = torch.Generator(device=self.device).manual_seed(seed)
 
         # 이미지 생성
         print(f"[{self.node_name}] Generating {width}x{height} image...")
-        print(f"[{self.node_name}] Prompt: {prompt[:100]}...")  # 앞부분만 출력
+        print(f"[{self.node_name}] Prompt: {prompt[:100]}...")
 
+        # Z-Image Turbo는 negative_prompt 미지원 (CFG 미사용)
         result = self.pipe(
             prompt=prompt,
-            negative_prompt=negative_prompt,
-            width=width,
             height=height,
-            num_inference_steps=num_inference_steps,
-            guidance_scale=guidance_scale,
+            width=width,
+            num_inference_steps=num_inference_steps + 1,  # Z-Image는 n+1 steps = n forwards
+            guidance_scale=0.0,  # Turbo 모델은 guidance 0 권장
             generator=generator,
         )
 
         image = result.images[0]
 
-        # 자동 언로드 (메모리 절약)
+        # 자동 언로드
         if self.auto_unload:
             print(f"[{self.node_name}] Auto-unloading pipeline to free memory...")
             self.unload_pipeline()
 
-        # 실제 사용된 시드 반환 (없었으면 None)
         return {
             "image": image,
             "seed": seed,
@@ -209,13 +199,9 @@ class Text2ImageNode(BaseNode):
         return ["image", "seed", "width", "height"]
 
     def unload_pipeline(self):
-        """
-        파이프라인 언로드 (메모리 절약)
-
-        사용 후 메모리를 확보하고 싶을 때 호출
-        """
+        """파이프라인 언로드 (메모리 절약)"""
         if self.pipe is not None:
             del self.pipe
             self.pipe = None
-            torch.cuda.empty_cache()  # GPU 메모리 정리
+            torch.cuda.empty_cache()
             print(f"[{self.node_name}] Pipeline unloaded")
