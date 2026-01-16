@@ -77,29 +77,33 @@ class Text2ImageNode(BaseNode):
             pipe = DiffusionPipeline.from_pretrained(
                 str(ZIT_BASE_MODEL),
                 scheduler=scheduler,
-                torch_dtype=torch.bfloat16,
+                torch_dtype=torch.bfloat16,  # ZIT는 bfloat16 필수 (float16은 NaN 생성)
                 local_files_only=True,
                 trust_remote_code=True,
                 low_cpu_mem_usage=True  # 로딩 시 RAM 스파이크 방지
             )
 
-            # GPU 메모리 전략 선택
-            # Option 1: 전체 GPU 로드 (빠름, VRAM 15-18GB 예상)
-            # Option 2: CPU Offload (느림, VRAM 절약하지만 매번 디스크 I/O)
+            # ComfyUI 스타일 최적화
+            # Model CPU Offload (Sequential보다 빠름, ComfyUI와 유사)
+            pipe.enable_model_cpu_offload(gpu_id=0)
+
+            # Attention 최적화 (ComfyUI의 pytorch attention)
             try:
-                pipe.to("cuda")
-                print(f"[{self.node_name}] ✅ Model loaded to GPU")
-            except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
-                print(f"[{self.node_name}] ⚠️ GPU OOM, falling back to CPU offload: {e}")
-                # GPU 메모리 정리 (부분 로드된 경우 대비)
-                torch.cuda.empty_cache()
-                gc.collect()
-                # CPU Offload 활성화
-                pipe.enable_model_cpu_offload()
+                # PyTorch 2.0+ scaled dot product attention (FlashAttention)
+                if hasattr(pipe, "unet") and hasattr(pipe.unet, "set_attn_processor"):
+                    from diffusers.models.attention_processor import AttnProcessor2_0
+                    pipe.unet.set_attn_processor(AttnProcessor2_0())
+                elif hasattr(pipe, "transformer") and hasattr(pipe.transformer, "set_attn_processor"):
+                    from diffusers.models.attention_processor import AttnProcessor2_0
+                    pipe.transformer.set_attn_processor(AttnProcessor2_0())
+            except Exception as e:
+                print(f"[{self.node_name}] Could not enable attention optimization: {e}")
 
             # VAE Optimization (고해상도 대응)
             pipe.vae.enable_tiling()
             pipe.vae.enable_slicing()
+
+            print(f"[{self.node_name}] ✅ Model loaded with optimized CPU offload + attention")
             
             _GLOBAL_PIPE = pipe
             return pipe
