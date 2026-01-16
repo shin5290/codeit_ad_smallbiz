@@ -46,6 +46,7 @@ def generate_and_save_image(
     reference_image: Optional[Image.Image] = None,
     control_type: Literal["canny", "depth", "pose"] = "canny",
     controlnet_conditioning_scale: float = 0.8,
+    conversation_history: Optional[list] = None,
 ) -> Dict[str, Any]:
     """
     한글 사용자 입력으로 자동 프롬프트 생성 후 이미지 생성 및 저장
@@ -74,6 +75,8 @@ def generate_and_save_image(
         seed: 랜덤 시드 (재현성)
         filename: 커스텀 파일명 (선택, 미사용 - 해시 기반 자동 생성)
         storage_dir: 커스텀 저장 디렉토리 (선택)
+        conversation_history: 대화 히스토리 (선택사항)
+            [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
 
     Returns:
         Dict[str, Any]: 생성 결과
@@ -106,7 +109,8 @@ def generate_and_save_image(
         prompt_generator = PromptTemplateManager()
         prompt_result = prompt_generator.generate_detailed_prompt(
             user_input=user_input,
-            style=style
+            style=style,
+            conversation_history=conversation_history
         )
 
         prompt = prompt_result["positive"]
