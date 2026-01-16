@@ -44,9 +44,9 @@ class Image2ImageControlNetNode(BaseNode):
         image = result["image"]
     """
 
-    # 클래스 변수: VAE 캐시 (Text2ImageNode와 공유)
+    # 클래스 변수: 파이프라인 캐시 (Text2ImageNode와 공유)
     from .text2image import Text2ImageNode
-    _vae_cache = Text2ImageNode._vae_cache
+    _pipe_cache = Text2ImageNode._pipe_cache
 
     def __init__(
         self,
