@@ -98,11 +98,11 @@ class Text2ImageNode(BaseNode):
                 gc.collect()
                 torch.cuda.empty_cache()
 
-            # 2단계: 오프로드 모드 전환 (ComfyUI 방식)
-            # 20.5GB를 램/스왑에 두고 필요할 때만 GPU로 가져옴
-            pipe.enable_model_cpu_offload() 
-            
-            print(f"[{self.node_name}] 🔄 Switched to Memory Optimized Mode.")
+                # 2단계: 오프로드 모드 전환 (ComfyUI 방식)
+                # 20.5GB를 램/스왑에 두고 필요할 때만 GPU로 가져옴
+                pipe.enable_model_cpu_offload() 
+                
+                print(f"[{self.node_name}] 🔄 Switched to Memory Optimized Mode.")
 
             # Attention 최적화 (PyTorch 2.0+ FlashAttention)
             try:
