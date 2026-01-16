@@ -89,8 +89,12 @@ class Text2ImageNode(BaseNode):
             try:
                 pipe.to("cuda")
                 print(f"[{self.node_name}] ✅ Model loaded to GPU")
-            except torch.cuda.OutOfMemoryError:
-                print(f"[{self.node_name}] ⚠️ GPU OOM, falling back to CPU offload")
+            except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
+                print(f"[{self.node_name}] ⚠️ GPU OOM, falling back to CPU offload: {e}")
+                # GPU 메모리 정리 (부분 로드된 경우 대비)
+                torch.cuda.empty_cache()
+                gc.collect()
+                # CPU Offload 활성화
                 pipe.enable_model_cpu_offload()
 
             # VAE Optimization (고해상도 대응)
