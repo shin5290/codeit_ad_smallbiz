@@ -45,8 +45,8 @@ class Image2ImageControlNetNode(BaseNode):
     """
 
     # 클래스 변수: 파이프라인 캐시 (Text2ImageNode와 공유)
-    from .text2image import Text2ImageNode
-    _pipe_cache = Text2ImageNode._GLOBAL_PIPE
+    from .text2image import _GLOBAL_PIPE
+    _pipe_cache = _GLOBAL_PIPE
 
     def __init__(
         self,
