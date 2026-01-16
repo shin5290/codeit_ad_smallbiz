@@ -83,7 +83,16 @@ class Text2ImageNode(BaseNode):
                 low_cpu_mem_usage=True  # 로딩 시 RAM 스파이크 방지
             )
 
-            pipe.enable_model_cpu_offload()
+            # GPU 메모리 전략 선택
+            # Option 1: 전체 GPU 로드 (빠름, VRAM 15-18GB 예상)
+            # Option 2: CPU Offload (느림, VRAM 절약하지만 매번 디스크 I/O)
+            try:
+                pipe.to("cuda")
+                print(f"[{self.node_name}] ✅ Model loaded to GPU")
+            except torch.cuda.OutOfMemoryError:
+                print(f"[{self.node_name}] ⚠️ GPU OOM, falling back to CPU offload")
+                pipe.enable_model_cpu_offload()
+
             # VAE Optimization (고해상도 대응)
             pipe.vae.enable_tiling()
             pipe.vae.enable_slicing()
