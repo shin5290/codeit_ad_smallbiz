@@ -23,8 +23,8 @@ from PIL import Image
 import threading # [전략 2] 동시성 제어용
 
 from diffusers import (
-    DiffusionPipeline,
     FlowMatchEulerDiscreteScheduler,
+    ZImagePipeline,
     AutoencoderKL
 )
 
@@ -37,7 +37,9 @@ from ..config import (
 
 # Z-Image Turbo 모델 경로
 ZIT_MODELS_DIR = Path(os.getenv("ZIT_MODELS_DIR", "/opt/ai-models/zit"))
-ZIT_BASE_MODEL = ZIT_MODELS_DIR / "Z-Image-Turbo-Base"
+
+# Diffusers BF16 버전 (dimitribarbot - 20.5GB, 원본보다 12GB 작음)
+ZIT_BASE_MODEL = ZIT_MODELS_DIR / "Z-Image-Turbo-BF16"
 ZIT_LORA_DIR = ZIT_MODELS_DIR / "lora"
 
 # 스타일별 LoRA 매핑
@@ -64,47 +66,60 @@ class Text2ImageNode(BaseNode):
 
     def load_pipeline(self):
         global _GLOBAL_PIPE
-        
+
         if _GLOBAL_PIPE is not None:
             return _GLOBAL_PIPE
 
-        print(f"[{self.node_name}] 🚀 Initializing Pipeline (Enterprise Settings)...")
+        print(f"[{self.node_name}] 🚀 Loading ZIT BF16 (dimitribarbot - 20.5GB)...")
         try:
+            # BF16 사전 변환 모델 로드 (원본 32.9GB → 20.5GB)
             scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(
                 str(ZIT_BASE_MODEL), subfolder="scheduler"
             )
 
-            pipe = DiffusionPipeline.from_pretrained(
+            pipe = ZImagePipeline.from_pretrained(
                 str(ZIT_BASE_MODEL),
                 scheduler=scheduler,
-                torch_dtype=torch.bfloat16,  # ZIT는 bfloat16 필수 (float16은 NaN 생성)
+                torch_dtype=torch.bfloat16,
                 local_files_only=True,
-                trust_remote_code=True,
-                low_cpu_mem_usage=True  # 로딩 시 RAM 스파이크 방지
+                low_cpu_mem_usage=True
             )
 
-            # ComfyUI 스타일 최적화
-            # Model CPU Offload (Sequential보다 빠름, ComfyUI와 유사)
-            pipe.enable_model_cpu_offload(gpu_id=0)
-
-            # Attention 최적화 (ComfyUI의 pytorch attention)
             try:
-                # PyTorch 2.0+ scaled dot product attention (FlashAttention)
-                if hasattr(pipe, "unet") and hasattr(pipe.unet, "set_attn_processor"):
-                    from diffusers.models.attention_processor import AttnProcessor2_0
-                    pipe.unet.set_attn_processor(AttnProcessor2_0())
-                elif hasattr(pipe, "transformer") and hasattr(pipe.transformer, "set_attn_processor"):
+                print(f"[{self.node_name}] 🚀 Attempting to load entire model to GPU (20.5GB)...")            
+                # 모델 전체를 GPU로 이동
+                pipe.to("cuda")            
+                print(f"[{self.node_name}] ✅ Success! Running in Max Speed Mode.")
+
+            except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
+                # 실패 시: 여기서 안전장치 발동
+                print(f"[{self.node_name}] ⚠️ GPU OOM detected! Falling back to Smart Offload.")
+                
+                gc.collect()
+                torch.cuda.empty_cache()
+
+            # 2단계: 오프로드 모드 전환 (ComfyUI 방식)
+            # 20.5GB를 램/스왑에 두고 필요할 때만 GPU로 가져옴
+            pipe.enable_model_cpu_offload() 
+            
+            print(f"[{self.node_name}] 🔄 Switched to Memory Optimized Mode.")
+
+            # Attention 최적화 (PyTorch 2.0+ FlashAttention)
+            try:
+                if hasattr(pipe, "transformer") and hasattr(pipe.transformer, "set_attn_processor"):
                     from diffusers.models.attention_processor import AttnProcessor2_0
                     pipe.transformer.set_attn_processor(AttnProcessor2_0())
+                    print(f"[{self.node_name}] FlashAttention enabled")
             except Exception as e:
                 print(f"[{self.node_name}] Could not enable attention optimization: {e}")
 
-            # VAE Optimization (고해상도 대응)
+            # VAE 최적화 (고해상도 대응)
             pipe.vae.enable_tiling()
             pipe.vae.enable_slicing()
+            print(f"[{self.node_name}] VAE tiling/slicing enabled")
 
-            print(f"[{self.node_name}] ✅ Model loaded with optimized CPU offload + attention")
-            
+            print(f"[{self.node_name}] ✅ Model loaded successfully")
+
             _GLOBAL_PIPE = pipe
             return pipe
 

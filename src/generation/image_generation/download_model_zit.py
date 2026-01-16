@@ -17,9 +17,9 @@ BASE_DIR.mkdir(parents=True, exist_ok=True)
 # [A] 전체 저장소 다운로드 (베이스 모델용)
 # 폴더 구조가 필요한 모델들입니다.
 REPO_DOWNLOADS = {
-    "Tongyi-MAI/Z-Image-Turbo": {
+    "dimitribarbot/Z-Image-Turbo-BF16": {
         "desc": "ZIT 베이스 모델 (전체)",
-        "folder": "Z-Image-Turbo-Base"  # 로컬에 저장될 폴더명
+        "folder": "Z-Image-Turbo-BF16"  # 로컬에 저장될 폴더명
     }
 }
 
