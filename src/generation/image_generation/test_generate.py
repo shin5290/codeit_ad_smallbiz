@@ -84,8 +84,6 @@ def run_generation(params):
         user_input=params["user_input"],
         style=params["style"],
         aspect_ratio=params["aspect_ratio"],
-        num_inference_steps=30,  # 테스트용으로 빠르게
-        guidance_scale=7.5
     )
 
     print("\n" + "=" * 40)
