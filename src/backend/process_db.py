@@ -459,3 +459,142 @@ def save_generation_history(db: Session, data: Dict):
     db.commit()
     db.refresh(gen_history)
     return gen_history
+
+
+def get_chat_history_by_session(
+    db: Session,
+    session_id: str,
+    limit: int = 10
+) -> List[models.ChatHistory]:
+    """
+    세션별 최근 대화 이력 조회
+    """
+    return (
+        db.query(models.ChatHistory)
+        .filter(models.ChatHistory.session_id == session_id)
+        .order_by(models.ChatHistory.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def get_generation_history_by_session(
+    db: Session,
+    session_id: str,
+    limit: int = 5
+) -> List[models.GenerationHistory]:
+    """
+    세션별 생성 이력 조회
+    """
+    return (
+        db.query(models.GenerationHistory)
+        .filter(models.GenerationHistory.session_id == session_id)
+        .order_by(models.GenerationHistory.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+# -----------------------------
+# Generation History - Revision 관련
+# -----------------------------
+def get_latest_generation(
+    db: Session,
+    session_id: str,
+) -> Optional[models.GenerationHistory]:
+    """
+    세션의 가장 최근 생성 이력 조회
+    """
+    return (
+        db.query(models.GenerationHistory)
+        .filter(models.GenerationHistory.session_id == session_id)
+        .order_by(models.GenerationHistory.created_at.desc())
+        .first()
+    )
+
+
+def get_latest_unconfirmed_generation(
+    db: Session,
+    session_id: str,
+) -> Optional[models.GenerationHistory]:
+    """
+    세션의 가장 최근 미확정 생성 이력 조회
+    """
+    return (
+        db.query(models.GenerationHistory)
+        .filter(
+            models.GenerationHistory.session_id == session_id,
+            models.GenerationHistory.is_confirmed == False
+        )
+        .order_by(models.GenerationHistory.created_at.desc())
+        .first()
+    )
+
+
+def confirm_generation(
+    db: Session,
+    generation_id: int,
+) -> Optional[models.GenerationHistory]:
+    """
+    생성 이력 확정 처리
+    """
+    gen = (
+        db.query(models.GenerationHistory)
+        .filter(models.GenerationHistory.id == generation_id)
+        .first()
+    )
+
+    if gen:
+        gen.is_confirmed = True
+        db.commit()
+        db.refresh(gen)
+        logger.info(f"confirm_generation: id={generation_id} confirmed")
+
+    return gen
+
+
+def save_generation_history_with_revision(
+    db: Session,
+    data: Dict,
+    revision_of_id: Optional[int] = None,
+) -> models.GenerationHistory:
+    """
+    GenerationHistory 저장 (revision 관계 포함)
+    """
+    # revision 번호 계산
+    revision_number = 0
+    if revision_of_id:
+        prev_gen = (
+            db.query(models.GenerationHistory)
+            .filter(models.GenerationHistory.id == revision_of_id)
+            .first()
+        )
+        if prev_gen:
+            revision_number = prev_gen.revision_number + 1
+
+    gen_history = models.GenerationHistory(
+        session_id=data["session_id"],
+        content_type=data["content_type"],
+        input_text=data.get("input_text"),
+        output_text=data.get("output_text"),
+        prompt=data.get("prompt"),
+        input_image_id=data.get("input_image_id"),
+        output_image_id=data.get("output_image_id"),
+        generation_method=data.get("generation_method"),
+        style=data.get("style"),
+        industry=data.get("industry"),
+        seed=data.get("seed"),
+        aspect_ratio=data.get("aspect_ratio"),
+        is_confirmed=False,
+        revision_of_id=revision_of_id,
+        revision_number=revision_number,
+    )
+    db.add(gen_history)
+    db.commit()
+    db.refresh(gen_history)
+
+    logger.info(
+        f"save_generation_history_with_revision: id={gen_history.id}, "
+        f"revision_of_id={revision_of_id}, revision_number={revision_number}"
+    )
+    return gen_history
