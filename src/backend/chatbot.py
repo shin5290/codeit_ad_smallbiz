@@ -7,7 +7,7 @@ RAG 기반 챗봇 모듈
 - RAGChatbot: RAG 챗봇 메인 클래스 (Intent 분석 후 분기 처리)
 """
 
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, AsyncIterator
 from sqlalchemy.orm import Session
 import logging
 
@@ -361,6 +361,38 @@ JSON 형식으로만 응답하세요:
         except Exception as e:
             logger.error(f"LLMOrchestrator: consulting response generation failed: {e}", exc_info=True)
             return "죄송합니다. 일시적인 오류가 발생했습니다. 다시 시도해 주세요."
+
+    async def stream_consulting_response(
+        self,
+        user_message: str,
+        context: Dict
+    ) -> AsyncIterator[str]:
+        """상담 응답 스트리밍 (상담 intent에만 사용)"""
+        import openai
+
+        system_prompt = self._build_consulting_system_prompt()
+        user_prompt = self._build_consulting_user_prompt(user_message, context)
+
+        try:
+            client = openai.AsyncOpenAI(api_key=self.api_key)
+            stream = await client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.7,
+                stream=True,
+            )
+
+            async for chunk in stream:
+                delta = chunk.choices[0].delta.content if chunk.choices else None
+                if delta:
+                    yield delta
+
+        except Exception as e:
+            logger.error(f"LLMOrchestrator: consulting stream failed: {e}", exc_info=True)
+            yield "죄송합니다. 일시적인 오류가 발생했습니다. 다시 시도해 주세요."
 
     def _build_consulting_system_prompt(self) -> str:
         return """

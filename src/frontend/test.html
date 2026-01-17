@@ -4,17 +4,19 @@
 <head>
     <meta charset="UTF-8" />
     <title>AI 광고 챗봇 테스트 센터</title>
-    <link rel="icon" type="image/png" sizes="16x16"  href="/static/favicon.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon.png">
     <meta name="msapplication-TileColor" content="#ffffff">
     <meta name="theme-color" content="#ffffff">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
     <style>
         body {
-            font-family: 'Pretendard', sans-serif;
+            font-family: 'IBM Plex Sans KR', 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
             background: #f8f9fa;
             margin: 0;
             display: flex;
             flex-direction: column;
             height: 100vh;
+            font-size: 15px;
         }
 
         /* 헤더 스타일: 우상단 버튼 배치 */
@@ -37,14 +39,14 @@
         .logo {
             font-weight: bold;
             color: #4F46E5;
-            font-size: 1.2rem;
+            font-size: 1.25rem;
         }
 
         .auth-buttons button {
             width: auto;
             padding: 8px 15px;
             margin-left: 5px;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             border-radius: 6px;
         }
 
@@ -92,7 +94,7 @@
             margin-bottom: 15px;
             padding: 14px 18px;
             border-radius: 16px;
-            font-size: 14px;
+            font-size: 15px;
             line-height: 1.6;
             max-width: 75%;
             width: fit-content;
@@ -140,7 +142,7 @@
             border: 1px solid #e0e0e0;
             border-radius: 10px;
             outline: none;
-            font-size: 14px;
+            font-size: 15px;
             transition: all 0.2s;
         }
 
@@ -233,7 +235,7 @@
             border: 1px solid #e0e0e0;
             border-radius: 8px;
             margin-bottom: 12px;
-            font-size: 14px;
+            font-size: 15px;
             box-sizing: border-box;
             transition: border-color 0.2s;
         }
@@ -327,8 +329,36 @@
             opacity: 0.9;
         }
 
+        .msg p {
+            margin: 0 0 8px;
+        }
+        .msg p:last-child {
+            margin-bottom: 0;
+        }
+        .msg ul,
+        .msg ol {
+            margin: 6px 0 6px 18px;
+            padding: 0;
+        }
+        .msg code {
+            background: #f1f3f5;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        }
+        .msg pre {
+            background: #f1f3f5;
+            padding: 10px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        .msg pre code {
+            background: none;
+            padding: 0;
+        }
+
         .user-info {
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             color: #666;
             margin-right: 15px;
         }
@@ -635,6 +665,8 @@
         <img id="modal-image" src="" alt="Full size image">
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
     <script>
         const API_BASE = window.location.origin;
         let currentSessionId = null;
@@ -689,7 +721,7 @@
             div.className = `msg ${role}`;
             if (messageId) div.dataset.messageId = String(messageId);
 
-            if (text) div.innerHTML = `<p style="margin:0;">${escapeHtml(text)}</p>`;
+            if (text) div.innerHTML = renderMessageContent(text);
 
             if (Array.isArray(imageUrls)) {
                 imageUrls.forEach((url) => {
@@ -735,7 +767,8 @@
             clearChatBox();
             setChatLoading(false);
             if (items.length === 0) {
-                appendMsg("assistant", "안녕하세요! 어떤 광고 아이디어가 필요하신가요?");
+                const greetId = appendAssistantPlaceholder("");
+                if (greetId) streamAssistantText(greetId, "안녕하세요! 어떤 광고 아이디어가 필요하신가요?");
                 nextCursor = null;
                 oldestMessageId = null;
                 return;
@@ -782,7 +815,8 @@
         if (!hasCachedUser) {
           setChatLoading(false);
           clearChatBox();
-          appendMsg("assistant", "안녕하세요! 어떤 광고 아이디어가 필요하신가요?");
+          const greetId = appendAssistantPlaceholder("");
+          if (greetId) streamAssistantText(greetId, "안녕하세요! 어떤 광고 아이디어가 필요하신가요?");
           showLoggedOutUI();
           setAuthChecking(false);
           return;
@@ -799,7 +833,8 @@
                 if (!res.ok) {
                     setChatLoading(false);
                     clearChatBox();
-                    appendMsg("assistant", "안녕하세요! 어떤 광고 아이디어가 필요하신가요?");
+                    const greetId = appendAssistantPlaceholder("");
+                    if (greetId) streamAssistantText(greetId, "안녕하세요! 어떤 광고 아이디어가 필요하신가요?");
                     showLoggedOutUI();
                     return;
                 }
@@ -1148,7 +1183,7 @@
             const id = `a_${Date.now()}_${Math.random().toString(16).slice(2)}`;
             div.id = id;
             div.className = `msg assistant`;
-            div.innerHTML = `<p style="margin:0;">${escapeHtml(text)}</p>`;
+            div.innerHTML = renderMessageContent(text);
             content.appendChild(div);
             box.scrollTop = box.scrollHeight;
             return id;
@@ -1157,7 +1192,7 @@
         function updateAssistantPlaceholder(id, text, imageUrls) {
             const div = document.getElementById(id);
             if (!div) return;
-            div.innerHTML = `<p style="margin:0;">${escapeHtml(text)}</p>`;
+            div.innerHTML = renderMessageContent(text);
             if (Array.isArray(imageUrls)) {
                 imageUrls.forEach((url) => {
                     div.innerHTML += `<img src="${url}" onclick="openImageModal('${url}')">`;
@@ -1167,6 +1202,53 @@
             }
             const box = document.getElementById('chatBox');
             box.scrollTop = box.scrollHeight;
+        }
+
+        async function streamAssistantText(id, text, { speed = 15, chunkSize = 1 } = {}) {
+            const div = document.getElementById(id);
+            const box = document.getElementById('chatBox');
+            if (!div || !box) return;
+            if (!text) {
+                updateAssistantPlaceholder(id, "");
+                return;
+            }
+
+            if (!streamAssistantText._timers) {
+                streamAssistantText._timers = new Map();
+            }
+            const timers = streamAssistantText._timers;
+            const prevTimer = timers.get(id);
+            if (prevTimer) clearInterval(prevTimer);
+
+            let index = 0;
+            await new Promise((resolve) => {
+                const timer = setInterval(() => {
+                    if (!document.getElementById(id)) {
+                        clearInterval(timer);
+                        timers.delete(id);
+                        resolve();
+                        return;
+                    }
+                    index = Math.min(text.length, index + chunkSize);
+                    div.innerHTML = renderMessageContent(text.slice(0, index));
+                    box.scrollTop = box.scrollHeight;
+                    if (index >= text.length) {
+                        clearInterval(timer);
+                        timers.delete(id);
+                        resolve();
+                    }
+                }, speed);
+                timers.set(id, timer);
+            });
+        }
+
+        function renderMessageContent(text) {
+            if (!text) return "";
+            if (window.marked && window.DOMPurify) {
+                const rawHtml = marked.parse(text, { breaks: true });
+                return DOMPurify.sanitize(rawHtml);
+            }
+            return `<p style="margin:0;">${escapeHtml(text)}</p>`;
         }
 
         // ====== (추가) HTML 이스케이프 ======
@@ -1200,7 +1282,6 @@
             }
             form.append("message", msg);
 
-            // 이미지 파일 추가 (선택사항)
             if (selectedImageFile) {
                 form.append("image", selectedImageFile);
             }
@@ -1208,7 +1289,106 @@
             selectedImageFile = null;
             renderPreviews();
 
-            const loadingId = appendAssistantPlaceholder("처리 중입니다...");
+            const loadingId = appendAssistantPlaceholder("");
+            if (loadingId) streamAssistantText(loadingId, "처리 중입니다...");
+
+            try {
+                await sendChatStream(form, loadingId);
+            } catch (e) {
+                console.error(e);
+                await sendChatLegacy(form, loadingId);
+            }
+        }
+
+        async function sendChatStream(form, loadingId) {
+            if (!loadingId) return;
+
+            const res = await fetch(`${API_BASE}/chat/message/stream`, {
+                method: 'POST',
+                body: form,
+                credentials: "include",
+            });
+
+            if (!res.ok || !res.body) {
+                const err = await safeJson(res);
+                throw new Error(err.detail || "stream failed");
+            }
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let assistantText = "";
+            let pendingTaskId = null;
+
+            const applySessionId = (sessionId) => {
+                if (!sessionId) return;
+                currentSessionId = sessionId;
+                localStorage.setItem("session_id", sessionId);
+            };
+
+            const handlePayload = (payload) => {
+                if (!payload) return;
+                if (payload.session_id) applySessionId(payload.session_id);
+
+                if (payload.type === "chunk") {
+                    assistantText += payload.content || "";
+                    updateAssistantPlaceholder(loadingId, assistantText);
+                    return;
+                }
+
+                if (payload.type === "done") {
+                    assistantText = payload.assistant_message || assistantText;
+                    updateAssistantPlaceholder(loadingId, assistantText);
+                    return;
+                }
+
+                if (payload.type === "result") {
+                    pendingTaskId = payload.task_id || null;
+                    streamAssistantText(
+                        loadingId,
+                        payload.assistant_message || "광고를 생성하고 있습니다..."
+                    );
+                    return;
+                }
+
+                if (payload.type === "error") {
+                    streamAssistantText(loadingId, payload.message || "요청 실패");
+                }
+            };
+
+            const handleEventBlock = (block) => {
+                const lines = block.split("\n");
+                const dataLines = lines.filter((line) => line.startsWith("data:"));
+                if (dataLines.length === 0) return;
+                const dataText = dataLines.map((line) => line.replace(/^data:\s?/, "")).join("");
+                try {
+                    handlePayload(JSON.parse(dataText));
+                } catch (e) {
+                    console.error(e);
+                }
+            };
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const parts = buffer.split("\n\n");
+                buffer = parts.pop();
+                parts.forEach(handleEventBlock);
+            }
+
+            if (buffer.trim()) {
+                handleEventBlock(buffer);
+            }
+
+            if (pendingTaskId) {
+                await streamAssistantText(loadingId, "광고를 생성하고 있습니다...");
+                await pollTask(pendingTaskId, loadingId);
+            }
+        }
+
+        async function sendChatLegacy(form, loadingId) {
+            if (!loadingId) return;
 
             try {
                 const res = await fetch(`${API_BASE}/chat/message`, {
@@ -1219,7 +1399,7 @@
 
                 if (!res.ok) {
                     const err = await safeJson(res);
-                    updateAssistantPlaceholder(loadingId, err.detail ?? "요청 실패");
+                    await streamAssistantText(loadingId, err.detail ?? "요청 실패");
                     return;
                 }
 
@@ -1227,34 +1407,29 @@
                 currentSessionId = data.session_id;
                 if (data.session_id) localStorage.setItem("session_id", data.session_id);
 
-                // Intent 분석 결과 확인
                 const intent = data.intent || "consulting";
 
-                // 1. 상담 intent: 바로 응답 표시
                 if (intent === "consulting") {
                     const assistantMessage = data.assistant_message || "무엇을 도와드릴까요?";
-                    updateAssistantPlaceholder(loadingId, assistantMessage);
+                    await streamAssistantText(loadingId, assistantMessage);
                     return;
                 }
 
-                // 2. 생성/수정 intent: 생성 파이프라인으로 리다이렉트
                 if (intent === "generation" || intent === "modification") {
                     if (data.redirect_to_pipeline && data.task_id) {
-                        updateAssistantPlaceholder(loadingId, "광고를 생성하고 있습니다...");
+                        await streamAssistantText(loadingId, "광고를 생성하고 있습니다...");
                         await pollTask(data.task_id, loadingId);
-                        // pollTask 내에서 이미 checkUnconfirmedGeneration() 호출함
                     } else {
-                        updateAssistantPlaceholder(loadingId, data.assistant_message || "처리 중입니다...");
+                        await streamAssistantText(loadingId, data.assistant_message || "처리 중입니다...");
                     }
                     return;
                 }
 
-                // 기본값: 응답 메시지 표시
-                updateAssistantPlaceholder(loadingId, data.assistant_message || "처리가 완료되었습니다.");
+                await streamAssistantText(loadingId, data.assistant_message || "처리가 완료되었습니다.");
 
             } catch (e) {
                 console.error(e);
-                updateAssistantPlaceholder(loadingId, "서버와 통신하는 중 오류가 발생했습니다.");
+                await streamAssistantText(loadingId, "서버와 통신하는 중 오류가 발생했습니다.");
             }
         }
 
@@ -1345,7 +1520,8 @@
                 return;
             }
 
-            const loadingId = appendAssistantPlaceholder("광고를 수정하고 있습니다...");
+            const loadingId = appendAssistantPlaceholder("");
+            if (loadingId) streamAssistantText(loadingId, "광고를 수정하고 있습니다...");
 
             try {
                 const form = new FormData();
@@ -1365,7 +1541,7 @@
 
                 if (!res.ok) {
                     const err = await safeJson(res);
-                    updateAssistantPlaceholder(loadingId, err.detail ?? "수정 요청 실패");
+                    await streamAssistantText(loadingId, err.detail ?? "수정 요청 실패");
                     return;
                 }
 
@@ -1374,12 +1550,12 @@
                     await pollTask(data.task_id, loadingId);
                     // pollTask 내에서 이미 checkUnconfirmedGeneration() 호출함
                 } else {
-                    updateAssistantPlaceholder(loadingId, "수정이 완료되었습니다.");
+                    await streamAssistantText(loadingId, "수정이 완료되었습니다.");
                     await checkUnconfirmedGeneration();
                 }
             } catch (e) {
                 console.error(e);
-                updateAssistantPlaceholder(loadingId, "수정 요청 중 오류가 발생했습니다.");
+                await streamAssistantText(loadingId, "수정 요청 중 오류가 발생했습니다.");
             }
         }
 
@@ -1421,7 +1597,8 @@
                 }
 
                 const data = await safeJson(res);
-                appendMsg("assistant", data.message || "광고가 확정되었습니다.");
+                const confirmId = appendAssistantPlaceholder("");
+                await streamAssistantText(confirmId, data.message || "광고가 확정되었습니다.");
 
                 hasUnconfirmedGeneration = false;
                 toggleAdActions(false);
@@ -1444,12 +1621,12 @@
                 });
 
                 if (res.status === 404) {
-                    updateAssistantPlaceholder(placeholderId, "작업을 찾을 수 없습니다.");
+                    await streamAssistantText(placeholderId, "작업을 찾을 수 없습니다.");
                     return;
                 }
 
                 if (!res.ok) {
-                    updateAssistantPlaceholder(placeholderId, "작업 상태 조회에 실패했습니다.");
+                    await streamAssistantText(placeholderId, "작업 상태 조회에 실패했습니다.");
                     return;
                 }
 
@@ -1466,26 +1643,30 @@
                         if (img.startsWith("/")) return `${API_BASE}${img}`;
                         return `${API_BASE}/images/${img}`;
                     }).filter(Boolean) : [];
-                    updateAssistantPlaceholder(placeholderId, output.output_text ?? "", imageUrls);
+                    const outputText = output.output_text ?? "";
+                    if (outputText) {
+                        await streamAssistantText(placeholderId, outputText);
+                    }
+                    updateAssistantPlaceholder(placeholderId, outputText, imageUrls);
                     // 광고 생성 완료 후 수정/확정 버튼 표시 여부 확인
                     await checkUnconfirmedGeneration();
                     return;
                 }
 
                 if (statusValue === "failed" || status.error) {
-                    updateAssistantPlaceholder(placeholderId, status.error ?? "작업 실패");
+                    await streamAssistantText(placeholderId, status.error ?? "작업 실패");
                     return;
                 }
 
                 const progress = Number.isFinite(status.progress) ? status.progress : 0;
-                updateAssistantPlaceholder(
+                await streamAssistantText(
                     placeholderId,
                     `생성 중입니다... (${progress}%) [${statusValue || "pending"}]`
                 );
                 await new Promise(r => setTimeout(r, 1000));
             }
 
-            updateAssistantPlaceholder(placeholderId, "처리 시간이 길어지고 있습니다. 잠시 후 다시 시도해주세요.");
+            await streamAssistantText(placeholderId, "처리 시간이 길어지고 있습니다. 잠시 후 다시 시도해주세요.");
         }
 
         // ====== 이미지 모달 제어 ======

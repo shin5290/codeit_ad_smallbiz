@@ -3,10 +3,12 @@ RAG 챗봇 API 라우터
 """
 
 import logging
+import json
 import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from src.backend import process_db, services, schemas
@@ -48,6 +50,44 @@ async def chat_message(
     )
 
     return result
+
+
+@router.post("/message/stream")
+async def chat_message_stream(
+    background_tasks: BackgroundTasks,
+    message: str = Form(..., description="사용자 메시지"),
+    session_id: Optional[str] = Form(None, description="세션 ID (선택)"),
+    image: Optional[UploadFile] = File(None, description="업로드 이미지 (선택)"),
+    db: Session = Depends(process_db.get_db),
+    current_user=Depends(services.get_current_user),
+):
+    """
+    챗봇에 메시지 전송 (스트리밍)
+    - consulting 응답을 SSE로 스트리밍
+    """
+    user_id = current_user.user_id if current_user else None
+
+    async def event_stream():
+        try:
+            async for payload in services.handle_chat_message_stream(
+                db=db,
+                session_id=session_id,
+                user_id=user_id,
+                message=message,
+                image=image,
+                background_tasks=background_tasks,
+            ):
+                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+        except Exception as exc:
+            logger.error(f"chat_message_stream failed: {exc}", exc_info=True)
+            error_payload = {"type": "error", "message": "요청 처리 중 오류가 발생했습니다."}
+            yield f"data: {json.dumps(error_payload, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/session", response_model=schemas.SessionResponse)

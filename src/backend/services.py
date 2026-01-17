@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from fastapi import Cookie, Depends, HTTPException, Response, UploadFile
 from jose import JWTError
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, AsyncIterator
 from PIL import Image
 
 from src.backend import process_db, schemas, models
@@ -783,6 +783,142 @@ async def handle_chat_message(
         }
 
     return response
+
+
+async def handle_chat_message_stream(
+    *,
+    db: Session,
+    session_id: Optional[str],
+    user_id: Optional[int],
+    message: str,
+    image: Optional[UploadFile] = None,
+    background_tasks=None,
+) -> AsyncIterator[Dict]:
+    """
+    RAG 챗봇 메시지 처리 스트리밍 서비스 (SSE용)
+    - consulting: 응답을 스트리밍으로 전송
+    - generation/modification: 즉시 task_id 반환
+    """
+    import uuid
+
+    logger.info(f"handle_chat_message_stream: session_id={session_id}, user_id={user_id}")
+
+    # 1. 세션 확보
+    session_id = normalize_session_id(session_id)
+    session_key = ensure_chat_session(db, session_id, user_id)
+
+    # 2. 이미지 처리 (있는 경우)
+    image_id = None
+    image_data = None
+    if image:
+        logger.info("handle_chat_message_stream: processing image upload")
+        base_dir = os.path.join(PROJECT_ROOT, "data", "uploads")
+        image_data = await save_uploaded_image(image=image, base_dir=base_dir)
+
+        if image_data:
+            image_row = process_db.save_image_from_hash(
+                db=db,
+                file_hash=image_data["file_hash"],
+                file_directory=image_data["file_directory"],
+            )
+            image_id = image_row.id
+            logger.info(f"handle_chat_message_stream: image saved with id={image_id}")
+
+    # 3. 사용자 메시지 저장
+    chatbot = get_chatbot()
+    chatbot.conv.add_message(db, session_key, "user", message, image_id)
+
+    # 4. 의도 분석 컨텍스트 구성
+    similar_conversations = chatbot.conv.search_similar_messages(
+        db,
+        query=message,
+        session_id=session_key,
+        limit=5,
+        similarity_threshold=0.6,
+    )
+    generation_history = chatbot.conv.get_generation_history(db, session_key, limit=5)
+    context = {
+        "recent_conversations": similar_conversations,
+        "generation_history": generation_history,
+    }
+
+    intent_result = await chatbot.llm.analyze_intent(message, context)
+    intent = intent_result.get("intent", "consulting")
+    generation_type = intent_result.get("generation_type", "image")
+
+    yield {"type": "meta", "session_id": session_key, "intent": intent}
+
+    if intent in ["generation", "modification"]:
+        task_id = str(uuid.uuid4())
+        create_task(task_id)
+
+        if background_tasks:
+            background_tasks.add_task(
+                _run_generation_for_intent,
+                db=db,
+                session_id=session_key,
+                user_id=user_id,
+                message=message,
+                image_data=image_data,
+                task_id=task_id,
+                intent=intent,
+                generation_type=generation_type,
+            )
+
+        yield {
+            "type": "result",
+            "session_id": session_key,
+            "intent": intent,
+            "assistant_message": "광고를 생성하겠습니다.",
+            "redirect_to_pipeline": True,
+            "task_id": task_id,
+            "ready_to_generate": True,
+            "workflow_state": intent_result.get("workflow_state", {}),
+            "generation_type": generation_type,
+        }
+        return
+
+    # consulting intent: 스트리밍 응답
+    consulting_similar = chatbot.conv.search_similar_messages(
+        db,
+        query=message,
+        session_id=session_key,
+        limit=5,
+        similarity_threshold=0.6,
+    )
+    context["recent_conversations"] = consulting_similar
+
+    if chatbot.knowledge:
+        try:
+            knowledge_results = chatbot.knowledge.search(
+                query=message,
+                category="faq",
+                limit=3,
+            )
+            context["knowledge_base"] = knowledge_results
+            logger.info(f"handle_chat_message_stream: knowledge search returned {len(knowledge_results)} results")
+        except Exception as exc:
+            logger.warning(f"handle_chat_message_stream: knowledge search failed: {exc}")
+            context["knowledge_base"] = []
+
+    assistant_chunks: List[str] = []
+    async for chunk in chatbot.llm.stream_consulting_response(message, context):
+        if chunk:
+            assistant_chunks.append(chunk)
+            yield {"type": "chunk", "content": chunk}
+
+    assistant_message = "".join(assistant_chunks).strip() or "무엇을 도와드릴까요?"
+    chatbot.conv.add_message(db, session_key, "assistant", assistant_message)
+
+    yield {
+        "type": "done",
+        "session_id": session_key,
+        "intent": intent,
+        "assistant_message": assistant_message,
+        "redirect_to_pipeline": False,
+        "ready_to_generate": False,
+        "workflow_state": intent_result.get("workflow_state", {}),
+    }
 
 
 async def _run_generation_for_intent(
