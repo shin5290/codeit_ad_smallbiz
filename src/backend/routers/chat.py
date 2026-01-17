@@ -192,55 +192,6 @@ async def get_chat_history(
     }
 
 
-# =====================================================
-# Phase 3: 수정/컨펌 플로우
-# =====================================================
-
-@router.post("/revise")
-async def revise_content(
-    background_tasks: BackgroundTasks,
-    session_id: str = Form(..., description="세션 ID"),
-    revision_request: str = Form(..., description="수정 요청 내용"),
-    db: Session = Depends(process_db.get_db),
-    current_user=Depends(services.get_current_user),
-):
-    """
-    생성된 광고 수정 요청
-
-    **파라미터:**
-    - `session_id`: 세션 ID
-    - `revision_request`: 수정 요청 내용 (예: "더 밝게", "애니메이션 스타일로", "16:9 비율로")
-    """
-    user_id = current_user.user_id if current_user else None
-    task_id = str(uuid.uuid4())
-
-    background_tasks.add_task(
-        services.handle_chat_revise,
-        db=db,
-        session_id=session_id,
-        user_id=user_id,
-        revision_request=revision_request,
-        task_id=task_id,
-    )
-
-    return {"task_id": task_id}
-
-
-@router.post("/confirm")
-async def confirm_content(
-    session_id: str = Form(..., description="세션 ID"),
-    db: Session = Depends(process_db.get_db),
-    current_user=Depends(services.get_current_user),
-):
-    """최종 광고 확정"""
-    result = await services.handle_chat_confirm(
-        db=db,
-        session_id=session_id,
-    )
-
-    return result
-
-
 @router.get("/generation/{session_id}")
 async def get_generation_history(
     session_id: str,
@@ -260,9 +211,6 @@ async def get_generation_history(
                 "output_text": gen.output_text,
                 "style": gen.style,
                 "aspect_ratio": gen.aspect_ratio,
-                "is_confirmed": gen.is_confirmed,
-                "revision_number": gen.revision_number,
-                "revision_of_id": gen.revision_of_id,
                 "timestamp": gen.created_at.isoformat(),
                 "image": gen.output_image.file_directory if gen.output_image else None,
             }

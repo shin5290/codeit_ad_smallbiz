@@ -276,8 +276,6 @@ GET  /api/task/{task_id}    # Task 상태 조회
 ```
 POST /api/chat/message           # 챗봇 메시지 (Intent 분석 + 분기)
 GET  /api/chat/history/{sid}     # 대화 히스토리 조회
-POST /api/chat/revise            # 광고 수정 요청
-POST /api/chat/confirm           # 광고 최종 확정
 ```
 
 **참고**: 생성/수정 intent는 백엔드 RAG 챗봇에서 바로 생성 파이프라인을 호출하므로 별도 `/chat/generate` 엔드포인트 불필요
@@ -299,7 +297,7 @@ POST /api/chat/confirm           # 광고 최종 확정
 
 3. **스키마 확장**
    - 파일: `/home/spai0416/codeit_ad_smallbiz/src/backend/schemas.py`
-   - 추가: `ReviseRequest`, `ConfirmRequest` 스키마
+   - 추가: `WorkflowStateResponse` 스키마
    - 참조: [백엔드_리팩토링_계획서.md](./백엔드_리팩토링_계획서.md) 단계 1.3
 
 ### 병렬 작업 가능

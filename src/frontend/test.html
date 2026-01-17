@@ -427,47 +427,6 @@
             background: #f8f9fa;
         }
 
-        /* 광고 액션 버튼 그룹 (수정/확정) */
-        .ad-actions {
-            display: flex;
-            gap: 8px;
-            padding: 12px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            align-items: center;
-            margin-top: 10px;
-        }
-
-        .ad-actions .label {
-            font-size: 13px;
-            color: #666;
-            margin-right: auto;
-        }
-
-        .ad-actions button {
-            padding: 8px 16px;
-            font-size: 13px;
-            border-radius: 6px;
-        }
-
-        .btn-revise {
-            background: #ffc107;
-            color: #000;
-        }
-
-        .btn-revise:hover {
-            background: #ffb300;
-        }
-
-        .btn-confirm {
-            background: #28a745;
-            color: white;
-        }
-
-        .btn-confirm:hover {
-            background: #218838;
-        }
-
         /* 입력 한 줄 */
         .input-row {
             display: flex;
@@ -595,13 +554,6 @@
                     <!-- 미리보기 스트립 -->
                     <div id="previewStrip" class="preview-strip hidden"></div>
 
-                    <!-- 광고 수정/확정 액션 버튼 (생성 완료 후 표시) -->
-                    <div id="adActions" class="ad-actions hidden">
-                        <span class="label">생성된 광고:</span>
-                        <button class="btn-revise" onclick="handleRevise()">수정 요청</button>
-                        <button class="btn-confirm" onclick="handleConfirm()">확정하기</button>
-                    </div>
-
                     <!-- 입력/버튼 한 줄 -->
                     <div class="input-row input-inner">
                         <label for="imageUpload" id="imageUploadLabel" class="image-upload-btn"
@@ -609,7 +561,7 @@
                         <input type="file" id="imageUpload" accept="image/*" hidden onchange="handleImageUpload(event)">
 
                         <input type="text" id="userMsg" name="message" autocomplete="off"
-                            placeholder="메시지를 입력하세요... (예: 카페 광고 만들어줘)" oninput="updateSendButton()"
+                            placeholder="메시지를 입력하세요... " oninput="updateSendButton()"
                             onkeypress="if(event.keyCode==13) sendChat()">
 
                         <button id="sendBtn" class="btn-primary btn-round" style="width: 80px; padding: 14px;"
@@ -676,8 +628,6 @@
         let oldestMessageId = null;
         let nextCursor = null;
         let isLoadingHistory = false;
-        let hasUnconfirmedGeneration = false; // 확정되지 않은 생성 결과 여부
-
 
         // ====== 안전 JSON 파서 ======
         async function safeJson(res) {
@@ -859,7 +809,7 @@
 
                 onLoginSuccess(data.name);
                 await loadInitialHistory();
-                await checkUnconfirmedGeneration();
+                
             } catch (e) {
                 console.error(e);
                 showLoggedOutUI();
@@ -970,7 +920,6 @@
 
             onLoginSuccess(displayName);
             await loadInitialHistory();
-            await checkUnconfirmedGeneration();
 
             closeModal();
         }
@@ -1319,6 +1268,7 @@
             let buffer = "";
             let assistantText = "";
             let pendingTaskId = null;
+            let hasChunks = false;
 
             const applySessionId = (sessionId) => {
                 if (!sessionId) return;
@@ -1332,13 +1282,20 @@
 
                 if (payload.type === "chunk") {
                     assistantText += payload.content || "";
+                    hasChunks = true;
                     updateAssistantPlaceholder(loadingId, assistantText);
                     return;
                 }
 
                 if (payload.type === "done") {
                     assistantText = payload.assistant_message || assistantText;
-                    updateAssistantPlaceholder(loadingId, assistantText);
+                    if (assistantText) {
+                        if (hasChunks) {
+                            updateAssistantPlaceholder(loadingId, assistantText);
+                        } else {
+                            streamAssistantText(loadingId, assistantText);
+                        }
+                    }
                     return;
                 }
 
@@ -1454,160 +1411,6 @@
 
 
 
-        // ====== 확정되지 않은 생성 결과 확인 ======
-        async function checkUnconfirmedGeneration() {
-            // 세션 ID가 없으면 확인할 수 없음
-            if (!currentSessionId) {
-                hasUnconfirmedGeneration = false;
-                toggleAdActions(false);
-                return;
-            }
-
-            try {
-                const headers = {
-                    "Content-Type": "application/json"
-                };
-
-                const res = await fetch(`${API_BASE}/chat/generation/${currentSessionId}`, {
-                    method: "GET",
-                    headers: headers,
-                    credentials: "include",
-                });
-
-                if (!res.ok) {
-                    hasUnconfirmedGeneration = false;
-                    toggleAdActions(false);
-                    return;
-                }
-
-                const data = await safeJson(res);
-                // API는 { generations: [...] } 형태로 반환
-                // 최신 생성 결과(배열의 첫 번째 항목)가 있고, is_confirmed가 false인 경우
-                const generations = data.generations || [];
-                const latestGeneration = generations.length > 0 ? generations[0] : null;
-                hasUnconfirmedGeneration = latestGeneration && latestGeneration.is_confirmed === false;
-                toggleAdActions(hasUnconfirmedGeneration);
-            } catch (e) {
-                console.error(e);
-                hasUnconfirmedGeneration = false;
-                toggleAdActions(false);
-            }
-        }
-
-        function toggleAdActions(show) {
-            const actions = document.getElementById('adActions');
-            if (show) {
-                actions.classList.remove('hidden');
-            } else {
-                actions.classList.add('hidden');
-            }
-        }
-
-        // ====== 광고 수정 요청 ======
-        async function handleRevise() {
-            if (!isLoggedIn) {
-                alert("로그인이 필요합니다.");
-                return;
-            }
-
-            if (!currentSessionId) {
-                alert("세션이 없습니다.");
-                return;
-            }
-
-            const revisionRequest = prompt("어떻게 수정할까요? (예: 더 밝게, 텍스트 변경, 스타일 변경)");
-            if (!revisionRequest || revisionRequest.trim().length === 0) {
-                return;
-            }
-
-            const loadingId = appendAssistantPlaceholder("");
-            if (loadingId) streamAssistantText(loadingId, "광고를 수정하고 있습니다...");
-
-            try {
-                const form = new FormData();
-                form.append("session_id", currentSessionId);
-                form.append("revision_request", revisionRequest.trim());
-
-                const res = await fetch(`${API_BASE}/chat/revise`, {
-                    method: "POST",
-                    body: form,
-                    credentials: "include",
-                });
-
-                if (res.status === 401) {
-                    alert("로그인이 필요합니다.");
-                    return;
-                }
-
-                if (!res.ok) {
-                    const err = await safeJson(res);
-                    await streamAssistantText(loadingId, err.detail ?? "수정 요청 실패");
-                    return;
-                }
-
-                const data = await safeJson(res);
-                if (data.task_id) {
-                    await pollTask(data.task_id, loadingId);
-                    // pollTask 내에서 이미 checkUnconfirmedGeneration() 호출함
-                } else {
-                    await streamAssistantText(loadingId, "수정이 완료되었습니다.");
-                    await checkUnconfirmedGeneration();
-                }
-            } catch (e) {
-                console.error(e);
-                await streamAssistantText(loadingId, "수정 요청 중 오류가 발생했습니다.");
-            }
-        }
-
-        // ====== 광고 확정 ======
-        async function handleConfirm() {
-            if (!isLoggedIn) {
-                alert("로그인이 필요합니다.");
-                return;
-            }
-
-            if (!currentSessionId) {
-                alert("세션이 없습니다.");
-                return;
-            }
-
-            if (!confirm("이 광고를 최종 확정하시겠습니까?")) {
-                return;
-            }
-
-            try {
-                const form = new FormData();
-                form.append("session_id", currentSessionId);
-
-                const res = await fetch(`${API_BASE}/chat/confirm`, {
-                    method: "POST",
-                    body: form,
-                    credentials: "include",
-                });
-
-                if (res.status === 401) {
-                    alert("로그인이 필요합니다.");
-                    return;
-                }
-
-                if (!res.ok) {
-                    const err = await safeJson(res);
-                    alert(err.detail ?? "확정 실패");
-                    return;
-                }
-
-                const data = await safeJson(res);
-                const confirmId = appendAssistantPlaceholder("");
-                await streamAssistantText(confirmId, data.message || "광고가 확정되었습니다.");
-
-                hasUnconfirmedGeneration = false;
-                toggleAdActions(false);
-            } catch (e) {
-                console.error(e);
-                alert("확정 요청 중 오류가 발생했습니다.");
-            }
-        }
-
         // ====== pollTask: task 상태 조회 ======
         async function pollTask(taskId, placeholderId) {
             const headers = {};
@@ -1649,7 +1452,7 @@
                     }
                     updateAssistantPlaceholder(placeholderId, outputText, imageUrls);
                     // 광고 생성 완료 후 수정/확정 버튼 표시 여부 확인
-                    await checkUnconfirmedGeneration();
+                    
                     return;
                 }
 

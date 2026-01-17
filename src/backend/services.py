@@ -1,4 +1,6 @@
 import logging, os
+import re
+from datetime import datetime
 from dataclasses import dataclass
 from fastapi import Cookie, Depends, HTTPException, Response, UploadFile
 from jose import JWTError
@@ -18,8 +20,258 @@ from src.backend.chatbot import get_chatbot
 
 
 logger = logging.getLogger(__name__)
-task_storage = {}
 _TEXT_GENERATOR = None  # 싱글톤 인스턴스
+
+_MODIFY_KEYWORDS = ("수정", "변경", "바꿔", "다시", "고쳐", "재작업", "리터치")
+_REVISION_STOPWORDS = {
+    "광고", "이미지", "문구", "요청", "수정", "변경", "다시", "바꿔", "고쳐",
+    "해줘", "해주세요", "해줄래", "해달라구", "부탁", "좀", "더", "덜", "이거",
+}
+
+
+def _detect_user_action(message: str) -> Optional[str]:
+    text = (message or "").strip()
+    if not text:
+        return None
+    lowered = text.lower()
+    if any(keyword in lowered for keyword in _MODIFY_KEYWORDS):
+        return "modify"
+    return None
+
+
+def _is_modification_request(text: str) -> bool:
+    lowered = (text or "").strip().lower()
+    if not lowered:
+        return False
+    if lowered.startswith("[수정 요청]"):
+        return True
+    return any(keyword in lowered for keyword in _MODIFY_KEYWORDS)
+
+
+def _format_message_snippet(text: str, limit: int = 80) -> str:
+    compact = " ".join((text or "").split())
+    if len(compact) <= limit:
+        return compact
+    return f"{compact[:limit]}..."
+
+
+def _log_selected_messages(label: str, messages) -> None:
+    previews = []
+    for msg in messages or []:
+        if isinstance(msg, dict):
+            msg_id = msg.get("id")
+            content = msg.get("content", "")
+        else:
+            msg_id = getattr(msg, "id", None)
+            content = getattr(msg, "content", "")
+        previews.append(f"{msg_id}:{_format_message_snippet(content)}")
+    if previews:
+        logger.info(f"_build_revision_context: {label}_messages={previews}")
+
+
+def _build_revision_context(
+    *,
+    chatbot,
+    db: Session,
+    session_id: str,
+    revision_request: str,
+) -> tuple[List[Dict], List[Dict], List[models.ChatHistory]]:
+    similar_messages = chatbot.conv.search_similar_messages(
+        db,
+        query=revision_request,
+        session_id=session_id,
+        limit=5,
+        similarity_threshold=0.4,
+    )
+    keyword_messages: List[models.ChatHistory] = []
+
+    filtered_similar = [
+        msg for msg in similar_messages
+        if not _is_modification_request(msg.get("content"))
+    ]
+
+    if filtered_similar:
+        conversation_history = [
+            {"role": "user", "content": msg["content"]}
+            for msg in filtered_similar
+        ]
+        logger.info(
+            f"_build_revision_context: using {len(filtered_similar)} similar messages"
+        )
+        _log_selected_messages("similar", filtered_similar)
+    else:
+        keywords = _extract_revision_keywords(revision_request)
+        keyword_messages = _search_messages_by_keywords(
+            db=db,
+            session_id=session_id,
+            keywords=keywords,
+            limit=5,
+        )
+        if keyword_messages:
+            ordered_keyword_messages = list(reversed(keyword_messages))
+            conversation_history = [
+                {"role": msg.role, "content": msg.content}
+                for msg in ordered_keyword_messages
+            ]
+            logger.info(
+                f"_build_revision_context: using {len(keyword_messages)} keyword messages"
+            )
+            _log_selected_messages("keyword", ordered_keyword_messages)
+        else:
+            conversation_history = chatbot.conv.get_recent_messages(db, session_id, limit=10)
+            logger.info("_build_revision_context: fallback to recent messages")
+
+    conversation_history.append({"role": "user", "content": revision_request})
+    return conversation_history, filtered_similar, keyword_messages
+
+
+def _select_generation_for_revision(
+    *,
+    db: Session,
+    session_id: str,
+    revision_request: str,
+    similar_messages: List[Dict],
+    keyword_messages: List[models.ChatHistory],
+) -> Optional[models.GenerationHistory]:
+    if similar_messages:
+        top_msg = similar_messages[0]
+        logger.info(
+            f"_select_generation_for_revision: top_message_id={top_msg.get('id')}, "
+            f"similarity={top_msg.get('similarity')}"
+        )
+        try:
+            target_time = datetime.fromisoformat(top_msg["timestamp"])
+        except Exception:
+            target_time = None
+
+        if target_time:
+            gen_after = (
+                db.query(models.GenerationHistory)
+                .filter(
+                    models.GenerationHistory.session_id == session_id,
+                    models.GenerationHistory.created_at >= target_time,
+                )
+                .order_by(models.GenerationHistory.created_at.asc())
+                .first()
+            )
+            if gen_after:
+                logger.info(f"_select_generation_for_revision: picked_generation_id={gen_after.id} (after)")
+                return gen_after
+
+            gen_before = (
+                db.query(models.GenerationHistory)
+                .filter(
+                    models.GenerationHistory.session_id == session_id,
+                    models.GenerationHistory.created_at <= target_time,
+                )
+                .order_by(models.GenerationHistory.created_at.desc())
+                .first()
+            )
+            if gen_before:
+                logger.info(f"_select_generation_for_revision: picked_generation_id={gen_before.id} (before)")
+                return gen_before
+
+    if keyword_messages:
+        target_time = max(msg.created_at for msg in keyword_messages)
+        gen_after = (
+            db.query(models.GenerationHistory)
+            .filter(
+                models.GenerationHistory.session_id == session_id,
+                models.GenerationHistory.created_at >= target_time,
+            )
+            .order_by(models.GenerationHistory.created_at.asc())
+            .first()
+        )
+        if gen_after:
+            logger.info(f"_select_generation_for_revision: picked_generation_id={gen_after.id} (keyword_time_after)")
+            return gen_after
+
+        gen_before = (
+            db.query(models.GenerationHistory)
+            .filter(
+                models.GenerationHistory.session_id == session_id,
+                models.GenerationHistory.created_at <= target_time,
+            )
+            .order_by(models.GenerationHistory.created_at.desc())
+            .first()
+        )
+        if gen_before:
+            logger.info(f"_select_generation_for_revision: picked_generation_id={gen_before.id} (keyword_time_before)")
+            return gen_before
+
+    keywords = _extract_revision_keywords(revision_request)
+    if keywords:
+        from sqlalchemy import or_
+
+        keyword_filters = [
+            models.GenerationHistory.input_text.ilike(f"%{keyword}%")
+            for keyword in keywords
+        ]
+        keyword_filters += [
+            models.GenerationHistory.output_text.ilike(f"%{keyword}%")
+            for keyword in keywords
+        ]
+        matched_generation = (
+            db.query(models.GenerationHistory)
+            .filter(models.GenerationHistory.session_id == session_id)
+            .filter(or_(*keyword_filters))
+            .order_by(models.GenerationHistory.created_at.desc())
+            .first()
+        )
+        if matched_generation:
+            logger.info(
+                f"_select_generation_for_revision: picked_generation_id={matched_generation.id} (keyword_match)"
+            )
+            return matched_generation
+
+    return process_db.get_latest_generation(db, session_id)
+
+
+def _extract_revision_keywords(text: str) -> List[str]:
+    tokens = re.split(r"[^\w]+", (text or "").lower())
+    keywords = []
+    for token in tokens:
+        if not token:
+            continue
+        if token in _REVISION_STOPWORDS or any(stop in token for stop in _REVISION_STOPWORDS):
+            continue
+        if any(keyword in token for keyword in _MODIFY_KEYWORDS):
+            continue
+        if len(token) < 2 and not token.isdigit():
+            continue
+        keywords.append(token)
+
+    return list(dict.fromkeys(keywords))
+
+
+def _search_messages_by_keywords(
+    *,
+    db: Session,
+    session_id: str,
+    keywords: List[str],
+    limit: int,
+) -> List[models.ChatHistory]:
+    if not keywords:
+        return []
+
+    from sqlalchemy import or_
+
+    keyword_filters = [
+        models.ChatHistory.content.ilike(f"%{keyword}%")
+        for keyword in keywords
+    ]
+
+    messages = (
+        db.query(models.ChatHistory)
+        .filter(models.ChatHistory.session_id == session_id)
+        .filter(models.ChatHistory.role == "user")
+        .filter(or_(*keyword_filters))
+        .order_by(models.ChatHistory.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    return [msg for msg in messages if not _is_modification_request(msg.content)]
 
 def get_text_generator() -> TextGenerator:
     """TextGenerator 싱글톤 인스턴스 반환"""
@@ -180,20 +432,19 @@ async def ingest_user_message(
         logger.info("ingest_user_message: no image to save to DB")
 
     # 3) 텍스트 DB 저장 (image_id 포함)
-    chat_row = process_db.save_chat_message(
+    chatbot = get_chatbot()
+    chat_history_id = chatbot.conv.add_message(
         db,
-        {
-            "session_id": session_key,
-            "role": "user",
-            "content": input_text,
-            "image_id": image_row.id if image_row else None,
-        },
+        session_key,
+        "user",
+        input_text,
+        image_row.id if image_row else None,
     )
-    logger.info(f"ingest_user_message: chat message saved with id={chat_row.id}")
+    logger.info(f"ingest_user_message: chat message saved with id={chat_history_id}")
 
     result = IngestResult(
         session_id=session_key,
-        chat_history_id=chat_row.id,
+        chat_history_id=chat_history_id,
         input_image=input_image,
     )
     logger.info(f"ingest_user_message: returning result with input_image={input_image is not None}")
@@ -362,14 +613,13 @@ def persist_generation_result(
         output_image_id = output_row.id
 
     # Chat History에 텍스트 결과 저장
-    assistant_row = process_db.save_chat_message(
+    chatbot = get_chatbot()
+    chatbot.conv.add_message(
         db,
-        {
-            "session_id": session_id,
-            "role": "assistant",
-            "content": gen.output_text,
-            "image_id": output_image_id,
-        },
+        session_id,
+        "assistant",
+        gen.output_text,
+        output_image_id,
     )
 
     input_image_id = None
@@ -552,35 +802,18 @@ async def _handle_modification_in_pipeline(
     session_key = ensure_chat_session(db, session_key, user_id)
 
     # 최근 생성 이력 확인
-    latest_generation = process_db.get_latest_unconfirmed_generation(db, session_key)
-    if not latest_generation:
-        latest_generation = process_db.get_latest_generation(db, session_key)
+    latest_generation = process_db.get_latest_generation(db, session_key)
 
     if not latest_generation:
         # 수정할 광고가 없으면 새로 생성하도록 안내
         update_task_progress(task_id, 10, TaskStatus.GENERATING)
 
         # 사용자 메시지 저장
-        process_db.save_chat_message(
-            db,
-            {
-                "session_id": session_key,
-                "role": "user",
-                "content": input_text,
-                "image_id": None,
-            }
-        )
+        chatbot = get_chatbot()
+        chatbot.conv.add_message(db, session_key, "user", input_text)
 
         assistant_message = "수정할 광고가 없습니다. 먼저 광고를 생성해주세요. 어떤 광고를 만들어 드릴까요?"
-        process_db.save_chat_message(
-            db,
-            {
-                "session_id": session_key,
-                "role": "assistant",
-                "content": assistant_message,
-                "image_id": None,
-            }
-        )
+        chatbot.conv.add_message(db, session_key, "assistant", assistant_message)
 
         result = {
             "session_id": session_key,
@@ -725,8 +958,38 @@ async def handle_chat_message(
             image_id = image_row.id
             logger.info(f"handle_chat_message: image saved with id={image_id}")
 
-    # 3. 챗봇 처리 (Intent 분석 + 분기 처리)
+    # 3. 사용자 의도 키워드 처리 (수정)
     chatbot = get_chatbot()
+    action = _detect_user_action(message)
+
+    if action == "modify":
+        task_id = str(uuid.uuid4())
+        create_task(task_id)
+
+        if background_tasks:
+            background_tasks.add_task(
+                _run_generation_for_intent,
+                db=db,
+                session_id=session_key,
+                user_id=user_id,
+                message=message,
+                image_data=image_data,
+                task_id=task_id,
+                intent="modification",
+                generation_type="image",
+            )
+
+        return {
+            "session_id": session_key,
+            "intent": "modification",
+            "assistant_message": "광고를 수정하고 있습니다. 잠시만 기다려주세요.",
+            "redirect_to_pipeline": True,
+            "task_id": task_id,
+            "ready_to_generate": True,
+            "workflow_state": {},
+        }
+
+    # 4. 챗봇 처리 (Intent 분석 + 분기 처리)
     result = await chatbot.process_message(
         db=db,
         session_id=session_key,
@@ -824,11 +1087,44 @@ async def handle_chat_message_stream(
             image_id = image_row.id
             logger.info(f"handle_chat_message_stream: image saved with id={image_id}")
 
-    # 3. 사용자 메시지 저장
+    # 3. 사용자 의도 키워드 처리 (수정)
     chatbot = get_chatbot()
+    action = _detect_user_action(message)
+
+    if action == "modify":
+        task_id = str(uuid.uuid4())
+        create_task(task_id)
+
+        if background_tasks:
+            background_tasks.add_task(
+                _run_generation_for_intent,
+                db=db,
+                session_id=session_key,
+                user_id=user_id,
+                message=message,
+                image_data=image_data,
+                task_id=task_id,
+                intent="modification",
+                generation_type="image",
+            )
+
+        yield {
+            "type": "result",
+            "session_id": session_key,
+            "intent": "modification",
+            "assistant_message": "광고를 수정하고 있습니다. 잠시만 기다려주세요.",
+            "redirect_to_pipeline": True,
+            "task_id": task_id,
+            "ready_to_generate": True,
+            "workflow_state": {},
+            "generation_type": "image",
+        }
+        return
+
+    # 4. 사용자 메시지 저장
     chatbot.conv.add_message(db, session_key, "user", message, image_id)
 
-    # 4. 의도 분석 컨텍스트 구성
+    # 5. 의도 분석 컨텍스트 구성
     similar_conversations = chatbot.conv.search_similar_messages(
         db,
         query=message,
@@ -1041,11 +1337,21 @@ async def handle_chat_revise(
     """
     logger.info(f"handle_chat_revise: session_id={session_id}, request={revision_request}")
 
-    # 1. 최근 생성 이력 조회
-    latest_generation = process_db.get_latest_unconfirmed_generation(db, session_id)
-
-    if not latest_generation:
-        latest_generation = process_db.get_latest_generation(db, session_id)
+    # 1. 수정 컨텍스트 구성 + 대상 생성 이력 선택
+    chatbot = get_chatbot()
+    conversation_history, similar_messages, keyword_messages = _build_revision_context(
+        chatbot=chatbot,
+        db=db,
+        session_id=session_id,
+        revision_request=revision_request,
+    )
+    latest_generation = _select_generation_for_revision(
+        db=db,
+        session_id=session_id,
+        revision_request=revision_request,
+        similar_messages=similar_messages,
+        keyword_messages=keyword_messages,
+    )
 
     if not latest_generation:
         raise HTTPException(
@@ -1056,7 +1362,6 @@ async def handle_chat_revise(
     logger.info(f"handle_chat_revise: found generation id={latest_generation.id}")
 
     # 2. 수정 요청 파싱
-    chatbot = get_chatbot()
     updated_params = await _parse_revision_request(
         chatbot=chatbot,
         revision_request=revision_request,
@@ -1064,15 +1369,7 @@ async def handle_chat_revise(
     )
 
     # 3. 수정 메시지 저장
-    process_db.save_chat_message(
-        db,
-        {
-            "session_id": session_id,
-            "role": "user",
-            "content": f"[수정 요청] {revision_request}",
-            "image_id": None,
-        }
-    )
+    chatbot.conv.add_message(db, session_id, "user", revision_request)
 
     # 4. 재생성
     if create_task_entry:
@@ -1081,10 +1378,7 @@ async def handle_chat_revise(
     try:
         update_task_progress(task_id, 10, TaskStatus.GENERATING)
 
-        # 대화 히스토리 조회
-        chatbot_inst = get_chatbot()
-        conversation_history = chatbot_inst.conv.get_recent_messages(db, session_id, limit=10)
-        logger.info(f"handle_chat_revise: retrieved {len(conversation_history)} conversation messages")
+        logger.info(f"handle_chat_revise: retrieved {len(conversation_history)} context messages")
 
         gen_result = await generate_contents(
             input_text=updated_params["input_text"],
@@ -1106,18 +1400,16 @@ async def handle_chat_revise(
             )
             output_image_id = output_row.id
 
-        assistant_message = f"광고가 수정되었습니다. (수정 #{latest_generation.revision_number + 1})"
-        process_db.save_chat_message(
+        assistant_message = "광고가 수정되었습니다."
+        chatbot.conv.add_message(
             db,
-            {
-                "session_id": session_id,
-                "role": "assistant",
-                "content": assistant_message,
-                "image_id": output_image_id,
-            }
+            session_id,
+            "assistant",
+            assistant_message,
+            output_image_id,
         )
 
-        new_gen = process_db.save_generation_history_with_revision(
+        new_gen = process_db.save_generation_history(
             db=db,
             data={
                 "session_id": session_id,
@@ -1133,7 +1425,6 @@ async def handle_chat_revise(
                 "seed": gen_result.seed,
                 "aspect_ratio": gen_result.aspect_ratio,
             },
-            revision_of_id=latest_generation.id,
         )
 
         update_task_progress(task_id, 90, TaskStatus.PERSISTING)
@@ -1141,8 +1432,6 @@ async def handle_chat_revise(
         result = {
             "session_id": session_id,
             "generation_id": new_gen.id,
-            "revision_number": new_gen.revision_number,
-            "revision_of_id": latest_generation.id,
             "output": gen_result.to_public_dict(),
         }
 
@@ -1191,60 +1480,3 @@ async def _parse_revision_request(
         updated_params["aspect_ratio"] = "9:16"
 
     return updated_params
-
-
-async def handle_chat_confirm(
-    *,
-    db: Session,
-    session_id: str,
-):
-    """
-    최종 광고 확정 처리
-    """
-    logger.info(f"handle_chat_confirm: session_id={session_id}")
-
-    latest_generation = process_db.get_latest_unconfirmed_generation(db, session_id)
-
-    if not latest_generation:
-        raise HTTPException(
-            status_code=404,
-            detail="확정할 광고를 찾을 수 없습니다. 먼저 광고를 생성해주세요."
-        )
-
-    confirmed_gen = process_db.confirm_generation(db, latest_generation.id)
-
-    if not confirmed_gen:
-        raise HTTPException(
-            status_code=500,
-            detail="광고 확정 중 오류가 발생했습니다."
-        )
-
-    assistant_message = "광고가 최종 확정되었습니다!"
-    process_db.save_chat_message(
-        db,
-        {
-            "session_id": session_id,
-            "role": "assistant",
-            "content": assistant_message,
-            "image_id": confirmed_gen.output_image_id,
-        }
-    )
-
-    chatbot = get_chatbot()
-    chatbot.reset_workflow(session_id)
-
-    logger.info(f"handle_chat_confirm: confirmed id={confirmed_gen.id}")
-
-    result = {
-        "session_id": session_id,
-        "generation_id": confirmed_gen.id,
-        "message": "광고가 최종 확정되었습니다.",
-        "content_type": confirmed_gen.content_type,
-        "output_text": confirmed_gen.output_text,
-        "revision_number": confirmed_gen.revision_number,
-    }
-
-    if confirmed_gen.output_image:
-        result["image"] = confirmed_gen.output_image.file_hash
-
-    return result

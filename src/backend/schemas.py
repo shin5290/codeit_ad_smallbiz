@@ -71,24 +71,6 @@ class HistoryPage(BaseModel):
     next_cursor: Optional[int] = None
 
 
-# =====================================================
-# RAG 챗봇 관련 스키마 (Phase 1)
-# =====================================================
-
-class ReviseRequest(BaseModel):
-    """광고 수정 요청"""
-    session_id: str
-    revision_request: str = Field(
-        min_length=1,
-        description="수정 요청 내용 (예: '더 밝게', '텍스트 변경' 등)"
-    )
-
-
-class ConfirmRequest(BaseModel):
-    """광고 최종 확정 요청"""
-    session_id: str
-
-
 class WorkflowStateResponse(BaseModel):
     """워크플로우 상태 응답"""
     session_id: str
