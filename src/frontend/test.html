@@ -345,6 +345,7 @@
     const API_BASE = window.location.origin;
     let currentSessionId = null;
     let isSignup = false;
+    let isLoggedIn = false;
     let selectedImageFile = null; // 단일 파일 객체 저장
     let oldestMessageId = null;
     let nextCursor = null;
@@ -364,9 +365,6 @@
     }
 
     async function fetchHistoryPage(limit, cursor) {
-        const token = localStorage.getItem("access_token");
-        if (!token) return { items: [], next_cursor: null };
-
         const params = new URLSearchParams();
         params.set("limit", String(limit));
         if (cursor) params.set("cursor", String(cursor));
@@ -375,8 +373,8 @@
             method: "GET",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
             },
+            credentials: "include",
         });
 
         if (!res.ok) return { items: [], next_cursor: null };
@@ -474,33 +472,27 @@
 
 
     async function initAuth() {
-        const token = localStorage.getItem("access_token");
-        if (!token) return;
-
         try {
           const res = await fetch(`${API_BASE}/auth/me`, {
               method: "GET",
               headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
               },
+              credentials: "include",
           });
 
           if (!res.ok) {
-              // 토큰 만료/무효면 저장값 정리
-              localStorage.removeItem("access_token");
-              localStorage.removeItem("session_id");
               return;
           }
 
-          const data = await res.json();
+          const data = await safeJson(res);
 
           const sessionRes = await fetch(`${API_BASE}/chat/session`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
             },
+            credentials: "include",
             body: JSON.stringify({
               session_id: localStorage.getItem("session_id"),
             }),
@@ -564,6 +556,7 @@
         const res = await fetch(`${API_BASE}/auth/signup`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
+            credentials: "include",
             body: JSON.stringify({ login_id: loginId, login_pw: loginPw, name: name })
         });
         const data = await safeJson(res);
@@ -579,6 +572,7 @@
         const res = await fetch(`${API_BASE}/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          credentials: "include",
           body: loginForm.toString(),
         });
 
@@ -588,31 +582,25 @@
           return;
         }
 
-        // ====== 로그인 성공 처리 ======
-        // 토큰 저장
-        if (data.access_token) localStorage.setItem("access_token", data.access_token);
-
         let displayName = "사용자";
-        if (data.access_token) {
-          const meRes = await fetch(`${API_BASE}/auth/me`, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${data.access_token}`,
-            },
-          });
-          if (meRes.ok) {
-            const me = await safeJson(meRes);
-            displayName = me.name ?? displayName;
-          }
+        const meRes = await fetch(`${API_BASE}/auth/me`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        });
+        if (meRes.ok) {
+          const me = await safeJson(meRes);
+          displayName = me.name ?? displayName;
         }
 
         const sessionRes = await fetch(`${API_BASE}/chat/session`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${data.access_token}`,
           },
+          credentials: "include",
           body: JSON.stringify({
             session_id: localStorage.getItem("session_id"),
           }),
@@ -631,6 +619,7 @@
     }
 
     function onLoginSuccess(name) {
+        isLoggedIn = true;
         document.getElementById('loginTabBtn').classList.add('hidden');
         document.getElementById('profileEditBtn').classList.remove('hidden');
         document.getElementById('logoutBtn').classList.remove('hidden');
@@ -638,10 +627,18 @@
         document.getElementById('userInfo').classList.remove('hidden');
     }
 
-    function handleLogout() {
-        localStorage.removeItem("access_token");
+    async function handleLogout() {
+        try {
+            await fetch(`${API_BASE}/auth/logout`, {
+                method: "POST",
+                credentials: "include",
+            });
+        } catch (e) {
+            console.error(e);
+        }
         localStorage.removeItem("session_id");
         currentSessionId = null;
+        isLoggedIn = false;
         document.getElementById('profileEditBtn').classList.add('hidden');
         document.getElementById('logoutBtn').classList.add('hidden');
         document.getElementById('loginTabBtn').classList.remove('hidden');
@@ -651,23 +648,17 @@
 
     // ====== 회원정보 수정 모달 ======
     async function openProfileEditModal() {
-        const token = localStorage.getItem("access_token");
-        if (!token) {
-            alert("로그인이 필요합니다.");
-            return;
-        }
-
         try {
             const res = await fetch(`${API_BASE}/auth/me`, {
                 method: "GET",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
                 },
+                credentials: "include",
             });
 
             if (!res.ok) {
-                alert("사용자 정보를 불러오는데 실패했습니다.");
+                alert("로그인이 필요합니다.");
                 return;
             }
 
@@ -690,12 +681,6 @@
     }
 
     async function handleProfileUpdate() {
-        const token = localStorage.getItem("access_token");
-        if (!token) {
-            alert("로그인이 필요합니다.");
-            return;
-        }
-
         const name = document.getElementById('editName').value;
         const currentPassword = document.getElementById('editCurrentPassword').value;
         const newPassword = document.getElementById('editNewPassword').value;
@@ -717,8 +702,8 @@
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
                 },
+                credentials: "include",
                 body: JSON.stringify(body),
             });
 
@@ -867,12 +852,10 @@
         const loadingId = appendAssistantPlaceholder("처리 중입니다...");
 
         try {
-          const token = localStorage.getItem("access_token");
-
           const res = await fetch(`${API_BASE}/chat/message`, {
               method: 'POST',
-              headers: token ? { Authorization: `Bearer ${token}` } : {},
-              body: form
+              body: form,
+              credentials: "include",
           });
 
           if (!res.ok) {
@@ -946,18 +929,14 @@
         }
 
         try {
-            const token = localStorage.getItem("access_token");
             const headers = {
                 "Content-Type": "application/json"
             };
-            // 토큰이 있으면 Authorization 헤더 추가 (게스트도 조회 가능)
-            if (token) {
-                headers.Authorization = `Bearer ${token}`;
-            }
 
             const res = await fetch(`${API_BASE}/chat/generation/${currentSessionId}`, {
                 method: "GET",
                 headers: headers,
+                credentials: "include",
             });
 
             if (!res.ok) {
@@ -991,8 +970,7 @@
 
     // ====== 광고 수정 요청 ======
     async function handleRevise() {
-        const token = localStorage.getItem("access_token");
-        if (!token) {
+        if (!isLoggedIn) {
             alert("로그인이 필요합니다.");
             return;
         }
@@ -1016,11 +994,14 @@
 
             const res = await fetch(`${API_BASE}/chat/revise`, {
                 method: "POST",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
                 body: form,
+                credentials: "include",
             });
+
+            if (res.status === 401) {
+                alert("로그인이 필요합니다.");
+                return;
+            }
 
             if (!res.ok) {
                 const err = await safeJson(res);
@@ -1044,8 +1025,7 @@
 
     // ====== 광고 확정 ======
     async function handleConfirm() {
-        const token = localStorage.getItem("access_token");
-        if (!token) {
+        if (!isLoggedIn) {
             alert("로그인이 필요합니다.");
             return;
         }
@@ -1065,11 +1045,14 @@
 
             const res = await fetch(`${API_BASE}/chat/confirm`, {
                 method: "POST",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
                 body: form,
+                credentials: "include",
             });
+
+            if (res.status === 401) {
+                alert("로그인이 필요합니다.");
+                return;
+            }
 
             if (!res.ok) {
                 const err = await safeJson(res);
@@ -1090,14 +1073,14 @@
 
     // ====== pollTask: task 상태 조회 ======
     async function pollTask(taskId, placeholderId) {
-        const token = localStorage.getItem("access_token");
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const headers = {};
         const maxAttempts = 120;
 
         for (let i = 0; i < maxAttempts; i++) {
             const res = await fetch(`${API_BASE}/tasks/${taskId}`, {
                 method: "GET",
                 headers,
+                credentials: "include",
             });
 
             if (res.status === 404) {

@@ -1,11 +1,10 @@
-import os, sys, uuid, asyncio, hashlib, logging
+import os, logging
 from contextlib import asynccontextmanager
-from typing import Optional, List
+from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Response, status, File, UploadFile, Form, BackgroundTasks
+from fastapi import Depends, FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -14,7 +13,6 @@ import src.backend.schemas as schemas
 import src.backend.services as services
 import src.backend.task as task_service
 from src.utils.image import get_image_file_response
-from src.utils.session import resolve_session_id, normalize_session_id, ensure_chat_session
 
 # RAG 챗봇 라우터 import
 from src.backend.routers import chat
@@ -76,17 +74,19 @@ def signup(user: schemas.SignupRequest, db: Session = Depends(process_db.get_db)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
-@app.post("/auth/login", response_model=schemas.TokenResponse)
+@app.post("/auth/login", response_model=schemas.AuthResponse)
 def login(
+    response: Response,
     db: Session = Depends(process_db.get_db),
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
-    token = services.authenticate_user(db, form_data.username, form_data.password)
-    return {"access_token": token, "token_type": "bearer"}
+    services.authenticate_user(db, form_data.username, form_data.password, response)
+    return {"ok": True}
 
 
-@app.post("/auth/logout")
-def logout():
+@app.post("/auth/logout", response_model=schemas.AuthResponse)
+def logout(response: Response):
+    response.delete_cookie("access_token", path="/")
     return {"ok": True}
 
 @app.put("/auth/user", response_model=schemas.UserResponse)
@@ -113,89 +113,6 @@ def delete_user(
 
 
 
-@app.post("/generate")
-async def generate_advertisement(
-    background_tasks: BackgroundTasks,
-    input_text: str = Form(...),
-    image: Optional[UploadFile] = File(None),
-    session_id: Optional[str] = Form(None),
-    generation_type: Optional[str] = Form(None),  # text, image
-    style: Optional[str] = Form(None),  # ultra_realistic, semi_realistic, anime
-    aspect_ratio: Optional[str] = Form(None),  # 1:1, 16:9, 9:16, 4:3
-    db: Session = Depends(process_db.get_db),
-    current_user=Depends(services.get_current_user),
-):
-    """
-    광고 생성 요청 엔드포인트
-    - 즉시 task_id 반환
-    - 백그라운드에서 파이프라인 실행
-    - /tasks/{task_id}로 진행 상황 조회
-    """
-    task_id = str(uuid.uuid4())
-    user_id = current_user.user_id if current_user else None
-
-    logger.info(
-        f"[/generate] Request received - "
-        f"task_id={task_id}, "
-        f"input_text={input_text[:50] if len(input_text) > 50 else input_text}, "
-        f"generation_type={generation_type}, "
-        f"has_image={image is not None}"
-    )
-    if image:
-        logger.info(
-            f"[/generate] Image details - "
-            f"filename={image.filename}, "
-            f"content_type={image.content_type}, "
-            f"size={image.size if hasattr(image, 'size') else 'unknown'}"
-        )
-
-    try:
-        session_key = normalize_session_id(session_id)
-        session_key = ensure_chat_session(db, session_key, user_id)
-        logger.info(f"[/generate] Session: {session_key}, User: {user_id}, Task: {task_id}")
-
-        # Task 생성 (즉시)
-        task_service.create_task(task_id)
-
-        # 백그라운드 작업으로 파이프라인 실행
-        background_tasks.add_task(
-            services.handle_generate_pipeline,
-            db=db,
-            input_text=input_text,
-            session_id=session_key,
-            user_id=user_id,
-            image=image,
-            task_id=task_id,
-            create_task_entry=False,  # 이미 생성했으므로 False
-            generation_type=generation_type,
-            style=style,
-            aspect_ratio=aspect_ratio,
-        )
-
-        logger.info(f"[/generate] Task {task_id} created and queued for background processing")
-
-        # 즉시 task_id 반환
-        return {
-            "task_id": task_id,
-            "session_id": session_key,
-            "status": "processing"
-        }
-
-    except Exception as exc:
-        logger.error(f"[/generate] Failed to create task {task_id}: {exc}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"요청 처리 실패: {exc}")
-
-
-@app.post("/chat/session", response_model=schemas.SessionResponse)
-def get_chat_session(
-    payload: schemas.SessionRequest,
-    current_user=Depends(services.get_current_user),
-    db: Session = Depends(process_db.get_db),
-):
-    if not current_user:
-        raise HTTPException(status_code=401, detail="유효하지 않은 사용자")
-    session_id = resolve_session_id(db, current_user, payload.session_id)
-    return {"session_id": session_id}
 
 
 @app.get("/chat/history", response_model=schemas.HistoryPage)

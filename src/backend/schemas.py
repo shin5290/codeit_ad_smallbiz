@@ -21,10 +21,9 @@ class LoginRequest(BaseModel):
     login_id: str
     login_pw: str
 
-# 로그인 토큰 응답
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+# 로그인/로그아웃 응답
+class AuthResponse(BaseModel):
+    ok: bool = True
 
 # 세션 요청/응답
 class SessionRequest(BaseModel):

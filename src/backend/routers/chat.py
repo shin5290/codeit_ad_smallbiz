@@ -6,11 +6,11 @@ import logging
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from src.backend import process_db, services, schemas
-from src.backend.task import get_task
+from src.utils.session import resolve_session_id
 
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,18 @@ async def chat_message(
     )
 
     return result
+
+
+@router.post("/session", response_model=schemas.SessionResponse)
+def get_chat_session(
+    payload: schemas.SessionRequest,
+    current_user=Depends(services.get_current_user),
+    db: Session = Depends(process_db.get_db),
+):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="유효하지 않은 사용자")
+    session_id = resolve_session_id(db, current_user, payload.session_id)
+    return {"session_id": session_id}
 
 
 @router.post("/generate")

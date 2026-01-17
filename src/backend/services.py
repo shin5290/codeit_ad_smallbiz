@@ -1,7 +1,6 @@
 import logging, os
 from dataclasses import dataclass
-from fastapi import Depends, HTTPException, UploadFile
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Cookie, Depends, HTTPException, Response, UploadFile
 from jose import JWTError
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict
@@ -29,22 +28,19 @@ def get_text_generator() -> TextGenerator:
         _TEXT_GENERATOR = TextGenerator()
     return _TEXT_GENERATOR
 
-# 클라이언트는 Bearer 헤더로 전달
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False) 
-
 def get_current_user(
-    token: str | None = Depends(oauth2_scheme),
+    access_token: str | None = Cookie(default=None),
     db: Session = Depends(process_db.get_db),
 ):
     """
     JWT token으로 현재 로그인 유저 정보 가져오기
-    - 토큰이 없으면 None 반환
+    - 쿠키에 토큰이 없으면 None 반환
     """
-    if not token:
+    if not access_token:
         return None
 
     try:
-        payload = decode_token(token)
+        payload = decode_token(access_token)
         user_id = int(payload.get("sub"))
     except (JWTError, TypeError, ValueError):
         raise HTTPException(status_code=401, detail="토큰 오류")
@@ -74,16 +70,26 @@ def register_user(db, signup: schemas.SignupRequest):
     return user
 
 
-def authenticate_user(db, login_id: str, login_pw: str) -> str:
+def authenticate_user(db, login_id: str, login_pw: str, response: Response) -> None:
     """
     사용자 인증(로그인) 서비스
     - 아이디 존재 여부 확인, 비밀번호 검증
-    - JWT access 토큰 생성 및 반환
+    - JWT access 토큰을 HttpOnly 쿠키로 설정
     """
     user = process_db.get_user_by_login_id(db, login_id)
     if not user or not verify_password(login_pw, user.login_pw):
         raise HTTPException(400, "아이디 또는 비밀번호가 일치하지 않습니다.")
-    return create_access_token(str(user.user_id))
+
+    token = create_access_token(str(user.user_id))
+    secure_cookie = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=secure_cookie,
+        samesite="lax",
+        path="/",
+    )
 
 
 def update_user(db: Session, current_user, update: schemas.UpdateUserRequest):
