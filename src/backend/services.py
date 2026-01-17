@@ -81,6 +81,7 @@ def authenticate_user(db, login_id: str, login_pw: str, response: Response) -> N
         raise HTTPException(400, "아이디 또는 비밀번호가 일치하지 않습니다.")
 
     token = create_access_token(str(user.user_id))
+    logger.info(f"authenticate_user: login success user_id={user.user_id}, login_id={user.login_id}")
     secure_cookie = os.getenv("COOKIE_SECURE", "false").lower() == "true"
     response.set_cookie(
         key="access_token",

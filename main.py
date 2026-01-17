@@ -4,9 +4,11 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from uvicorn.logging import AccessFormatter, DefaultFormatter
 
 import src.backend.process_db as process_db
 import src.backend.schemas as schemas
@@ -18,19 +20,18 @@ from src.utils.image import get_image_file_response
 from src.backend.routers import chat
 
 # 로깅 설정
-class CustomFormatter(logging.Formatter):
-    def format(self, record):
-        # 모듈명 추출 (src.backend.services -> services)
-        name_parts = record.name.split('.')
-        module_name = name_parts[-1] if name_parts else record.name
-        record.module_name = module_name
-        return super().format(record)
-
 handler = logging.StreamHandler()
-handler.setFormatter(CustomFormatter('[%(asctime)s]  %(levelname)-7s [%(module_name)s] %(message)s', datefmt='%y/%m/%d %H:%M:%S'))
+handler.setFormatter(DefaultFormatter("%(levelprefix)s %(asctime)s.%(msecs)03d - %(message)s", use_colors=True, datefmt='%Y-%m-%d %H:%M:%S'))
+
 logging.root.handlers = []
 logging.root.addHandler(handler)
 logging.root.setLevel(logging.INFO)
+
+access_handler = logging.StreamHandler()
+access_handler.setFormatter(AccessFormatter("%(levelprefix)s %(asctime)s.%(msecs)03d - \"%(request_line)s\" %(status_code)s", datefmt="%Y-%m-%d %H:%M:%S"))
+access_logger = logging.getLogger("uvicorn.access")
+access_logger.handlers = [access_handler]
+access_logger.propagate = False
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,13 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# 정적 파일 서빙 설정
+app.mount(
+    "/static",
+    StaticFiles(directory="src/frontend/static"),
+    name="static",
 )
 
 # RAG 챗봇 라우터 등록
