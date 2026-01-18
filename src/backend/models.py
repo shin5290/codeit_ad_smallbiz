@@ -3,7 +3,6 @@ from sqlalchemy import (
     DateTime, func, Index
 )
 from sqlalchemy.orm import relationship, declarative_base
-from pgvector.sqlalchemy import Vector
 
 Base = declarative_base()
 
@@ -96,8 +95,6 @@ class ChatHistory(Base):
         index=True,
     )
 
-    # pgvector: 임베딩 벡터 (OpenAI text-embedding-3-small: 1536 차원)
-    embedding = Column(Vector(1536), nullable=True)
 
     created_at = Column(DateTime, server_default=func.now())
 

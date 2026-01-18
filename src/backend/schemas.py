@@ -70,14 +70,3 @@ class HistoryPage(BaseModel):
     items: List[ChatMessage]
     next_cursor: Optional[int] = None
 
-
-class WorkflowStateResponse(BaseModel):
-    """워크플로우 상태 응답"""
-    session_id: str
-    ad_type: Optional[str] = None  # text, image
-    business_type: Optional[str] = None  # cafe, restaurant, etc.
-    user_input: Optional[str] = None  # 사용자 입력 텍스트
-    style: Optional[str] = None  # ultra_realistic, semi_realistic, anime
-    aspect_ratio: Optional[str] = None  # 1:1, 16:9, 9:16, 4:3
-    is_complete: bool  # 생성 준비 완료 여부
-    missing_info: List[str]  # 누락된 필수 정보 목록

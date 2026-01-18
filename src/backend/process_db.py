@@ -184,18 +184,25 @@ def get_image_by_hash(db: Session, file_hash: str) -> models.ImageMatching | Non
 # -----------------------------
 # Chat History 저장/조회
 # -----------------------------
-def save_chat_message(db: Session, data: Dict):
+def save_chat_message(
+        db: Session, 
+        session_id: str,
+        role: str,
+        content: str,
+        image_id: Optional[int] = None,
+    ):
     """
     텍스트 메시지 저장.
     image_id가 있으면 함께 저장.
     """
-    logger.info(f"save_chat_message: session_id={data['session_id']}, role={data['role']}, image_id={data.get('image_id')}")
+    logger.info(f"save_chat_message: session_id={session_id}, role={role}, image_id={image_id}")
+
 
     chat = models.ChatHistory(
-        session_id=data["session_id"],
-        role=data["role"],
-        content=data["content"],
-        image_id=data.get("image_id"),
+        session_id=session_id,
+        role=role,
+        content=content,
+        image_id=image_id,
     )
     db.add(chat)
     db.commit()
@@ -261,9 +268,26 @@ def get_user_history_page(db, user_id, cursor_id=None, limit=15):
 
     return history, next_cursor
 
+def get_chat_history_by_session(
+    db: Session,
+    session_id: str,
+    limit: Optional[int] = 10,
+) -> List[models.ChatHistory]:
+    """
+    세션별 대화 이력 조회
+    """
+    query = (
+        db.query(models.ChatHistory)
+        .filter(models.ChatHistory.session_id == session_id)
+        .order_by(models.ChatHistory.created_at.desc())
+    )
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
+
 
 # -----------------------------
-# Generation History 저장
+# Generation History 저장/조회
 # -----------------------------
 def save_generation_history(db: Session, data: Dict):
     """
@@ -289,43 +313,24 @@ def save_generation_history(db: Session, data: Dict):
     return gen_history
 
 
-def get_chat_history_by_session(
-    db: Session,
-    session_id: str,
-    limit: int = 10
-) -> List[models.ChatHistory]:
-    """
-    세션별 최근 대화 이력 조회
-    """
-    return (
-        db.query(models.ChatHistory)
-        .filter(models.ChatHistory.session_id == session_id)
-        .order_by(models.ChatHistory.created_at.desc())
-        .limit(limit)
-        .all()
-    )
-
-
 def get_generation_history_by_session(
     db: Session,
     session_id: str,
-    limit: int = 5
+    limit: Optional[int] = 5,
 ) -> List[models.GenerationHistory]:
     """
     세션별 생성 이력 조회
     """
-    return (
+    query = (
         db.query(models.GenerationHistory)
         .filter(models.GenerationHistory.session_id == session_id)
         .order_by(models.GenerationHistory.created_at.desc())
-        .limit(limit)
-        .all()
     )
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
 
 
-# -----------------------------
-# Generation History - Latest 조회
-# -----------------------------
 def get_latest_generation(
     db: Session,
     session_id: str,
@@ -337,5 +342,21 @@ def get_latest_generation(
         db.query(models.GenerationHistory)
         .filter(models.GenerationHistory.session_id == session_id)
         .order_by(models.GenerationHistory.created_at.desc())
+        .first()
+    )
+
+
+def get_generation_by_session_and_id(
+    db: Session,
+    session_id: str,
+    generation_id: int,
+) -> Optional[models.GenerationHistory]:
+    """
+    세션ID와 생성ID로 특정 생성 이력 조회
+    """
+    return (
+        db.query(models.GenerationHistory)
+        .filter(models.GenerationHistory.session_id == session_id)
+        .filter(models.GenerationHistory.id == generation_id)
         .first()
     )

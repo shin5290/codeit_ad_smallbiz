@@ -2,7 +2,7 @@
 
 **작성일**: 2026-01-15
 **담당**: 백엔드 로직 (진수경)
-**버전**: 1.0
+**버전**: 1.1 (현재 백엔드 구현 기준 반영)
 **목적**: 광고 생성 시스템의 RAG 기반 챗봇 파이프라인 아키텍처 명세
 
 ---
@@ -38,28 +38,16 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                    RAG 챗봇 파이프라인                          │
 │  ┌────────────────────────────────────────────────────┐     │
-│  │ 1. 의도 분석 (Intent Analysis)                       │     │
-│  │    - 생성 (Generation)                              │     │
-│  │    - 수정 (Modification)                            │     │
-│  │    - 상담 (Consulting)                              │     │
+│  │ 1. 의도 분석 (Intent Analysis, LLM)                  │     │
+│  │    - 최근 대화 3~5턴만 사용                           │     │
+│  │    - intent / generation_type / target_generation_id │     │
 │  └────────────────────────────────────────────────────┘     │
 │                       ↓                                     │
 │  ┌────────────────────────────────────────────────────┐     │
-│  │ 2. VectorDB 검색                                    │     │
-│  │    A. PostgreSQL 벡터 검색 (대화 히스토리.)              │     │
-│  │    B. 정적 파일 VectorDB (상담 지식베이스)               │     │
-│  └────────────────────────────────────────────────────┘     │
-│                       ↓                                     │
-│  ┌────────────────────────────────────────────────────┐     │
-│  │ 3.1 상담 파이프라인 (GPT-4o-mini )                     │     │
-│  │    - 컨텍스트: 검색 결과 + 워크플로우 상태                 │     │
-│  │    - 출력: 챗봇 응답 + 추출된 정보                       │     │
-│  └────────────────────────────────────────────────────┘     │
-│                       ↓                                     │
-│  ┌────────────────────────────────────────────────────┐     │
-│  │ 3.2 광고 생성 파이프라인                                │     │
-│  │    - 텍스트 생성: ad_generator.generate_advertisement │     │
-│  │    - 이미지 생성: generator.generate_and_save_image   │     │
+│  │ 2. 분기                                            │     │
+│  │   A) consulting: PostgreSQL 검색 + 정적 KB → LLM 응답 │     │
+│  │   B) generation/modification: 전체 히스토리 →        │     │
+│  │      refine_generation_input(LLM) → generate_contents │     │
 │  └────────────────────────────────────────────────────┘     │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -71,7 +59,6 @@
 - **이중 VectorDB 전략**:
   - PostgreSQL: 대화 히스토리 (사용자별, 세션별)
   - 정적 파일 VectorDB: 상담 지식베이스 (팀원 담당)
-- **워크플로우 상태 관리**: 광고 생성에 필요한 정보 수집 추적
 
 ---
 
@@ -89,15 +76,13 @@
 │ (Generation)  │(Modification) │(Consulting)   │
 └───────┬───────┴───────┬───────┴───────┬───────┘
         ↓               ↓               ↓
-  [VectorDB 검색: PostgreSQL (대화/생성 히스토리)]
-        +               +               +
-    [VectorDB 검색: 정적 파일 (상담 지식베이스)]
+[전체 히스토리 조회] [전체 히스토리 조회] [유사 대화 + 지식베이스]
         ↓               ↓               ↓
-    [ 광고 생성 파이프라인 호출 ]     [LLM 호출 - 컨텍스트 기반 응답 생성]
+[refine_generation_input (LLM)] [refine_generation_input (LLM)] [상담 응답 LLM]
         ↓               ↓               ↓
-  [광고 생성]     [기존 광고 수정]        [상담 응답]
+[generate_contents]     [handle_chat_revise]   [상담 응답]
         ↓               ↓               ↓
-    [DB 저장: GenerationHistory, ChatHistory]
+[DB 저장: GenerationHistory, ChatHistory]     [ChatHistory 저장]
                         ↓
                    [사용자 응답]
                         ↓
@@ -108,7 +93,7 @@
 
 #### Step 1: 사용자 입력 수신
 
-**엔드포인트**: `POST /api/chat/message`
+**엔드포인트**: `POST /api/chat/message/stream`
 
 **입력**:
 ```json
@@ -135,17 +120,18 @@
 - modification: 기존 광고를 수정하고 싶어하는 경우
 - consulting: 광고 제작 방법이나 조언을 구하는 경우
 
+추가 규칙:
+- generation_type은 intent가 generation일 때만 명확히 선택
+- 수정 요청이면 target_generation_id를 선택 (없으면 null)
+
 사용자 메시지: "{user_message}"
 
 JSON 형식으로 응답:
 {
   "intent": "generation|modification|consulting",
   "confidence": 0.0-1.0,
-  "extracted_info": {
-    "ad_type": "text|image",
-    "business_type": "카페",
-    ...
-  }
+  "generation_type": "image|text|null",
+  "target_generation_id": 123 or null
 }
 ```
 
@@ -153,11 +139,9 @@ JSON 형식으로 응답:
 ```json
 {
   "intent": "generation",
-  "confidence": 0.95,
-  "extracted_info": {
-    "ad_type": "image",
-    "business_type": "카페"
-  }
+  "confidence": 0.92,
+  "generation_type": "image",
+  "target_generation_id": null
 }
 ```
 
@@ -175,12 +159,12 @@ JSON 형식으로 응답:
 
 **검색 쿼리**:
 ```sql
--- 유사 대화 검색 (pgvector 사용 시)
+-- 최근 대화 조회
 SELECT content, role, created_at
 FROM chat_history
 WHERE session_id = '{session_id}'
 ORDER BY created_at DESC
-LIMIT 10;
+LIMIT 5;
 
 -- 유사 생성 이력 검색
 SELECT output_text, output_image_id, prompt, style, industry
@@ -243,85 +227,53 @@ results = chroma_collection.query(
 
 **중요**: 이 부분은 다른 팀원이 담당하며, API 인터페이스만 정의하면 됨.
 
-#### Step 4: LLM 호출 (컨텍스트 통합)
+#### Step 4: 맥락 정제 / 상담 LLM 호출
 
-**컨텍스트 구성**:
+**A) generation/modification용 맥락 정제 (LLM)**  
+의도 분석 결과와 전체 히스토리를 기반으로 `refine_generation_input()`을 호출합니다.
+
+```python
+refined_input = await refine_generation_input(
+    intent=intent,
+    generation_type=generation_type,
+    target_generation_id=target_generation_id,
+    chat_history=all_chat_history,
+    generation_history=all_generation_history,
+)
+```
+
+- 번호/대명사 참조를 실제 문구로 치환
+- 수정 요청은 **이전 생성물 복사 금지**, 요구사항 요약으로 변환
+- 결과는 `refined_input` 단일 텍스트로 반환
+
+**B) consulting용 응답 생성 (LLM)**  
+최근 대화 + 지식베이스를 컨텍스트로 상담 응답을 생성합니다.
+
 ```python
 context = {
-    "user_message": message,
-    "intent": intent_analysis_result,
-    "workflow_state": {
-        "ad_type": "image",
-        "business_type": "카페",
-        "is_complete": False,
-        "missing_info": ["style", "aspect_ratio"]
-    },
-    "conversation_history": recent_conversations,
-    "generation_history": previous_generations,
-    "knowledge_base": consulting_guide_results
+    "recent_conversations": recent_conversations,
+    "generation_history": generation_history,
+    "knowledge_base": consulting_guide_results,
 }
+assistant_message = await generate_consulting_response(message, context)
 ```
 
-**LLM 프롬프트**:
-```
-시스템: 당신은 광고 제작 어시스턴트입니다.
+#### Step 5: 광고 생성 파이프라인
 
-사용자 정보:
-- 의도: {intent}
-- 현재 수집된 정보: {workflow_state}
-- 과거 대화: {conversation_history}
-- 이전 생성 이력: {generation_history}
-- 관련 가이드: {knowledge_base}
+**조건**: `intent in {"generation", "modification"}`
 
-사용자 메시지: "{user_message}"
-
-다음을 수행하세요:
-1. 누락된 정보가 있으면 자연스럽게 질문하세요.
-2. 모든 정보가 모였으면 "ready_to_generate": true를 반환하세요.
-3. JSON 형식으로 응답:
-
-{
-  "assistant_message": "어떤 스타일의 이미지를 원하시나요? 사실적인 스타일과 애니메이션 스타일 중 선택해주세요.",
-  "extracted_info": {
-    "ad_type": "image",
-    "business_type": "카페"
-  },
-  "ready_to_generate": false,
-  "missing_info": ["style", "aspect_ratio"]
-}
-```
-
-**LLM 응답**:
-```json
-{
-  "assistant_message": "카페 광고 이미지를 만들어드리겠습니다! 어떤 스타일을 원하시나요?\n\n1. 사실적인 스타일 (ultra_realistic)\n2. 세미 사실적 스타일 (semi_realistic)\n3. 애니메이션 스타일 (anime)",
-  "extracted_info": {
-    "ad_type": "image",
-    "business_type": "카페"
-  },
-  "ready_to_generate": false,
-  "missing_info": ["style", "aspect_ratio"]
-}
-```
-
-#### Step 5: 광고 생성 파이프라인 (조건부)
-
-**조건**: `ready_to_generate == true`
-
-**엔드포인트**: `POST /api/chat/generate`
+**엔드포인트**:
+- `POST /api/chat/message/stream`: intent 분석 후 SSE 스트리밍으로 진행 상태/결과 전송
 
 **처리 플로우**:
 ```python
-# services.py: handle_chat_generate()
-1. 워크플로우 상태 검증 (필수 정보 확인)
-2. handle_generate_pipeline() 호출
-   ├─ ingest_user_message(): 입력 수집/저장
-   ├─ generate_contents(): 광고 생성
-   │   ├─ text_generation.ad_generator.generate_advertisement()
-   │   └─ image_generation.generator.generate_and_save_image()
-   └─ persist_generation_result(): DB 저장
-3. Task 진행률 업데이트 (0% → 100%)
-4. 결과 반환
+# services.py
+1. intent 분석 (선택) → generation_type / target_generation_id 결정
+2. refine_generation_input() 호출 (전체 히스토리 기반)
+3. generate_contents() 실행
+   ├─ text_generation.text_generator.generate_ad_copy()
+   └─ image_generation.generator.generate_and_save_image()
+4. persist_generation_result(): DB 저장
 ```
 
 **생성 결과**:
@@ -340,26 +292,18 @@ context = {
 
 **DB 저장**:
 - `ChatHistory`: 어시스턴트 응답 메시지
-- `GenerationHistory`: 광고 생성 이력 (메타데이터 포함)
+- `GenerationHistory`: 광고 생성 이력 (`input_text`는 refined_input 저장)
 - `ImageMatching`: 생성된 이미지 파일 정보
 
-**사용자 응답**:
-```json
-{
-  "session_id": "sess_abc123",
-  "assistant_message": "카페 광고 이미지가 생성되었습니다!",
-  "ready_to_generate": false,
-  "workflow_state": {
-    "ad_type": "image",
-    "business_type": "카페",
-    "style": "ultra_realistic",
-    "is_complete": true
-  },
-  "generated_content": {
-    "image": "abc123def456.png",
-    "text": "따뜻한 커피 한 잔으로 시작하는 하루"
-  }
-}
+**사용자 응답 (generation/modification, SSE)**:
+```
+data: {"type":"meta","session_id":"sess_abc123","intent":"generation"}
+
+data: {"type":"progress","stage":"analyzing","message":"요청을 정리하고 있습니다."}
+
+data: {"type":"progress","stage":"generating","message":"광고를 생성하고 있습니다."}
+
+data: {"type":"done","assistant_message":"광고가 생성되었습니다.","output":{"content_type":"image","output_text":"따뜻한 커피 한 잔으로 시작하는 하루","image":"abc123def456.png"}}
 ```
 
 ---
@@ -374,34 +318,26 @@ context = {
 | **수정 (Modification)** | 기존 광고를 수정하고 싶은 경우 | "이미지를 더 밝게 만들어줘", "텍스트를 변경해줘" |
 | **상담 (Consulting)** | 광고 제작 방법이나 조언을 구하는 경우 | "카페 광고는 어떻게 만들어?", "효과적인 광고 문구는?" |
 
+**현재 구현 기준**:
+- 의도 분석은 최근 3~5턴만 참고 (경량)
+- `generation_input` 정제는 이 단계에서 수행하지 않음
+
 ### 3.2 의도별 VectorDB 검색 전략
 
 #### 3.2.1 생성 (Generation)
 
 **검색 대상**:
 1. **PostgreSQL**:
-   - 세션별 대화 히스토리 (이전 광고 생성 맥락 파악)
-   - 유사 업종의 생성 이력 (참고용)
+   - 세션별 최근 대화 히스토리 (최근 5턴)
+   - 세션별 최근 생성 이력 (최근 5건)
 2. **정적 파일 VectorDB**:
-   - 업종별 광고 템플릿
-   - 광고 제작 가이드라인
+   - generation/modification에는 현재 사용하지 않음 (consulting 전용)
 
 **검색 쿼리 예시**:
 ```python
 # PostgreSQL
-recent_conversations = get_recent_messages(session_id, limit=10)
-similar_generations = search_similar_generations(
-    business_type="카페",
-    ad_type="image",
-    limit=5
-)
-
-# 정적 파일 VectorDB (팀원 담당)
-knowledge_results = consulting_vectordb.search(
-    query="카페 광고 이미지 제작 가이드",
-    filters={"category": "generation_guide"},
-    limit=3
-)
+recent_conversations = get_recent_messages(session_id, limit=5)
+generation_history = get_generation_history(session_id, limit=5)
 ```
 
 #### 3.2.2 수정 (Modification)
@@ -409,26 +345,15 @@ knowledge_results = consulting_vectordb.search(
 **검색 대상**:
 1. **PostgreSQL**:
    - 현재 세션의 최근 생성 이력 (수정할 대상 찾기)
-   - 수정 요청 패턴 학습 (과거 수정 이력)
+   - target_generation_id가 있으면 해당 항목 우선
 2. **정적 파일 VectorDB**:
-   - 수정 가능한 파라미터 설명
-   - 수정 예시 문서
+   - 현재 수정 플로우에서는 사용하지 않음
 
 **검색 쿼리 예시**:
 ```python
 # PostgreSQL
 latest_generation = get_latest_generation(session_id)
-modification_history = search_modification_patterns(
-    user_input="더 밝게",
-    limit=5
-)
-
-# 정적 파일 VectorDB
-modification_guide = consulting_vectordb.search(
-    query="이미지 밝기 조절 방법",
-    filters={"category": "modification_guide"},
-    limit=2
-)
+target_generation_id = intent_result.get("target_generation_id")
 ```
 
 #### 3.2.3 상담 (Consulting)
@@ -444,7 +369,10 @@ modification_guide = consulting_vectordb.search(
 **검색 쿼리 예시**:
 ```python
 # PostgreSQL
-recent_conversations = get_recent_messages(session_id, limit=10)
+recent_conversations = get_recent_messages(
+    session_id=session_id,
+    limit=5,
+)
 
 # 정적 파일 VectorDB (팀원 담당 - 가장 중요)
 consulting_results = consulting_vectordb.search(
@@ -454,14 +382,14 @@ consulting_results = consulting_vectordb.search(
 )
 ```
 
-### 3.3 모든 의도에서 PostgreSQL 벡터 검색이 필요한 이유
+### 3.3 모든 의도에서 PostgreSQL 대화/생성 이력 조회가 필요한 이유
 
 **핵심 개념**: "대화는 맥락이다"
 
 1. **대화 히스토리 추적**:
    - 사용자가 이전에 무엇을 물었는지
    - 어시스턴트가 무엇을 답변했는지
-   - 현재 워크플로우 진행 상태
+   - 현재 대화 진행 상태
 
 2. **생성 이력 참조**:
    - 사용자가 이전에 만든 광고
@@ -472,7 +400,7 @@ consulting_results = consulting_vectordb.search(
    - 사용자별 맞춤 응답
    - 세션별 상태 관리
 
-**예시**: 상담 의도에서도 PostgreSQL 검색이 필요한 경우
+**예시**: 상담 의도에서도 PostgreSQL 조회가 필요한 경우
 ```
 사용자: "카페 광고는 어떻게 만들어?"
 -> PostgreSQL 검색: 이 사용자가 이전에 카페 광고를 만든 적이 있는지 확인
@@ -482,34 +410,19 @@ consulting_results = consulting_vectordb.search(
 
 ---
 
-## 4. VectorDB 검색 전략
+## 4. 검색 전략
 
-### 4.1 PostgreSQL 벡터 검색 (대화/생성 히스토리)
+### 4.1 PostgreSQL 검색 (대화/생성 히스토리)
 
 #### 4.1.1 구현 방식
 
-**옵션 1**: pgvector 확장 사용 (권장)
-```sql
-CREATE EXTENSION IF NOT EXISTS vector;
-
-ALTER TABLE chat_history
-ADD COLUMN embedding vector(1536);
-
--- 유사도 검색
-SELECT content, role, created_at
-FROM chat_history
-WHERE session_id = '{session_id}'
-ORDER BY embedding <-> '{query_embedding}'::vector
-LIMIT 10;
-```
-
-**옵션 2**: 단순 시간순 정렬 (현재 구현)
+**현재 구현**: 단순 시간순 정렬 (최근 5턴)
 ```sql
 SELECT content, role, created_at
 FROM chat_history
 WHERE session_id = '{session_id}'
 ORDER BY created_at DESC
-LIMIT 10;
+LIMIT 5;
 ```
 
 #### 4.1.2 검색 대상 테이블
@@ -549,30 +462,32 @@ LIMIT 10;
 def get_chat_history_by_session(
     db: Session,
     session_id: str,
-    limit: int = 10
+    limit: Optional[int] = 10
 ) -> List[models.ChatHistory]:
     """세션별 최근 대화 히스토리 조회"""
-    return (
+    query = (
         db.query(models.ChatHistory)
         .filter(models.ChatHistory.session_id == session_id)
         .order_by(models.ChatHistory.created_at.desc())
-        .limit(limit)
-        .all()
     )
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
 
 def get_generation_history_by_session(
     db: Session,
     session_id: str,
-    limit: int = 5
+    limit: Optional[int] = 5
 ) -> List[models.GenerationHistory]:
     """세션별 광고 생성 이력 조회"""
-    return (
+    query = (
         db.query(models.GenerationHistory)
         .filter(models.GenerationHistory.session_id == session_id)
         .order_by(models.GenerationHistory.created_at.desc())
-        .limit(limit)
-        .all()
     )
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
 ```
 
 ### 4.2 정적 파일 VectorDB (상담 지식베이스)
@@ -630,26 +545,39 @@ class ConsultingKnowledgeBase:
 ```python
 # chatbot.py: RAGChatbot.process_message()
 
-# 1. PostgreSQL 검색
-recent_conversations = conv_manager.get_recent_messages(db, session_id, limit=10)
+# 1. 의도 분석용 컨텍스트 (최근 5턴)
+recent_conversations = conv_manager.get_recent_messages(db, session_id, limit=5)
 generation_history = conv_manager.get_generation_history(db, session_id, limit=5)
 
-# 2. 정적 파일 VectorDB 검색 (팀원 API 호출)
-knowledge_results = consulting_knowledge_base.search(
-    query=user_message,
-    category="faq" if intent == "consulting" else "generation_guide",
-    limit=3
-)
-
-# 3. 컨텍스트 통합
-context = {
+# 2. 의도 분석
+intent_result = orchestrator.analyze_intent(user_message, {
     "recent_conversations": recent_conversations,
     "generation_history": generation_history,
-    "knowledge_base": knowledge_results
-}
+})
 
-# 4. LLM 호출
-llm_response = orchestrator.generate_response(user_message, context)
+# 3. 분기
+if intent_result["intent"] == "consulting":
+    knowledge_results = consulting_knowledge_base.search(
+        query=user_message,
+        category="faq",
+        limit=3
+    )
+    context = {
+        "recent_conversations": recent_conversations,
+        "generation_history": generation_history,
+        "knowledge_base": knowledge_results,
+    }
+    assistant_message = orchestrator.generate_consulting_response(user_message, context)
+else:
+    full_conversations = conv_manager.get_full_messages(db, session_id)
+    full_generations = conv_manager.get_full_generation_history(db, session_id)
+    refined_input = orchestrator.refine_generation_input(
+        intent=intent_result["intent"],
+        generation_type=intent_result.get("generation_type"),
+        target_generation_id=intent_result.get("target_generation_id"),
+        chat_history=full_conversations,
+        generation_history=full_generations,
+    )
 ```
 
 ### 4.3 검색 전략 비교 정리
@@ -668,36 +596,35 @@ llm_response = orchestrator.generate_response(user_message, context)
 **위치**: `src/generation/`
 
 **구성 요소**:
-1. **텍스트 생성**: `text_generation/ad_generator.py`
-   - `generate_advertisement()`: 광고 문구 생성
+1. **텍스트 생성**: `text_generation/text_generator.py`
+   - `generate_ad_copy()`: 광고 문구 생성
 2. **이미지 생성**: `image_generation/generator.py`
    - `generate_and_save_image()`:  프롬프트 + Stable Diffusion 기반 이미지 생성
 
-### 5.2 LLM 호출 = 생성 파이프라인 호출
+### 5.2 LLM 호출과 생성 파이프라인 관계
 
-**중요한 개념 정정**:
-
-사용자가 "LLM 호출 = 생성 파이프라인"이라고 이해했지만, 정확히는:
+현재 구조는 **LLM 호출과 생성 파이프라인을 분리**합니다.
 
 ```
-LLM 호출 ≠ 생성 파이프라인
-LLM 호출 = 챗봇 응답 생성 (GPT-4o-mini)
-생성 파이프라인 = 광고 생성 (텍스트 모델 + 이미지 모델)
+LLM 호출 = 의도 분석 + 맥락 정제(또는 상담 응답)
+생성 파이프라인 = 광고 콘텐츠 생성 (텍스트/이미지 모델)
 ```
 
 **올바른 플로우**:
 ```
 사용자 질문
     ↓
-[LLM 호출 1]: 의도 분석 + 정보 수집 (GPT-4o-mini)
+[LLM 호출 1]: 의도 분석 (최근 대화 3~5턴)
     ↓
-(정보가 모두 수집되면)
-    ↓
-[생성 파이프라인 호출]:
-    ├─ [텍스트 모델]: 광고 문구 생성 (Qwen 등)
-    └─ [이미지 모델]: 이미지 생성 (Stable Diffusion)
-    ↓
-[LLM 호출 2]: 결과 설명 생성 (GPT-4o-mini)
+┌───────────────────────────────────────────┐
+│ consulting → [LLM 상담 응답 생성]          │
+└───────────────────────────────────────────┘
+┌───────────────────────────────────────────┐
+│ generation/modification →                 │
+│ [LLM 맥락 정제(refine_generation_input)]  │
+│     ↓                                     │
+│ [생성 파이프라인 호출]                     │
+└───────────────────────────────────────────┘
 ```
 
 ### 5.3 통합 코드 (services.py)
@@ -705,112 +632,62 @@ LLM 호출 = 챗봇 응답 생성 (GPT-4o-mini)
 #### 5.3.1 현재 구현된 함수
 
 ```python
-# services.py: handle_generate_pipeline()
+# services.py: _execute_generation_pipeline()
 
-async def handle_generate_pipeline(
+async def _execute_generation_pipeline(
     *,
     db: Session,
     input_text: str,
+    generation_input: str,
+    generation_type: str,  # "text" or "image"
     session_id: Optional[str],
     user_id: Optional[int],
+    style: Optional[str],
+    aspect_ratio: Optional[str],
+    ingest: Optional[IngestResult] = None,
     image: Optional[UploadFile] = None,
-    task_id: str,
-    generation_type: str,  # "text" or "image"
-    style: Optional[str] = None,
-    aspect_ratio: Optional[str] = None,
 ):
     """
-    광고 생성 파이프라인 통합 서비스
+    광고 생성 파이프라인 실행
 
     단계:
-    1. ingest_user_message(): 입력 수집/저장
+    1. ingest_user_message(): 입력 수집/저장 (ingest가 없을 때만)
     2. generate_contents(): 광고 생성
-       ├─ text_generation.ad_generator.generate_advertisement()
+       ├─ text_generation.text_generator.generate_ad_copy()
        └─ image_generation.generator.generate_and_save_image()
     3. persist_generation_result(): DB 저장
-    4. Task 진행률 업데이트 (0% → 100%)
+    4. SSE progress/done 이벤트 전송 (상위 스트리밍 핸들러)
     """
     pass  # 구현 생략 (코드 참조)
-```
-
-#### 5.3.2 RAG 챗봇 통합
-
-```python
-# services.py: handle_chat_generate()
-
-async def handle_chat_generate(
-    *,
-    db: Session,
-    session_id: str,
-    user_id: Optional[int],
-    task_id: str,
-):
-    """
-    챗봇을 통해 수집된 정보로 광고 생성
-
-    단계:
-    1. 워크플로우 상태 조회
-    2. 필수 정보 검증
-    3. handle_generate_pipeline() 호출
-    4. 워크플로우 초기화
-    """
-    # 1. 워크플로우 상태 조회
-    chatbot = get_chatbot()
-    workflow_state = chatbot.get_workflow_state(session_id)
-
-    if not workflow_state.is_complete:
-        raise HTTPException(
-            status_code=400,
-            detail=f"필수 정보가 부족합니다: {', '.join(workflow_state.get_missing_info())}"
-        )
-
-    # 2. 광고 생성 파이프라인 호출
-    result = await handle_generate_pipeline(
-        db=db,
-        input_text=workflow_state.user_input,
-        session_id=session_id,
-        user_id=user_id,
-        image=None,
-        task_id=task_id,
-        generation_type=workflow_state.ad_type,
-        style=workflow_state.style,
-        aspect_ratio=workflow_state.aspect_ratio,
-    )
-
-    # 3. 워크플로우 초기화
-    chatbot.reset_workflow(session_id)
-
-    return result
 ```
 
 ### 5.4 생성 파이프라인 상세 플로우
 
 ```
-handle_chat_generate()
+_run_generation_for_intent()
     ↓
-handle_generate_pipeline()
+_execute_generation_pipeline()
     ↓
 ┌─────────────────────────────────────────┐
 │ Step 1: ingest_user_message()           │
 │  - 세션 확보                              │
 │  - 이미지 저장 (있는 경우)                   │
 │  - ChatHistory 저장                      │
-│  [Progress: 0% → 5%]                    │
+│  - SSE progress 이벤트 전송 (analyzing)  │
 └─────────────────────────────────────────┘
     ↓
 ┌───────────────────────────────────────────┐
 │ Step 2: generate_contents()               │
 │  ├─ text_generation                       │
-│  │   └─ ad_generator.generate_advertisement()│
+│  │   └─ text_generator.generate_ad_copy() │
 │  │       - 광고 문구 생성                     │
 │  │       - 프롬프트 생성                      │
-│  │  [Progress: 5% → 30%]                  │
+│  │  - SSE progress 이벤트 전송 (generating) │
 │  │                                        │
 │  └─ image_generation (if ad_type="image") │
 │      └─ generator.generate_and_save_image()│
 │          - Stable Diffusion 이미지 생성      │
 │          - ControlNet (참고 이미지 사용)      │
-│      [Progress: 30% → 70%]                │
 └───────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────┐
@@ -818,14 +695,7 @@ handle_generate_pipeline()
 │  - ChatHistory 저장 (assistant 응답)      │
 │  - GenerationHistory 저장                │
 │  - ImageMatching 저장 (이미지 메타데이터)    │
-│  [Progress: 70% → 90%]                  │
-└─────────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────────┐
-│ Step 4: complete_task()                 │
-│  - Task 상태: DONE                       │
-│  - 결과 반환                              │
-│  [Progress: 90% → 100%]                 │
+│  - SSE done 이벤트 전송                   │
 └─────────────────────────────────────────┘
 ```
 
@@ -962,43 +832,15 @@ CREATE TABLE image_matching (
 CREATE INDEX idx_image_matching_hash ON image_matching(file_hash);
 ```
 
-### 6.3 벡터 검색 확장 (pgvector)
-
-**설치** (선택사항):
-```sql
-CREATE EXTENSION IF NOT EXISTS vector;
-
--- ChatHistory에 임베딩 컬럼 추가
-ALTER TABLE chat_history
-ADD COLUMN embedding vector(1536);  -- OpenAI embedding 차원
-
--- 유사도 검색 인덱스
-CREATE INDEX idx_chat_history_embedding
-ON chat_history
-USING ivfflat (embedding vector_cosine_ops);
-```
-
-**검색 쿼리**:
-```sql
--- 유사 대화 검색
-SELECT content, role, created_at
-FROM chat_history
-WHERE session_id = '{session_id}'
-ORDER BY embedding <-> '{query_embedding}'::vector
-LIMIT 10;
-```
-
----
-
 ## 7. API 엔드포인트 설계
 
 ### 7.1 챗봇 메시지
 
-#### POST /api/chat/message
+#### POST /api/chat/message/stream
 
 **요청**:
 ```http
-POST /api/chat/message HTTP/1.1
+POST /api/chat/message/stream HTTP/1.1
 Content-Type: multipart/form-data
 Authorization: Bearer {jwt_token}
 
@@ -1007,126 +849,18 @@ session_id: "sess_abc123"  (optional)
 image: [binary]  (optional)
 ```
 
-**응답**:
-```json
-{
-  "session_id": "sess_abc123",
-  "assistant_message": "카페 광고 이미지를 만들어드리겠습니다! 어떤 스타일을 원하시나요?\n\n1. 사실적인 스타일 (ultra_realistic)\n2. 세미 사실적 스타일 (semi_realistic)\n3. 애니메이션 스타일 (anime)",
-  "ready_to_generate": false,
-  "workflow_state": {
-    "ad_type": "image",
-    "business_type": "카페",
-    "style": null,
-    "aspect_ratio": null,
-    "is_complete": false,
-    "missing_info": ["style", "aspect_ratio"]
-  }
-}
+**응답 (SSE)**:
+```
+data: {"type":"meta","session_id":"sess_abc123","intent":"generation"}
+
+data: {"type":"progress","stage":"analyzing","message":"요청을 정리하고 있습니다."}
+
+data: {"type":"progress","stage":"generating","message":"광고를 생성하고 있습니다."}
+
+data: {"type":"done","assistant_message":"광고가 생성되었습니다.","output":{"content_type":"image","output_text":"따뜻한 커피 한 잔으로 시작하는 하루","image":"abc123def456.png"}}
 ```
 
-### 7.2 광고 생성
-
-#### POST /api/chat/generate
-
-**요청**:
-```http
-POST /api/chat/generate HTTP/1.1
-Content-Type: application/x-www-form-urlencoded
-Authorization: Bearer {jwt_token}
-
-session_id=sess_abc123
-```
-
-**응답**:
-```json
-{
-  "task_id": "550e8400-e29b-41d4-a716-446655440000"
-}
-```
-
-### 7.3 작업 상태 조회
-
-#### GET /api/task/{task_id}
-
-**요청**:
-```http
-GET /api/task/550e8400-e29b-41d4-a716-446655440000 HTTP/1.1
-Authorization: Bearer {jwt_token}
-```
-
-**응답** (진행 중):
-```json
-{
-  "task_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "generating",
-  "progress": 45,
-  "result": null,
-  "error": null
-}
-```
-
-**응답** (완료):
-```json
-{
-  "task_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "done",
-  "progress": 100,
-  "result": {
-    "session_id": "sess_abc123",
-    "output": {
-      "content_type": "image",
-      "output_text": "따뜻한 커피 한 잔으로 시작하는 하루",
-      "image": "abc123def456.png"
-    }
-  },
-  "error": null
-}
-```
-
-### 7.4 워크플로우 상태 조회
-
-#### GET /api/chat/workflow/{session_id}
-
-**요청**:
-```http
-GET /api/chat/workflow/sess_abc123 HTTP/1.1
-Authorization: Bearer {jwt_token}
-```
-
-**응답**:
-```json
-{
-  "session_id": "sess_abc123",
-  "ad_type": "image",
-  "business_type": "카페",
-  "user_input": null,
-  "style": "ultra_realistic",
-  "aspect_ratio": "1:1",
-  "platform": null,
-  "target_audience": null,
-  "is_complete": true,
-  "missing_info": []
-}
-```
-
-### 7.5 워크플로우 초기화
-
-#### POST /api/chat/workflow/{session_id}/reset
-
-**요청**:
-```http
-POST /api/chat/workflow/sess_abc123/reset HTTP/1.1
-Authorization: Bearer {jwt_token}
-```
-
-**응답**:
-```json
-{
-  "message": "워크플로우가 초기화되었습니다."
-}
-```
-
-### 7.6 대화 히스토리 조회
+### 7.2 대화 히스토리 조회
 
 #### GET /api/chat/history/{session_id}
 
@@ -1167,28 +901,23 @@ Authorization: Bearer {jwt_token}
 ┌─────────────────────────────────────────────────────────────┐
 │                      Presentation Layer                     │
 │                    (FastAPI Routers)                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
-│  │ /chat/*     │  │ /generate/* │  │ /task/*     │          │
-│  └─────────────┘  └─────────────┘  └─────────────┘          │
+│  ┌─────────────┐                                            │
+│  │ /chat/*     │                                            │
+│  └─────────────┘                                            │
 └───────────────────────┬─────────────────────────────────────┘
                         │
 ┌───────────────────────▼────────────────────────────────────┐
 │                      Service Layer                         │
 │                    (services.py)                           │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │ handle_chat_message()                                │  │
+│  │ handle_chat_message_stream()                         │  │
 │  │  - 챗봇 대화 처리                                       │  │
-│  │  - 의도 분석                                           │  │
-│  │  - VectorDB 검색                                      │  │
-│  │  - LLM 호출                                           │  │
+│  │  - 의도 분석 + 분기 처리                                │  │
+│  │  - generation/modification은 스트리밍으로 결과 전송       │  │
+│  │  - consulting은 LLM 응답 생성                           │  │
 │  └──────────────────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │ handle_chat_generate()                               │  │
-│  │  - 워크플로우 상태 검증                                   │  │
-│  │  - 생성 파이프라인 호출                                   │  │
-│  └──────────────────────────────────────────────────────┘  │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ handle_generate_pipeline()                           │  │
+│  │ _execute_generation_pipeline()                        │  │
 │  │  - 입력 수집 (ingest_user_message)                     │  │
 │  │  - 광고 생성 (generate_contents)                       │  │
 │  │  - 결과 저장 (persist_generation_result)               │  │
@@ -1199,12 +928,11 @@ Authorization: Bearer {jwt_token}
 │                      Business Logic Layer                 │
 │  ┌──────────────────────┐  ┌─────────────────────────┐    │
 │  │ chatbot.py           │  │ generation/             │    │
-│  │ (미구현 - 필요)         │  │ ├─ text_generation/     │    │
-│  │                      │  │ │  └─ ad_generator.py   │    │
+│  │                      │  │ ├─ text_generation/     │    │
+│  │                      │  │ │  └─ text_generator.py │    │
 │  │ - RAGChatbot         │  │ └─ image_generation/    │    │
 │  │ - ConversationManager│  │    └─ generator.py      │    │
 │  │ - LLMOrchestrator    │  └─────────────────────────┘    │
-│  │ - WorkflowState      │                                 │
 │  └──────────────────────┘                                 │
 └───────────────────────┬───────────────────────────────────┘
                         │
@@ -1215,8 +943,8 @@ Authorization: Bearer {jwt_token}
 │  │ process_db.py                                        │  │
 │  │  - get_chat_history_by_session()                     │  │
 │  │  - get_generation_history_by_session()               │  │
-│  │  - save_chat_message()                               │  │
 │  │  - save_generation_history()                         │  │
+│  │  - save_image_from_hash()                            │  │
 │  └──────────────────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │ models.py                                            │  │
@@ -1231,7 +959,7 @@ Authorization: Bearer {jwt_token}
 │  │ PostgreSQL         │         │ 정적 파일 VectorDB     │   │
 │  │ - ChatHistory      │         │ (팀원 담당)            │   │
 │  │ - GenerationHistory│         │ - ChromaDB?          │   │
-│  │ - (pgvector?)      │         │ - Pinecone?          │   │
+│  │ - 키워드 검색       │         │ - Pinecone?          │   │
 │  └────────────────────┘         └──────────────────────┘   │
 └────────────────────────────────────────────────────────────┘
 ```
@@ -1246,142 +974,57 @@ Authorization: Bearer {jwt_token}
          │
          ▼
 ┌────────────────────────────────────────┐
-│ routers/chat.py                        │
-│ POST /api/chat/message                 │
-│  - 입력 수신                             │
-│  - 인증 확인                             │
+│ POST /api/chat/message/stream          │
 └────────┬───────────────────────────────┘
          │
          ▼
 ┌────────────────────────────────────────┐
-│ services.handle_chat_message()         │
-│  ├─ 세션 확보 (normalize_session_id)     │
-│  ├─ 이미지 처리 (save_uploaded_image)     │
+│ services.handle_chat_message_stream()  │
+│  ├─ 세션 확보                           │
+│  ├─ 이미지 처리                          │
 │  └─ chatbot.process_message() 호출      │
 └────────┬───────────────────────────────┘
          │
          ▼
 ┌───────────────────────────────────────┐
 │ chatbot.RAGChatbot.process_message()  │
-│ (미구현 - 필요)                          │
-│  ┌─────────────────────────────────┐  │
-│  │ 1. 의도 분석                      │  │
-│  │    LLM 호출 → intent 판단         │  │
-│  └─────────────────────────────────┘  │
-│  ┌─────────────────────────────────┐  │
-│  │ 2. VectorDB 검색                 │  │
-│  │    A. PostgreSQL                │  │
-│  │       - get_chat_history()      │  │
-│  │       - get_generation_history()│  │
-│  │    B. 정적 파일 VectorDB          │  │
-│  │       - knowledge_base.search() │  │
-│  └─────────────────────────────────┘  │
-│  ┌─────────────────────────────────┐  │
-│  │ 3. 워크플로우 상태 업데이트           │  │
-│  │    - extracted_info 반영         │  │
-│  │    - is_complete 체크            │  │
-│  └─────────────────────────────────┘  │
-│  ┌─────────────────────────────────┐  │
-│  │ 4. LLM 호출 (응답 생성)            │  │
-│  │    - 컨텍스트 통합                 │  │
-│  │    - 챗봇 응답 생성                │  │
-│  └─────────────────────────────────┘  │
-│  ┌─────────────────────────────────┐  │
-│  │ 5. 대화 저장                      │  │
-│  │    - save_chat_message()        │  │
-│  └─────────────────────────────────┘  │
+│  ├─ 의도 분석 (최근 3~5턴)              │
+│  ├─ consulting → 상담 응답 생성         │
+│  └─ generation/modification →          │
+│     파이프라인 실행 + 결과 스트리밍      │
 └────────┬──────────────────────────────┘
          │
-         ▼
-┌────────────────────────────────────────┐
-│ 사용자 응답                               │
-│ {                                      │
-│   "assistant_message": "...",          │
-│   "ready_to_generate": false,          │
-│   "workflow_state": {...}              │
-│ }                                      │
-└────────────────────────────────────────┘
-
-(ready_to_generate = true 일 때)
-
+         ├── consulting 응답 스트리밍
          │
-         ▼
-┌────────────────────────────────────────┐
-│ POST /api/chat/generate                │
-└────────┬───────────────────────────────┘
-         │
-         ▼
-┌────────────────────────────────────────┐
-│ services.handle_chat_generate()        │
-│  ├─ 워크플로우 검증                        │
-│  └─ handle_generate_pipeline() 호출     │
-└────────┬───────────────────────────────┘
-         │
-         ▼
+         └── generation/modification
+             ▼
 ┌───────────────────────────────────────┐
-│ services.handle_generate_pipeline()   │
-│  ┌─────────────────────────────────┐  │
-│  │ 1. ingest_user_message()        │  │
-│  │    [Progress: 0% → 5%]          │  │
-│  └─────────────────────────────────┘  │
-│  ┌─────────────────────────────────┐  │
-│  │ 2. generate_contents()          │  │
-│  │    ├─ ad_generator              │  │
-│  │    │  .generate_advertisement() │  │
-│  │    │  [Progress: 5% → 30%]      │  │
-│  │    └─ generator                 │  │
-│  │       .generate_and_save_image()│  │
-│  │       [Progress: 30% → 70%]     │  │
-│  └─────────────────────────────────┘  │
-│  ┌─────────────────────────────────┐  │
-│  │ 3. persist_generation_result()  │  │
-│  │    [Progress: 70% → 90%]        │  │
-│  └─────────────────────────────────┘  │
-│  ┌─────────────────────────────────┐  │
-│  │ 4. complete_task()              │  │
-│  │    [Progress: 90% → 100%]       │  │
-│  └─────────────────────────────────┘  │
-└────────┬──────────────────────────────┘
-         │
-         ▼
-┌────────────────────────────────────────┐
-│ 생성 완료                                │
-│ {                                      │
-│   "session_id": "sess_abc123",         │
-│   "output": {                          │
-│     "content_type": "image",           │
-│     "output_text": "...",              │
-│     "image": "abc123.png"              │
-│   }                                    │
-│ }                                      │
-└────────────────────────────────────────┘
+│ _run_generation_for_intent()          │
+│  ├─ refine_generation_input() (LLM)   │
+│  ├─ generate_contents()               │
+│  ├─ persist_generation_result()       │
+│  └─ SSE done 이벤트 전송               │
+└───────────────────────────────────────┘
 ```
 
 ### 8.3 파일 구조
 
 ```
+main.py                         # FastAPI 엔드포인트 (스트리밍)
 src/backend/
 ├── __init__.py
 ├── models.py                    # SQLAlchemy 모델 정의
 ├── schemas.py                   # Pydantic 스키마
 ├── process_db.py                # DB 접근 함수
 ├── services.py                  # 비즈니스 로직
-├── task.py                      # Task 관리
-├── chatbot.py                   # ⚠️ 미구현 (필요)
+├── chatbot.py                   # ✅ 구현됨
 │   ├── RAGChatbot               # RAG 챗봇 메인
 │   ├── ConversationManager      # 대화 관리자
-│   ├── LLMOrchestrator          # LLM 호출 관리
-│   └── WorkflowStateManager     # 워크플로우 상태 관리
-└── routers/
-    ├── __init__.py
-    ├── auth.py                  # 인증 관련 엔드포인트
-    ├── chat.py                  # 챗봇 엔드포인트
-    └── generate.py              # 광고 생성 엔드포인트
+│   └── LLMOrchestrator          # LLM 호출 관리
 
 src/generation/
 ├── text_generation/
-│   ├── ad_generator.py          # ✅ 구현됨
-│   └── text_generator.py
+│   └── text_generator.py        # ✅ 구현됨
 └── image_generation/
     ├── generator.py             # ✅ 구현됨
     ├── workflow.py
@@ -1395,42 +1038,46 @@ src/generation/
 
 ## 9. 핵심 개념 정리
 
-### 9.1 RAG 사이클
+### 9.1 RAG 사이클 (현재 구현)
 
 ```
 [사용자 질문]
     ↓
-[의도 분석 (Intent Analysis)]
+[의도 분석 (최근 3~5턴)]
     ↓
-[VectorDB 검색 (PostgreSQL + 정적 파일)]
-    ↓
-[LLM 호출 (GPT-4o-mini: 챗봇 응답)] = [생성 필요 시: 광고 생성 파이프라인]
-    ↓
-[응답 반환]
-    ↓
-[다음 사용자 질문] → (사이클 반복)
+┌───────────────────────────────────────────┐
+│ consulting → 최근 대화 + 지식베이스       │
+│              → 상담 응답 LLM              │
+└───────────────────────────────────────────┘
+┌───────────────────────────────────────────┐
+│ generation/modification → 전체 히스토리   │
+│              → refine_generation_input LLM│
+│              → 생성 파이프라인 호출       │
+└───────────────────────────────────────────┘
 ```
 
-### 9.2 VectorDB 이중 전략
+### 9.2 VectorDB 이중 전략 (현재)
 
 | 구분 | PostgreSQL | 정적 파일 VectorDB |
 |-----|-----------|------------------|
 | **담당** | 백엔드 로직 (나) | 상담 챗봇 팀원 |
 | **검색 대상** | 대화/생성 히스토리 | FAQ, 가이드 문서 |
 | **용도** | 맥락 유지, 개인화 | 상담 응답, 지식 제공 |
-| **모든 의도에 필요** | ✅ YES | 의도별 차등 |
+| **모든 의도에 필요** | ✅ YES | consulting 중심 |
 
 ### 9.3 LLM 호출 vs 생성 파이프라인
 
 ```
 LLM 호출 (GPT-4o-mini):
-  - 목적: 챗봇 응답 생성, 의도 분석
-  - 입력: 사용자 메시지 + 컨텍스트
-  - 출력: 챗봇 메시지 + extracted_info
+  - 목적: 의도 분석, refined_input 정제, 상담 응답 생성
+  - 입력: 사용자 메시지 + 컨텍스트 (히스토리/KB)
+  - 출력: intent/generation_type/target_generation_id
+          또는 refined_input
+          또는 assistant_message
 
-생성 파이프라인 (Qwen + Stable Diffusion):
+생성 파이프라인 (TextGenerator + Stable Diffusion):
   - 목적: 광고 콘텐츠 생성
-  - 입력: 광고 정보 (업종, 스타일, 비율 등)
+  - 입력: refined_input (+ 업로드 이미지)
   - 출력: 광고 문구 + 이미지
 ```
 
@@ -1438,26 +1085,21 @@ LLM 호출 (GPT-4o-mini):
 
 #### 생성 (Generation)
 ```
-의도 분석 → PostgreSQL (대화/생성 히스토리 검색)
-         → 정적 파일 VectorDB (생성 가이드 검색)
-         → LLM (정보 수집)
-         → ready_to_generate = true
-         → 생성 파이프라인 호출
+의도 분석 → 전체 히스토리 조회 → refine_generation_input
+         → generate_contents → 결과 저장
 ```
 
 #### 수정 (Modification)
 ```
-의도 분석 → PostgreSQL (최근 생성 이력 조회)
-         → 정적 파일 VectorDB (수정 가이드 검색)
-         → LLM (수정 요청 파싱)
-         → 생성 파이프라인 재호출 (파라미터 변경)
+의도 분석 → target_generation_id 선택
+         → 전체 히스토리 조회 → refine_generation_input
+         → handle_chat_revise (수정 재생성)
 ```
 
 #### 상담 (Consulting)
 ```
-의도 분석 → PostgreSQL (대화 히스토리 검색)
-         → 정적 파일 VectorDB (FAQ, 가이드 검색) ⭐ 주요
-         → LLM (상담 응답 생성)
+의도 분석 → 유사 대화 + 지식베이스 검색
+         → generate_consulting_response
          → 응답 반환 (생성 없음)
 ```
 
@@ -1465,35 +1107,10 @@ LLM 호출 (GPT-4o-mini):
 
 ## 10. 다음 단계
 
-### 10.1 구현 우선순위
-
-#### HIGH (필수)
-1. ✅ **현재 코드 분석 완료**
-2. **chatbot.py 구현**
-   - RAGChatbot 클래스
-   - ConversationManager (PostgreSQL 검색)
-   - LLMOrchestrator (GPT-4o-mini 호출)
-   - WorkflowState 관리
-3. **정적 파일 VectorDB 인터페이스 정의**
-   - 팀원과 API 협의
-   - ConsultingKnowledgeBase 인터페이스 작성
-
-#### MEDIUM (개선)
-4. **수정/컨펌 플로우 추가**
-   - handle_chat_revise() 구현
-   - handle_chat_confirm() 구현
-   - WorkflowState에 phase 추가
-5. **pgvector 도입 검토**
-   - 벡터 검색 성능 향상
-   - 유사도 기반 검색
-
-#### LOW (최적화)
-6. **캐싱 전략**
-   - Redis 도입
-   - 반복 질문 캐싱
-7. **모니터링**
-   - LLM 응답 품질 추적
-   - 생성 성공률 추적
+### 10.1 개선 우선순위 (현 상태 기준)
+1. **정적 파일 VectorDB 품질 개선** (검색 정확도/컨텍스트 정제)
+2. **수정 요청 파서 고도화** (제약 조건/수정 누적 처리)
+3. **테스트/관측 강화** (단위/통합, 응답 품질 로깅)
 
 ### 10.2 팀원 협업 포인트
 
@@ -1503,9 +1120,9 @@ LLM 호출 (GPT-4o-mini):
 - 검색 API 구현
 
 **백엔드 로직 (나)**:
-- chatbot.py 구현
-- PostgreSQL 벡터 검색
-- 생성 파이프라인 통합
+- consulting 컨텍스트 통합 로직 유지/개선
+- refine_generation_input 프롬프트 관리
+- 생성 파이프라인/로그/테스트 정비
 
 **협업 인터페이스**:
 ```python
@@ -1516,7 +1133,7 @@ class ConsultingKnowledgeBase:
         """정적 문서 검색"""
         pass
 
-# chatbot.py (내가 구현)
+# chatbot.py (백엔드)
 knowledge_base = ConsultingKnowledgeBase()
 results = knowledge_base.search(
     query=user_message,
@@ -1529,4 +1146,4 @@ results = knowledge_base.search(
 
 **문서 작성**: Claude Code (Backend Developer Agent)
 **검토 필요**: 백엔드 로직 담당자
-**마지막 업데이트**: 2026-01-15
+**마지막 업데이트**: 2026-01-25

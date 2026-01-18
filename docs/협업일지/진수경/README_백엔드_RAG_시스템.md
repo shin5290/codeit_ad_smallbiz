@@ -3,6 +3,7 @@
 **작성일**: 2026-01-15
 **담당**: 백엔드 로직 (진수경)
 **목적**: RAG 기반 챗봇 시스템 아키텍처 및 리팩토링 계획 종합 가이드
+**버전**: 1.1 (현재 구현 반영)
 
 ---
 
@@ -31,23 +32,20 @@
 ```
 [사용자 질문]
     ↓
-[Intent 분석 (LLM 1회)] (생성/수정/상담)
+[의도 분석 (최근 3~5턴)]
     ↓
-┌───────────────┬───────────────┬───────────────┐
-│   생성/수정     │               │     상담       │
-└───────┬───────┘               └───────┬───────┘
-        ↓                               ↓
-[PostgreSQL 검색]              [PostgreSQL + 정적파일 검색]
-        ↓                               ↓
-[생성 파이프라인 호출]          [LLM 응답 생성]
- └─ 텍스트/이미지 생성           └─ 상담 응답
-    (생성 파이프라인 내부에서
-     스타일/비율 등 추출)
-        ↓                               ↓
-[광고 결과물]                   [상담 응답]
+┌───────────────────────────────────────────┐
+│ consulting → 유사 대화 + 지식베이스       │
+│              → 상담 응답 LLM              │
+└───────────────────────────────────────────┘
+┌───────────────────────────────────────────┐
+│ generation/modification → 전체 히스토리   │
+│              → refine_generation_input LLM│
+│              → 생성 파이프라인 호출       │
+└───────────────────────────────────────────┘
 ```
 
-**핵심**: 생성/수정 intent는 백엔드 RAG 챗봇에서 LLM 호출 없이 바로 생성 파이프라인으로 넘김
+**핵심**: 생성/수정 intent는 **refine_generation_input(LLM)**으로 입력을 정제한 뒤 생성 파이프라인으로 넘김
 
 ### 이중 VectorDB 전략
 
@@ -62,14 +60,14 @@
 
 #### 생성 (Generation)
 - PostgreSQL: 대화/생성 히스토리 → 맥락 파악
-- **백엔드 RAG 챗봇에서 LLM 호출 없음**
-- 바로 생성 파이프라인 호출 → 생성 파이프라인 내부에서 스타일/비율 등 추출
+- **refine_generation_input(LLM)**으로 입력 정제
+- 생성 파이프라인 호출 → generate_contents 실행
 - 결과: 광고 결과물 반환
 
 #### 수정 (Modification)
 - PostgreSQL: 최근 생성 이력 → 수정할 대상 찾기
-- **백엔드 RAG 챗봇에서 LLM 호출 없음**
-- 바로 생성 파이프라인 재호출 (파라미터 변경)
+- **refine_generation_input(LLM)**으로 요청 정제
+- handle_chat_revise → 생성 파이프라인 재호출
 - 결과: 수정된 광고 결과물 반환
 
 #### 상담 (Consulting)
@@ -91,116 +89,34 @@
    - `ingest_user_message()`: 입력 수집/저장
    - `generate_contents()`: 텍스트/이미지 광고 생성
    - `persist_generation_result()`: DB 저장
-   - `handle_generate_pipeline()`: 통합 파이프라인
+   - `_execute_generation_pipeline()`: 파이프라인 실행
 
-3. **Task 관리** (`task.py`)
-   - 작업 상태 추적 (pending → generating → done/failed)
-   - 진행률 업데이트 (0% → 100%)
+3. **RAG 챗봇 핵심 로직** (`chatbot.py`)
+   - RAGChatbot / ConversationManager / LLMOrchestrator 구현
+   - analyze_intent + consulting 응답 생성
+   - refine_generation_input 추가
 
-### 미구현 (❌)
+4. **수정 플로우** (`services.py`)
+   - `handle_chat_revise()` 구현
 
-1. **RAG 챗봇 핵심 로직** (`chatbot.py` - 파일 자체가 없음)
-   - RAGChatbot 클래스 (Intent 분석 + 분기 처리)
-   - ConversationManager (대화 관리)
-   - LLMOrchestrator (Intent 분석 + 상담 응답 생성)
+### 미구현/스텁 (❌/⚠️)
 
-2. **수정/컨펌 플로우** (`services.py` - 함수 없음)
-   - `handle_chat_revise()`: 광고 수정
-   - `handle_chat_confirm()`: 최종 확정
-
-3. **VectorDB 통합**
-   - PostgreSQL 벡터 검색 (pgvector 미사용)
-   - 정적 파일 VectorDB 연동 (팀원 협업 미정의)
+1. **정적 파일 VectorDB 고도화**
+   - 지식베이스 구축/정확도 개선 (팀원 협업)
 
 ---
 
-## 리팩토링 계획 요약
+## 개선 계획 요약 (현 상태)
 
-### Phase 1: 기반 구조 구축 (1-2일)
+### 완료됨
+- RAGChatbot / ConversationManager / LLMOrchestrator 구현
+- refine_generation_input 도입 (generation/modification 입력 정제)
+- handle_chat_revise 구현
+- `/api/chat/message/stream` 흐름 정리
 
-**목표**: chatbot.py 스켈레톤 생성
-
-**작업**:
-- `chatbot.py` 파일 생성
-- 주요 클래스 정의 (RAGChatbot, ConversationManager, LLMOrchestrator)
-- DB 스키마 확장 (GenerationHistory에 revision 관련 컬럼 추가)
-
-**우선순위**: HIGH (필수)
-
-### Phase 2: RAG 챗봇 핵심 로직 구현 (3-4일)
-
-**목표**: RAG 파이프라인 완전 동작 (Intent별 분기)
-
-**작업**:
-- ConversationManager 구현 (PostgreSQL 대화 히스토리 관리)
-- LLMOrchestrator 구현:
-  - `analyze_intent()`: 모든 경우에 사용
-  - `generate_consulting_response()`: 상담 intent에만 사용
-- RAGChatbot.process_message() 구현:
-  - Intent 분석
-  - 생성/수정 → 생성 파이프라인 호출
-  - 상담 → LLM 응답 생성
-
-**우선순위**: HIGH (필수)
-
-### Phase 3: 수정/컨펌 플로우 구현 (2-3일)
-
-**목표**: 광고 수정 및 확정 기능
-
-**작업**:
-- `handle_chat_revise()` 함수 구현
-- `handle_chat_confirm()` 함수 구현
-- 라우터 추가 (`POST /chat/revise`, `POST /chat/confirm`)
-
-**우선순위**: MEDIUM (개선)
-
-### Phase 4: 정적 파일 VectorDB 통합 (2-3일)
-
-**목표**: 팀원과 협업하여 지식베이스 통합
-
-**작업**:
-- `ConsultingKnowledgeBase` 인터페이스 정의
-- RAGChatbot에 지식베이스 통합
-- 팀원에게 인터페이스 공유 및 구현 요청
-
-**우선순위**: MEDIUM (협업)
-
-### Phase 5: pgvector 통합 (2-3일, 선택사항)
-
-**목표**: 유사도 기반 벡터 검색
-
-**작업**:
-- PostgreSQL pgvector 확장 설치
-- ChatHistory에 embedding 컬럼 추가
-- 임베딩 생성 및 유사도 검색 구현
-
-**우선순위**: LOW (선택사항, 성능 개선)
-
-### Phase 6: 테스트 및 배포 (2-3일)
-
-**목표**: 품질 보증 및 프로덕션 배포
-
-**작업**:
-- 단위 테스트 작성
-- 통합 테스트 작성
-- E2E 테스트 작성
-- 스테이징/프로덕션 배포
-
-**우선순위**: HIGH (필수)
-
----
-
-## 예상 일정
-
-| 단계 | 소요 시간 | 우선순위 |
-|-----|---------|---------|
-| Phase 1: 기반 구조 | 1-2일 | HIGH |
-| Phase 2: RAG 핵심 | 3-4일 | HIGH |
-| Phase 3: 수정/컨펌 | 2-3일 | MEDIUM |
-| Phase 4: VectorDB 통합 | 2-3일 | MEDIUM |
-| Phase 5: pgvector (선택) | 2-3일 | LOW |
-| Phase 6: 테스트/배포 | 2-3일 | HIGH |
-| **총계** | **12-18일** (약 2.5-4주) | |
+### 진행/예정
+- 정적 파일 VectorDB 검색 품질 개선
+- 테스트/관측/로깅 강화
 
 ---
 
@@ -221,39 +137,34 @@ class ConsultingKnowledgeBase:
         pass
 ```
 
-**협업 시점**: Phase 4 (Phase 2 완료 후)
+**협업 시점**: 지식베이스 구축 일정과 병행
 
 ### 프론트엔드 팀
 
 **협업 내용**:
 - 새 API 엔드포인트 통합 (`/chat/*`)
-- 워크플로우 상태 UI 설계
-- Task 진행률 폴링 로직
+- SSE progress 이벤트 처리
 
-**협업 시점**: Phase 2 완료 후 API 문서 공유
+**협업 시점**: API 변경 시점마다 공유
 
 ---
 
 ## 주요 파일 위치
 
 ```
+main.py                  # FastAPI 엔드포인트 (스트리밍)
 src/backend/
 ├── models.py               # ✅ DB 모델 (확장 필요)
 ├── process_db.py           # ✅ DB CRUD 함수 (확장 필요)
-├── services.py             # ⚠️ 비즈니스 로직 (보완 필요)
-├── task.py                 # ✅ Task 관리
-├── chatbot.py              # ❌ 신규 구현 필요 ⭐
+├── services.py             # ✅ 비즈니스 로직
+├── chatbot.py              # ✅ RAG 챗봇 구현
 │   ├── RAGChatbot          # Intent 분석 + 분기 처리
 │   ├── ConversationManager # PostgreSQL 대화 관리
-│   └── LLMOrchestrator     # Intent 분석 + 상담 응답
-└── routers/
-    ├── auth.py             # ✅ 인증
-    ├── chat.py             # ⚠️ 챗봇 엔드포인트 (보완 필요)
-    └── generate.py         # ✅ 광고 생성
+│   └── LLMOrchestrator     # Intent 분석 + 상담/정제
 
 src/generation/
 ├── text_generation/
-│   └── ad_generator.py     # ✅ 텍스트 광고 생성
+│   └── text_generator.py   # ✅ 텍스트 광고 생성
 └── image_generation/
     └── generator.py        # ✅ 이미지 광고 생성
 ```
@@ -267,53 +178,30 @@ src/generation/
 ```
 POST /api/auth/signup       # 회원가입
 POST /api/auth/login        # 로그인
-POST /api/generate          # 단발성 광고 생성 (기존 방식)
-GET  /api/task/{task_id}    # Task 상태 조회
+POST /api/chat/message/stream # 챗봇 메시지 스트리밍
+POST /api/chat/session      # 세션 발급
+GET  /api/chat/history/{sid}   # 대화 히스토리 조회
+GET  /api/chat/generation/{sid}# 생성 이력 조회
 ```
 
-### 신규 추가 예정 (❌)
-
-```
-POST /api/chat/message           # 챗봇 메시지 (Intent 분석 + 분기)
-GET  /api/chat/history/{sid}     # 대화 히스토리 조회
-```
-
-**참고**: 생성/수정 intent는 백엔드 RAG 챗봇에서 바로 생성 파이프라인을 호출하므로 별도 `/chat/generate` 엔드포인트 불필요
+**참고**: `/api/chat/message`는 비스트리밍을 제거했고, `/api/chat/message/stream`만 지원합니다.
 
 ---
 
 ## 다음 액션 아이템
 
-### 즉시 시작 가능 (Phase 1)
-
-1. **chatbot.py 스켈레톤 생성**
-   - 파일: `/home/spai0416/codeit_ad_smallbiz/src/backend/chatbot.py`
-   - 참조: [백엔드_리팩토링_계획서.md](./백엔드_리팩토링_계획서.md) 단계 1.1
-
-2. **DB 스키마 확장**
-   - 파일: `/home/spai0416/codeit_ad_smallbiz/src/backend/models.py`
-   - 추가: `is_confirmed`, `revision_of_id`, `revision_number` 컬럼
-   - 참조: [백엔드_리팩토링_계획서.md](./백엔드_리팩토링_계획서.md) 단계 1.2
-
-3. **스키마 확장**
-   - 파일: `/home/spai0416/codeit_ad_smallbiz/src/backend/schemas.py`
-   - 추가: `WorkflowStateResponse` 스키마
-   - 참조: [백엔드_리팩토링_계획서.md](./백엔드_리팩토링_계획서.md) 단계 1.3
-
-### 병렬 작업 가능
-
-- Phase 4 (정적 파일 VectorDB)는 Phase 2 완료 후 팀원과 협업 가능
-- Phase 5 (pgvector)는 선택사항으로, 다른 작업과 독립적
+### 우선순위 높은 개선
+1. **정적 파일 VectorDB 품질 개선**
+   - 검색 정확도/컨텍스트 정제 개선
+2. **수정 파서 고도화**
+   - 누적 수정 제약/번호 참조 케이스 보강
+3. **테스트/관측 강화**
+   - 단위/통합 테스트, 응답 품질 로그
 
 ---
 
 ## 참고 문서
 
-### 이 폴더의 다른 문서
-
-- [rag_chatbot_architecture.md](./rag_chatbot_architecture.md): RAG 챗봇 기본 설계 (이전 버전)
-- [current_dual_db_architecture.md](./current_dual_db_architecture.md): PostgreSQL + ChromaDB 이중 구조 분석
-- [260115_백엔드_상담챗봇_생성파이프라인_통합.md](./260115_백엔드_상담챗봇_생성파이프라인_통합.md): 이전 통합 계획
 
 ### 프로젝트 전체 문서
 
@@ -326,16 +214,3 @@ GET  /api/chat/history/{sid}     # 대화 히스토리 조회
 | 날짜 | 버전 | 변경 사항 |
 |-----|------|----------|
 | 2026-01-15 | 1.0 | 초기 문서 작성 (RAG 아키텍처 설계 + 리팩토링 계획) |
-
----
-
-## 문의 및 피드백
-
-**담당자**: 백엔드 로직 (진수경)
-**작성자**: Claude Code (Backend Developer Agent)
-
-질문이나 피드백이 있으면 이슈를 생성하거나 담당자에게 직접 문의해주세요.
-
----
-
-**Happy Coding!** 🚀

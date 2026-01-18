@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>AI 광고 챗봇 테스트 센터</title>
+    <title>AI 광고 챗봇</title>
     <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon.png">
     <meta name="msapplication-TileColor" content="#ffffff">
     <meta name="theme-color" content="#ffffff">
@@ -1245,7 +1245,7 @@
                 await sendChatStream(form, loadingId);
             } catch (e) {
                 console.error(e);
-                await sendChatLegacy(form, loadingId);
+                await streamAssistantText(loadingId, "요청 처리 중 오류가 발생했습니다.");
             }
         }
 
@@ -1267,13 +1267,24 @@
             const decoder = new TextDecoder();
             let buffer = "";
             let assistantText = "";
-            let pendingTaskId = null;
             let hasChunks = false;
 
             const applySessionId = (sessionId) => {
                 if (!sessionId) return;
                 currentSessionId = sessionId;
                 localStorage.setItem("session_id", sessionId);
+            };
+
+            const normalizeImageUrls = (imageValue) => {
+                if (!imageValue) return [];
+                const images = Array.isArray(imageValue) ? imageValue : [imageValue];
+                return images.map((img) => {
+                    if (!img) return null;
+                    if (img.startsWith("data:image/")) return img;
+                    if (img.startsWith("http")) return img;
+                    if (img.startsWith("/")) return `${API_BASE}${img}`;
+                    return `${API_BASE}/images/${img}`;
+                }).filter(Boolean);
             };
 
             const handlePayload = (payload) => {
@@ -1287,24 +1298,28 @@
                     return;
                 }
 
-                if (payload.type === "done") {
-                    assistantText = payload.assistant_message || assistantText;
-                    if (assistantText) {
-                        if (hasChunks) {
-                            updateAssistantPlaceholder(loadingId, assistantText);
-                        } else {
-                            streamAssistantText(loadingId, assistantText);
-                        }
-                    }
+                if (payload.type === "progress") {
+                    streamAssistantText(loadingId, payload.message || "처리 중입니다...");
                     return;
                 }
 
-                if (payload.type === "result") {
-                    pendingTaskId = payload.task_id || null;
-                    streamAssistantText(
-                        loadingId,
-                        payload.assistant_message || "광고를 생성하고 있습니다..."
-                    );
+                if (payload.type === "done") {
+                    const output = payload.output || null;
+                    const outputText = payload.assistant_message
+                        || (output ? output.output_text : "")
+                        || assistantText;
+                    const imageUrls = normalizeImageUrls(output ? output.image : null);
+
+                    if (outputText) {
+                        if (hasChunks) {
+                            updateAssistantPlaceholder(loadingId, outputText, imageUrls);
+                        } else {
+                            streamAssistantText(loadingId, outputText);
+                            updateAssistantPlaceholder(loadingId, outputText, imageUrls);
+                        }
+                    } else if (imageUrls.length) {
+                        updateAssistantPlaceholder(loadingId, "", imageUrls);
+                    }
                     return;
                 }
 
@@ -1337,57 +1352,6 @@
             if (buffer.trim()) {
                 handleEventBlock(buffer);
             }
-
-            if (pendingTaskId) {
-                await streamAssistantText(loadingId, "광고를 생성하고 있습니다...");
-                await pollTask(pendingTaskId, loadingId);
-            }
-        }
-
-        async function sendChatLegacy(form, loadingId) {
-            if (!loadingId) return;
-
-            try {
-                const res = await fetch(`${API_BASE}/chat/message`, {
-                    method: 'POST',
-                    body: form,
-                    credentials: "include",
-                });
-
-                if (!res.ok) {
-                    const err = await safeJson(res);
-                    await streamAssistantText(loadingId, err.detail ?? "요청 실패");
-                    return;
-                }
-
-                const data = await res.json();
-                currentSessionId = data.session_id;
-                if (data.session_id) localStorage.setItem("session_id", data.session_id);
-
-                const intent = data.intent || "consulting";
-
-                if (intent === "consulting") {
-                    const assistantMessage = data.assistant_message || "무엇을 도와드릴까요?";
-                    await streamAssistantText(loadingId, assistantMessage);
-                    return;
-                }
-
-                if (intent === "generation" || intent === "modification") {
-                    if (data.redirect_to_pipeline && data.task_id) {
-                        await streamAssistantText(loadingId, "광고를 생성하고 있습니다...");
-                        await pollTask(data.task_id, loadingId);
-                    } else {
-                        await streamAssistantText(loadingId, data.assistant_message || "처리 중입니다...");
-                    }
-                    return;
-                }
-
-                await streamAssistantText(loadingId, data.assistant_message || "처리가 완료되었습니다.");
-
-            } catch (e) {
-                console.error(e);
-                await streamAssistantText(loadingId, "서버와 통신하는 중 오류가 발생했습니다.");
-            }
         }
 
         function fileToDataUrl(file) {
@@ -1410,67 +1374,6 @@
         }
 
 
-
-        // ====== pollTask: task 상태 조회 ======
-        async function pollTask(taskId, placeholderId) {
-            const headers = {};
-            const maxAttempts = 120;
-
-            for (let i = 0; i < maxAttempts; i++) {
-                const res = await fetch(`${API_BASE}/tasks/${taskId}`, {
-                    method: "GET",
-                    headers,
-                    credentials: "include",
-                });
-
-                if (res.status === 404) {
-                    await streamAssistantText(placeholderId, "작업을 찾을 수 없습니다.");
-                    return;
-                }
-
-                if (!res.ok) {
-                    await streamAssistantText(placeholderId, "작업 상태 조회에 실패했습니다.");
-                    return;
-                }
-
-                const status = await safeJson(res);
-                const statusValue = String(status.status || "").toLowerCase();
-
-                if (statusValue === "done" || status.result) {
-                    const result = status.result || {};
-                    const output = result.output || {};
-                    const imageUrls = output.image ? [output.image].map((img) => {
-                        if (!img) return null;
-                        if (img.startsWith("data:image/")) return img;
-                        if (img.startsWith("http")) return img;
-                        if (img.startsWith("/")) return `${API_BASE}${img}`;
-                        return `${API_BASE}/images/${img}`;
-                    }).filter(Boolean) : [];
-                    const outputText = output.output_text ?? "";
-                    if (outputText) {
-                        await streamAssistantText(placeholderId, outputText);
-                    }
-                    updateAssistantPlaceholder(placeholderId, outputText, imageUrls);
-                    // 광고 생성 완료 후 수정/확정 버튼 표시 여부 확인
-                    
-                    return;
-                }
-
-                if (statusValue === "failed" || status.error) {
-                    await streamAssistantText(placeholderId, status.error ?? "작업 실패");
-                    return;
-                }
-
-                const progress = Number.isFinite(status.progress) ? status.progress : 0;
-                await streamAssistantText(
-                    placeholderId,
-                    `생성 중입니다... (${progress}%) [${statusValue || "pending"}]`
-                );
-                await new Promise(r => setTimeout(r, 1000));
-            }
-
-            await streamAssistantText(placeholderId, "처리 시간이 길어지고 있습니다. 잠시 후 다시 시도해주세요.");
-        }
 
         // ====== 이미지 모달 제어 ======
         function openImageModal(imageUrl) {

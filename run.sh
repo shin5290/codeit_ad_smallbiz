@@ -1,9 +1,27 @@
 #실행방법 
 #chmod +x run.sh
 #./run.sh
+
+
+
+#!/bin/bash
 set -e
 
-echo "🚀 Starting FastAPI server..."
+PINK="\033[35m"   # magenta
+NC="\033[0m"
+echo -e "${PINK}"
+cat <<'EOF'
+          .-') _     ('-.   ('-.     _   .-')    
+         (  OO) )  _(  OO) ( OO ).-.( '.( OO )_  
+    .---./     '._(,------./ . --. / ,--.   ,--.)
+   / .  ||'--...__)|  .---'| \-.  \  |   `.'   | 
+  / /|  |'--.  .--'|  |  .-'-'  |  | |         | 
+ / / |  |_  |  |  (|  '--.\| |_.'  | |  |'.'|  | 
+/  '-'    | |  |   |  .--' |  .-.  | |  |   |  | 
+`----|  |-' |  |   |  `---.|  | |  | |  |   |  | 
+     `--'   `--'   `------'`--' `--' `--'   `--' 
+EOF
+echo -e "${NC}"
 
 # 가상환경 활성화
 source /opt/jhub-venv/bin/activate
@@ -22,3 +40,6 @@ exec python -m uvicorn main:app \
 
 #db확인
 #psql -U aduser -d adbizdb
+
+# db 마이그레이션
+# alembic upgrade head
