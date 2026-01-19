@@ -24,6 +24,7 @@ from PIL import Image
 from src.utils.config import PROJECT_ROOT as _PROJECT_ROOT
 from .workflow import ImageGenerationWorkflow
 from .nodes.text2image import Text2ImageNode
+from .nodes.image2image import Image2ImageNode
 from .prompt import PromptTemplateManager
 
 
@@ -38,12 +39,12 @@ def generate_and_save_image(
     user_input: str,
     style: Literal["realistic", "ultra_realistic", "semi_realistic", "anime"] = "realistic",
     aspect_ratio: Literal["1:1", "3:4", "4:3", "16:9", "9:16"] = "1:1",
-    industry: Optional[Literal["cafe", "restaurant", "retail", "service"]] = None,
     num_inference_steps: int = 8,  # Z-Image Turbo 기본값
     seed: Optional[int] = None,
     filename: Optional[str] = None,
     storage_dir: Optional[Path] = None,
     reference_image: Optional[Image.Image] = None,
+    strength: float = 0.6,  # I2I 변형 강도 (0.3~0.7 권장)
     control_type: Literal["canny", "depth", "pose"] = "canny",
     controlnet_conditioning_scale: float = 0.8,
 ) -> Dict[str, Any]:
@@ -116,36 +117,45 @@ def generate_and_save_image(
         if detected_style in ["realistic", "ultra_realistic", "semi_realistic", "anime"]:
             style = detected_style
 
-        # 2. I2I 분기 처리 (reference_image가 있으면 ControlNet 사용)
-        if reference_image is not None:
-            # TODO: Z-Image Turbo ControlNet 구현 필요
-            # 현재는 미구현 - 에러 반환
-            _ = control_type  # 향후 사용 예정
-            _ = controlnet_conditioning_scale  # 향후 사용 예정
-            raise NotImplementedError(
-                "Z-Image Turbo ControlNet I2I는 아직 구현되지 않았습니다. "
-                "SDXL 버전을 사용하려면 generator_sdxl.py를 import하세요."
-            )
-
-        # 3. 저장 디렉토리 설정
+        # 2. 저장 디렉토리 설정
         if storage_dir is None:
             storage_dir = DEFAULT_STORAGE_DIR
         storage_dir.mkdir(parents=True, exist_ok=True)
 
-        # 4. 워크플로우 생성 (Z-Image Turbo)
-        workflow = ImageGenerationWorkflow(name=f"ZIT_Generate_{style}")
-        workflow.add_node(Text2ImageNode(auto_unload=False))
+        # 3. I2I 분기 처리
+        if reference_image is not None:
+            # ZIT I2I 사용 (스타일 변환)
+            _ = control_type  # ControlNet은 미사용
+            _ = controlnet_conditioning_scale  # ControlNet은 미사용
 
-        # 5. 입력 데이터 준비 (negative_prompt 없음 - ZIT 미지원)
-        inputs = {
-            "prompt": prompt,
-            "style": style,
-            "aspect_ratio": aspect_ratio,
-            "num_inference_steps": num_inference_steps,
-        }
+            workflow = ImageGenerationWorkflow(name=f"ZIT_I2I_{style}")
+            workflow.add_node(Image2ImageNode(auto_unload=False))
 
-        if seed is not None:
-            inputs["seed"] = seed
+            inputs = {
+                "prompt": prompt,
+                "reference_image": reference_image,
+                "strength": strength,
+                "aspect_ratio": aspect_ratio,
+                "num_inference_steps": num_inference_steps,
+            }
+
+            if seed is not None:
+                inputs["seed"] = seed
+
+        else:
+            # Text2Image (일반 생성)
+            workflow = ImageGenerationWorkflow(name=f"ZIT_Generate_{style}")
+            workflow.add_node(Text2ImageNode(auto_unload=False))
+
+            inputs = {
+                "prompt": prompt,
+                "style": style,
+                "aspect_ratio": aspect_ratio,
+                "num_inference_steps": num_inference_steps,
+            }
+
+            if seed is not None:
+                inputs["seed"] = seed
 
         # 5. 이미지 생성
         result = workflow.run(inputs)
