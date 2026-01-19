@@ -138,8 +138,11 @@ class Image2ImageNode(BaseNode):
             if not isinstance(reference_image, Image.Image):
                 raise ValueError("reference_image must be a PIL.Image.Image object")
 
+            if reference_image.mode != "RGB":
+                reference_image = reference_image.convert("RGB")
+
             # 해상도 결정
-            width, height = aspect_ratio_templates.get_size(aspect_ratio, aspect_ratio_templates["1:1"])
+            width, height = aspect_ratio_templates.get_size(aspect_ratio)
 
             # 입력 이미지 리사이즈
             reference_image = reference_image.resize((width, height), Image.Resampling.LANCZOS)
