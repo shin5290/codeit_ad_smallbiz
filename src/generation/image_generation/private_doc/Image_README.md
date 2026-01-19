@@ -5,15 +5,17 @@
 소상공인을 위한 광고 이미지를 자동으로 생성하는 모듈입니다.
 ComfyUI 스타일의 노드 기반 아키텍처를 채택하여 유연하고 확장 가능한 이미지 생성 파이프라인을 구축합니다.
 
+**최신 업데이트 (2026-01-16)**: SDXL에서 **Z-Image Turbo (ZIT)** 기반으로 전환
+
 ---
 
 ## 🎯 주요 목표
 
 1. **자동 이미지 생성**: 텍스트 프롬프트 기반 광고 이미지 생성
 2. **노드 기반 워크플로우**: 유연한 전처리/생성/후처리 파이프라인
-3. **스타일별 최적화**: Ultra Realistic, Semi Realistic, Anime 스타일 지원
+3. **스타일별 최적화**: Realistic, Semi Realistic, Anime 스타일 (LoRA 기반)
 4. **다양한 비율 지원**: 1:1, 3:4, 4:3, 16:9, 9:16 해상도 템플릿
-5. **멀티 모델 시스템**: 스타일별 전문 체크포인트 모델 자동 전환
+5. **공유 캐시 시스템**: T2I/I2I 간 컴포넌트 재사용으로 메모리 효율 극대화
 
 ---
 
@@ -82,29 +84,40 @@ ComfyUI 스타일의 노드 기반 아키텍처를 채택하여 유연하고 확
 
 ## 🔧 기술 스택
 
-### **모델 시스템**
+### **모델 시스템 (Z-Image Turbo)**
 
-#### **현재 사용 중인 모델**
-1. **Ultra Realistic**: SG161222/RealVisXL_V4.0 (~6.5GB)
-   - 포토리얼리즘 전문 모델
+#### **Base Model (단일 모델 전략)**
+- **`dimitribarbot/Z-Image-Turbo-BF16`**: 20.5GB (BF16 최적화)
+  - **Text Encoder**: Qwen 2.5 LLM (CLIP 77토큰 제한 없음)
+  - **Architecture**: S3-DiT (Scaling-Shift-Squish DiT)
+  - **속도**: 8 steps (~8초, SDXL 대비 5배 빠름)
+  - **메모리**: GCP L4 24GB VRAM에 최적화
+
+#### **LoRA 기반 스타일 시스템**
+Base Model은 고정, 스타일만 LoRA로 교체:
+
+1. **Realistic**: 기본 ZIT 모델
+   - 포토리얼리즘
    - 제빵소, 바리스타, 헤어샵 등 실사 이미지
 
-2. **Semi Realistic**: John6666/bss-equinox-il-semi-realistic-model-v25-sdxl (~6.5GB)
+2. **Semi Realistic**: LoRA 어댑터 (~수백 MB)
    - 균형잡힌 리얼리즘
    - 꽃집, 서점 등 일반적인 광고 이미지
 
-3. **Anime**: cagliostrolab/animagine-xl-3.1 (~6.5GB)
-   - 애니메이션 스타일 전문
+3. **Anime**: LoRA 어댑터 (~수백 MB)
+   - 애니메이션 스타일
    - 캐릭터 일러스트, 캐주얼한 분위기
 
-#### **공통 VAE**
-- **madebyollin/sdxl-vae-fp16-fix**: 품질 개선 및 메모리 효율화
+**장점:**
+- 스타일 전환 시 **모델 재로딩 불필요**
+- 메모리 효율 **극대화** (20.5GB 고정)
 
 ### **메모리 관리**
-- ✅ L4 22GB GPU에서 안정적 동작
-- ✅ 로컬 캐싱으로 재다운로드 방지
-- ✅ 자동 언로드로 모델 교체 시 메모리 최적화
-- ✅ Variant fallback으로 호환성 보장
+- ✅ L4 24GB GPU에서 안정적 동작
+- ✅ **공유 캐시 시스템**: T2I/I2I 간 컴포넌트 재사용 (`shared_cache.py`)
+- ✅ **Singleton 패턴**: 한 번 로드된 모델 VRAM 상주 (재로딩 0초)
+- ✅ **주기적 메모리 정리**: 5회마다 가비지 컬렉션
+- ⚠️ **주의**: `auto_unload=True` 사용 금지 (GPU OOM 유발)
 
 ### **의존성**
 ```
@@ -352,20 +365,46 @@ result = generate_and_save_image(
 
 ## 📊 성능 및 메모리
 
-### **생성 속도**
-- **모든 스타일 (40 steps)**: ~15-20초 (L4 GPU 기준)
-- 스타일에 관계없이 일정한 속도
+### **생성 속도 (Z-Image Turbo)**
+- **Text2Image (8 steps)**: ~8초 (L4 GPU 기준)
+- **Image2Image (strength=0.6)**: ~5초 (실제 4~5 steps 실행)
+- **초기 모델 로딩**: ~60초 (최초 1회만)
+- **스타일 전환**: ~3초 (LoRA 교체만)
 
 ### **메모리 사용량**
-- **모델 로드**: 약 6-7GB VRAM
-- **이미지 생성**: 추가 2-3GB VRAM
-- **총**: 약 10GB (L4 22GB에서 안정적)
-- **자동 언로드**: 생성 완료 후 즉시 메모리 해제
+- **Base Model**: 20.5GB VRAM (고정)
+- **LoRA**: ~500MB (스타일당)
+- **Inference**: 추가 2~3GB VRAM
+- **총**: 약 23GB (L4 24GB에서 안정적)
+- **T2I ↔ I2I 전환**: 추가 메모리 0GB (공유 캐시)
 
 ### **로컬 캐싱**
-- 모델은 `models/` 폴더에 저장
+- Base Model: `models/zit/` 폴더 (20.5GB)
+- LoRA: `models/zit/loras/` 폴더 (각 ~500MB)
 - 재실행 시 다운로드 없이 즉시 로드
-- 약 20GB 디스크 공간 사용 (3개 모델 + VAE)
+- 약 22GB 디스크 공간 사용
+
+### **I2I Strength 이해하기**
+
+Image2Image는 `strength` 값에 따라 **실제 실행되는 step 수**가 달라집니다:
+
+```python
+num_inference_steps = 8
+strength = 0.6
+
+actual_steps = int(8 * 0.6) = 4~5 steps
+```
+
+| Strength | 원본 유지율 | 실제 Steps | 용도 |
+|----------|------------|-----------|------|
+| 0.3 | 70% | 2~3 | 약간의 색감 조정 |
+| 0.6 | 40% | 4~5 | 스타일 변환 (기본값) |
+| 0.9 | 10% | 7~8 | 거의 새로 생성 |
+
+**주의사항:**
+- I2I는 **원본 구도 유지**가 목적
+- 원본에 없던 요소(글자 등) 추가 불가능
+- 광고 문구는 **후처리로 오버레이** 추천
 
 ---
 
@@ -435,4 +474,4 @@ python test_workflow.py
 
 ---
 
-**최종 수정일**: 2026-01-06
+**최종 수정일**: 2026-01-19
