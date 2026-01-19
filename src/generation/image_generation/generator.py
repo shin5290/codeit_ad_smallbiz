@@ -135,7 +135,7 @@ def generate_and_save_image(
 
         # 4. 워크플로우 생성 (Z-Image Turbo)
         workflow = ImageGenerationWorkflow(name=f"ZIT_Generate_{style}")
-        workflow.add_node(Text2ImageNode(auto_unload=True))
+        workflow.add_node(Text2ImageNode(auto_unload=False))
 
         # 5. 입력 데이터 준비 (negative_prompt 없음 - ZIT 미지원)
         inputs = {

@@ -207,14 +207,18 @@ class Text2ImageNode(BaseNode):
             pipe = self.load_pipeline()
             #self.switch_lora(pipe, style)
 
-            # 2. 제너레이터 생성
-            generator = None
-            if seed is not None:
-                exec_device = self.get_generator_device(pipe)
-                generator = torch.Generator(device=exec_device).manual_seed(seed)
+            # 2. 제너레이터 생성 및 시드 추출
+            exec_device = self.get_generator_device(pipe)
 
-            print(f"[{self.node_name}] Generating ({width}x{height})...")
-            
+            if seed is None:
+                # 랜덤 시드 생성 및 추출
+                import random
+                seed = random.randint(0, 2**32 - 1)
+
+            generator = torch.Generator(device=exec_device).manual_seed(seed)
+
+            print(f"[{self.node_name}] Generating ({width}x{height}, seed={seed})...")
+
             # 3. 생성
             with torch.no_grad():
                 image = pipe(
@@ -222,7 +226,7 @@ class Text2ImageNode(BaseNode):
                     height=height,
                     width=width,
                     num_inference_steps=num_inference_steps,
-                    guidance_scale=0.0, 
+                    guidance_scale=0.0,
                     generator=generator,
                     output_type="pil"
                 ).images[0]
