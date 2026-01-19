@@ -513,6 +513,12 @@ async def handle_chat_message_stream(
     )
     session_key = ingest.session_id
 
+    yield {
+        "type": "progress",
+        "stage": "analyzing",
+        "message": "메시지를 분석중입니다.",
+    }
+
     # 2. Intent 분석 (플랫폼/스타일 자동 결정 - generation_history 불필요)
     recent_conversations = conv_manager.get_recent_messages(db, session_key, limit=3)
     
@@ -535,6 +541,7 @@ async def handle_chat_message_stream(
         "type": "meta",
         "session_id": session_key,
         "intent": intent,
+        "generation_type": generation_type,
         "aspect_ratio": aspect_ratio,
         "style": style,
         "industry": industry,
@@ -550,12 +557,6 @@ async def handle_chat_message_stream(
         return
 
     # 4. Generation/Modification 분기
-    yield {
-        "type": "progress",
-        "stage": "analyzing",
-        "message": "메세지를 분석중입니다.",
-    }
-
     # Refinement (텍스트 정제 + 수정 대상 ID 찾기)
     chat_history = conv_manager.get_full_messages(db, session_key)
     generation_history = conv_manager.get_full_generation_history(db, session_key)
@@ -576,6 +577,7 @@ async def handle_chat_message_stream(
                 "type": "progress",
                 "stage": "generating",
                 "message": "광고를 수정하고 있습니다.",
+                "generation_type": generation_type,
             }
 
             result = await handle_chat_revise(
@@ -604,6 +606,7 @@ async def handle_chat_message_stream(
             "type": "progress",
             "stage": "generating",
             "message": f"광고를 생성하고 있습니다. (비율: {aspect_ratio or '기본'})",
+            "generation_type": generation_type,
         }
 
         result = await _execute_generation_pipeline(
