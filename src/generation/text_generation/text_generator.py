@@ -23,29 +23,27 @@ class TextGenerator:
         self.client = OpenAI(api_key=api_key)
         self.model = "gpt-4o-mini"
     
-    def generate_ad_copy(self, user_input, tone="warm", max_length=20):
+    def generate_ad_copy(self, user_input, tone="warm", max_length=100):
         """
         광고 문구 생성
-        
+
         Args:
             user_input (str): 사용자 요청 텍스트
                 예: "카페 신메뉴 홍보, 따뜻한 느낌, 겨울"
             tone (str): 톤 앤 매너 ("warm", "professional", "friendly")
             max_length (int): 최대 글자 수 (기본 20자)
-        
         Returns:
             str: 생성된 광고 문구
                 예: "따뜻한 겨울, 새로운 맛"
         """
-        
+
         print(f"📝 광고 문구 생성 중...")
         print(f"   입력: {user_input}")
         print(f"   톤: {tone}, 최대 {max_length}자")
-        
         try:
             # 1. 시스템 프롬프트 선택
             system_prompt = self._get_system_prompt(tone, max_length)
-            
+
             # 2. 사용자 프롬프트 구성
             user_prompt = self._build_user_prompt(user_input, max_length)
             
@@ -82,7 +80,8 @@ class TextGenerator:
 규칙:
 - {max_length}자 이내 (공백 포함)
 - 번호, 특수문자 없이 문구만 작성
-- 한국어로 작성
+- 사용자 별다른 요청 없을시 무조건 한국어로 작성
+- 사용자 요청시 요청한 언어로 작성
 - 광고 문구 1개만 생성"""
         
         tone_styles = {
@@ -98,7 +97,7 @@ class TextGenerator:
     
     def _build_user_prompt(self, user_input, max_length):
         """사용자 프롬프트 구성"""
-        
+
         return f"""다음 내용으로 광고 문구를 만들어주세요:
 
 {user_input}

@@ -74,7 +74,6 @@ def generate_and_save_image(
         seed: 랜덤 시드 (재현성)
         filename: 커스텀 파일명 (선택, 미사용 - 해시 기반 자동 생성)
         storage_dir: 커스텀 저장 디렉토리 (선택)
-
     Returns:
         Dict[str, Any]: 생성 결과
             {

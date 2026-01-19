@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>AI 광고 챗봇</title>
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon.png">
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+    <style>
+        body {
+            font-family: 'IBM Plex Sans KR', 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+            background: #f8f9fa;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            font-size: 15px;
+        }
+
+        /* 헤더 스타일: 우상단 버튼 배치 */
+        header {
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            position: relative;
+            z-index: 10;
+        }
+
+        .header-inner {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 10px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-weight: bold;
+            color: #4F46E5;
+            font-size: 1.25rem;
+        }
+
+        .auth-buttons button {
+            width: auto;
+            padding: 8px 15px;
+            margin-left: 5px;
+            font-size: 0.95rem;
+            border-radius: 6px;
+        }
+
+        /* 메인 컨테이너 */
+        .main-container {
+            flex: 1;
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-start;
+            overflow: hidden;
+        }
+
+        .chat-container {
+            width: 100%;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        /* 채팅 영역 */
+        .chat-box {
+            flex: 1;
+            overflow-y: auto;
+            background: #fafbfc;
+            border-bottom: 1px solid #eee;
+            position: relative;
+        }
+
+        .chat-inner {
+            width: 100%;
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 20px 16px;
+            box-sizing: border-box;
+        }
+
+        .input-inner-wrap {
+            width: 100%;
+            padding: 12px 16px 16px;
+            box-sizing: border-box;
+        }
+
+        .msg {
+            margin-bottom: 15px;
+            padding: 14px 18px;
+            border-radius: 16px;
+            font-size: 15px;
+            line-height: 1.6;
+            max-width: 75%;
+            width: fit-content;
+            min-width: 40px;
+            position: relative;
+            word-wrap: break-word;
+        }
+
+        .user {
+            background: linear-gradient(135deg, #667eea 0%, #4F46E5 100%);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+        }
+
+        .assistant {
+            background: white;
+            color: #333;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 입력 영역 */
+        .input-area {
+            background: white;
+            border-top: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .input-inner {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            width: 100%;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 14px 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            outline: none;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: #4F46E5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        /* 공통 버튼 */
+        button {
+            cursor: pointer;
+            border: none;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #4F46E5 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #495057;
+            border: 1px solid #e9ecef;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+
+        .btn-round {
+            border-radius: 10px;
+        }
+
+        /* 로그인 모달(팝업) 스타일 */
+        #auth-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            width: 400px;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+            color: #999;
+            transition: color 0.2s;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        .modal-content h2 {
+            margin: 0 0 30px 0;
+            font-size: 24px;
+            color: #333;
+            text-align: center;
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 15px;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        .modal-content input:focus {
+            border-color: #4F46E5;
+            outline: none;
+        }
+
+        .modal-content button {
+            margin-top: 10px;
+            padding: 14px;
+            font-size: 15px;
+            border-radius: 8px;
+        }
+
+        .auth-toggle {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .auth-toggle-text {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .auth-toggle-link {
+            color: #4F46E5;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .auth-toggle-link:hover {
+            text-decoration: underline;
+        }
+
+        /* 회원정보 수정 모달 */
+        #profile-edit-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .profile-edit-row {
+            margin-bottom: 12px;
+        }
+
+        .profile-edit-row label {
+            display: block;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .profile-edit-row.required label::after {
+            content: ' *';
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* 메시지 내 이미지 스타일 */
+        .msg img {
+            max-width: 300px;
+            max-height: 300px;
+            margin-top: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            object-fit: contain;
+        }
+
+        .msg img:hover {
+            opacity: 0.9;
+        }
+
+        .msg p {
+            margin: 0 0 8px;
+        }
+        .msg p:last-child {
+            margin-bottom: 0;
+        }
+        .msg ul,
+        .msg ol {
+            margin: 6px 0 6px 18px;
+            padding: 0;
+        }
+        .msg code {
+            background: #f1f3f5;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        }
+        .msg pre {
+            background: #f1f3f5;
+            padding: 10px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        .msg pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .user-info {
+            font-size: 0.95rem;
+            color: #666;
+            margin-right: 15px;
+        }
+
+        /* 이미지 모달 라이트박스 */
+        #image-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            cursor: pointer;
+        }
+
+        #image-modal img {
+            max-width: 95%;
+            max-height: 95%;
+            object-fit: contain;
+            border-radius: 0;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        #image-modal .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 40px;
+            color: white;
+            cursor: pointer;
+            z-index: 2001;
+            transition: color 0.2s;
+        }
+
+        #image-modal .close-modal:hover {
+            color: #ccc;
+        }
+
+        /*이미지 업로드 버튼*/
+        .image-upload-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #f1f3f5;
+            border: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.2s;
+        }
+
+        .image-upload-btn:hover:not(.disabled) {
+            background: #e9ecef;
+            transform: scale(1.05);
+        }
+
+        .image-upload-btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background: #f8f9fa;
+        }
+
+        /* 입력 한 줄 */
+        .input-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            width: 100%;
+        }
+
+        .input-row input[type="text"] {
+            flex: 1;
+        }
+
+        /* 미리보기 스트립 */
+        .preview-strip {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 6px 2px;
+            overflow-x: auto;
+        }
+
+        /* 썸네일 카드 */
+        .preview-item {
+            position: relative;
+            width: 64px;
+            height: 64px;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid #e9ecef;
+            background: #fff;
+            flex: 0 0 auto;
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            margin: 0;
+        }
+
+        /* 썸네일 X 버튼 */
+        .preview-remove {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            border: 2px solid white;
+            background: rgba(0, 0, 0, 0.75);
+            color: white;
+            font-size: 14px;
+            line-height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        /* disabled 전송 버튼 */
+        #sendBtn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* 채팅 로딩 */
+        .chat-loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: #777;
+            font-size: 0.95rem;
+        }
+
+        .chat-spinner {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 4px solid #e3e6ea;
+            border-top-color: #6c7ae0;
+            animation: chatSpin 0.9s linear infinite;
+        }
+
+        @keyframes chatSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="logo">AD Chatbot</div>
+            <div class="auth-buttons">
+                <span id="userInfo" class="user-info hidden"></span>
+                <button id="loginTabBtn" class="btn-secondary hidden" onclick="openModal()">로그인</button>
+                <button id="profileEditBtn" class="btn-secondary hidden" onclick="openProfileEditModal()">회원정보
+                    수정</button>
+                <button id="logoutBtn" class="btn-secondary hidden" onclick="handleLogout()">로그아웃</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div class="chat-container">
+            <div class="chat-box" id="chatBox">
+                <div class="chat-inner" id="chatContent">
+                    <div id="chatLoading" class="chat-loading">
+                        <div class="chat-spinner"></div>
+                        <div>채팅 기록 불러오는 중...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="input-area">
+                <div class="chat-inner input-inner-wrap">
+                    <!-- 미리보기 스트립 -->
+                    <div id="previewStrip" class="preview-strip hidden"></div>
+
+                    <!-- 입력/버튼 한 줄 -->
+                    <div class="input-row input-inner">
+                        <label for="imageUpload" id="imageUploadLabel" class="image-upload-btn"
+                            title="이미지 업로드">📷</label>
+                        <input type="file" id="imageUpload" accept="image/*" hidden onchange="handleImageUpload(event)">
+
+                        <input type="text" id="userMsg" name="message" autocomplete="off"
+                            placeholder="메시지를 입력하세요... " oninput="updateSendButton()"
+                            onkeypress="if(event.keyCode==13) sendChat()">
+
+                        <button id="sendBtn" class="btn-primary btn-round" style="width: 80px; padding: 14px;"
+                            onclick="sendChat()" disabled>전송</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="auth-modal" class="hidden" onclick="closeModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <h2 id="auth-title">로그인</h2>
+            <input type="text" id="loginId" name="login_id" placeholder="아이디" autocomplete="username"
+                onkeypress="if(event.keyCode==13) handleAuth()">
+            <input type="password" id="password" name="login_pw" placeholder="비밀번호" autocomplete="current-password"
+                onkeypress="if(event.keyCode==13) handleAuth()">
+            <div id="signup-fields" class="hidden">
+                <input type="text" id="nickname" placeholder="이름" onkeypress="if(event.keyCode==13) handleAuth()">
+            </div>
+            <button id="main-btn" class="btn-primary" style="width: 100%;" onclick="handleAuth()">로그인</button>
+            <div class="auth-toggle">
+                <div class="auth-toggle-text" id="toggle-question">계정이 없으신가요?</div>
+                <a class="auth-toggle-link" id="toggle-link" onclick="toggleAuth()">회원가입하기</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="profile-edit-modal" class="hidden" onclick="closeProfileEditModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <span class="close-btn" onclick="closeProfileEditModal()">&times;</span>
+            <h2>회원정보 수정</h2>
+            <div class="profile-edit-row">
+                <label for="editName">이름</label>
+                <input type="text" id="editName" placeholder="이름">
+            </div>
+            <div class="profile-edit-row required">
+                <label for="editCurrentPassword">현재 비밀번호</label>
+                <input type="password" id="editCurrentPassword" placeholder="현재 비밀번호" required>
+            </div>
+            <div class="profile-edit-row">
+                <label for="editNewPassword">새 비밀번호</label>
+                <input type="password" id="editNewPassword" placeholder="변경할 비밀번호 (선택사항)">
+            </div>
+            <button class="btn-primary" style="width: 100%;" onclick="handleProfileUpdate()">수정하기</button>
+        </div>
+    </div>
+
+    <!-- 이미지 모달 라이트박스 -->
+    <div id="image-modal" class="hidden" onclick="closeImageModal()">
+        <span class="close-modal">&times;</span>
+        <img id="modal-image" src="" alt="Full size image">
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
+    <script>
+        const API_BASE = window.location.origin;
+        let currentSessionId = null;
+        let isSignup = false;
+        let isLoggedIn = false;
+        let selectedImageFile = null; // 단일 파일 객체 저장
+        let oldestMessageId = null;
+        let nextCursor = null;
+        let isLoadingHistory = false;
+
+        // ====== 안전 JSON 파서 ======
+        async function safeJson(res) {
+            try { return await res.json(); } catch { return {}; }
+        }
+
+        // ====== 채팅 렌더 유틸 ======
+        function clearChatBox() {
+            const content = document.getElementById('chatContent');
+            const loading = document.getElementById('chatLoading');
+            if (!content) return;
+            content.innerHTML = '';
+            if (loading) content.appendChild(loading);
+        }
+
+        function setChatLoading(isLoading) {
+            const loading = document.getElementById('chatLoading');
+            if (!loading) return;
+            loading.classList.toggle('hidden', !isLoading);
+        }
+
+        async function fetchHistoryPage(limit, cursor) {
+            const params = new URLSearchParams();
+            params.set("limit", String(limit));
+            if (cursor) params.set("cursor", String(cursor));
+
+            const res = await fetch(`${API_BASE}/chat/history?${params.toString()}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                credentials: "include",
+            });
+
+            if (!res.ok) return { items: [], next_cursor: null };
+            return await safeJson(res);
+        }
+
+        function createMessageElement(role, text, imageUrls, messageId) {
+            const div = document.createElement('div');
+            div.className = `msg ${role}`;
+            if (messageId) div.dataset.messageId = String(messageId);
+
+            if (text) div.innerHTML = renderMessageContent(text);
+
+            if (Array.isArray(imageUrls)) {
+                imageUrls.forEach((url) => {
+                    div.innerHTML += `<img src="${url}" onclick="openImageModal('${url}')">`;
+                });
+            } else if (imageUrls) {
+                div.innerHTML += `<img src="${imageUrls}" onclick="openImageModal('${imageUrls}')">`;
+            }
+
+            return div;
+        }
+
+        function renderMessages(items, { prepend = false } = {}) {
+            const content = document.getElementById('chatContent');
+            if (!content) return;
+
+            const fragment = document.createDocumentFragment();
+            (items || []).forEach((m) => {
+                const role = (m.role === "assistant") ? "assistant" : "user";
+                const imageUrls = m.image ? [m.image].map((img) => {
+                    const p = img.file_directory;
+                    if (!p) return null;
+                    if (p.startsWith("data:image/")) return p;
+                    if (p.startsWith("http")) return p;
+                    return `${API_BASE}${p}`;
+                }).filter(Boolean) : [];
+
+                fragment.appendChild(createMessageElement(role, m.content, imageUrls, m.id));
+            });
+
+            if (prepend) {
+                content.insertBefore(fragment, content.firstChild);
+            } else {
+                content.appendChild(fragment);
+            }
+        }
+
+        async function loadInitialHistory() {
+            setChatLoading(true);
+            const data = await fetchHistoryPage(15, null);
+            const items = Array.isArray(data.items) ? data.items : [];
+
+            clearChatBox();
+            setChatLoading(false);
+            if (items.length === 0) {
+                const greetId = appendAssistantPlaceholder("");
+                if (greetId) streamAssistantText(greetId, "안녕하세요! 어떤 광고 아이디어가 필요하신가요?");
+                nextCursor = null;
+                oldestMessageId = null;
+                return;
+            }
+
+            renderMessages(items);
+            oldestMessageId = items[0].id ?? null;
+            nextCursor = data.next_cursor ?? null;
+
+            const box = document.getElementById('chatBox');
+            if (box) box.scrollTop = box.scrollHeight;
+        }
+
+        async function loadOlderHistory() {
+            if (isLoadingHistory || !nextCursor || !oldestMessageId) return;
+            isLoadingHistory = true;
+
+            const box = document.getElementById('chatBox');
+            const prevHeight = box ? box.scrollHeight : 0;
+
+            const data = await fetchHistoryPage(10, oldestMessageId);
+            const items = Array.isArray(data.items) ? data.items : [];
+
+            if (items.length > 0) {
+                renderMessages(items, { prepend: true });
+                oldestMessageId = items[0].id ?? oldestMessageId;
+                nextCursor = data.next_cursor ?? null;
+
+                if (box) {
+                    const newHeight = box.scrollHeight;
+                    box.scrollTop = newHeight - prevHeight;
+                }
+            } else {
+                nextCursor = null;
+            }
+
+            isLoadingHistory = false;
+        }
+
+
+    async function initAuth() {
+        const hasCachedUser = applyCachedAuthUI();
+        setAuthChecking(true, hasCachedUser);
+        if (!hasCachedUser) {
+          setChatLoading(false);
+          clearChatBox();
+          const greetId = appendAssistantPlaceholder("");
+          if (greetId) streamAssistantText(greetId, "안녕하세요! 어떤 광고 아이디어가 필요하신가요?");
+          showLoggedOutUI();
+          setAuthChecking(false);
+          return;
+        }
+        try {
+          const res = await fetch(`${API_BASE}/auth/me`, {
+              method: "GET",
+              headers: {
+              "Content-Type": "application/json",
+                    },
+                    credentials: "include",
+                });
+
+                if (!res.ok) {
+                    setChatLoading(false);
+                    clearChatBox();
+                    const greetId = appendAssistantPlaceholder("");
+                    if (greetId) streamAssistantText(greetId, "안녕하세요! 어떤 광고 아이디어가 필요하신가요?");
+                    showLoggedOutUI();
+                    return;
+                }
+
+                const data = await safeJson(res);
+
+                const sessionRes = await fetch(`${API_BASE}/chat/session`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    credentials: "include",
+                    body: JSON.stringify({
+                        session_id: localStorage.getItem("session_id"),
+                    }),
+                });
+                if (sessionRes.ok) {
+                    const sessionData = await safeJson(sessionRes);
+                    currentSessionId = sessionData.session_id ?? null;
+                    if (currentSessionId) localStorage.setItem("session_id", currentSessionId);
+                }
+
+                onLoginSuccess(data.name);
+                await loadInitialHistory();
+                
+            } catch (e) {
+                console.error(e);
+                showLoggedOutUI();
+            } finally {
+                setAuthChecking(false);
+            }
+        }
+
+        // 페이지 로드되면 자동 복구
+        window.addEventListener("DOMContentLoaded", () => {
+            // 기존 로그인 복구
+            initAuth();
+
+            const box = document.getElementById('chatBox');
+            if (box) {
+                box.addEventListener('scroll', () => {
+                    if (box.scrollTop === 0) loadOlderHistory();
+                });
+            }
+        });
+
+        // ====== 모달 제어 ======
+        function openModal() {
+            if (isSignup) toggleAuth();
+            document.getElementById('auth-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('auth-modal').classList.add('hidden');
+            if (isSignup) toggleAuth();
+            document.getElementById('loginId').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('nickname').value = '';
+        }
+
+        function toggleAuth() {
+            isSignup = !isSignup;
+            document.getElementById('auth-title').innerText = isSignup ? "회원가입" : "로그인";
+            document.getElementById('main-btn').innerText = isSignup ? "가입하기" : "로그인";
+            document.getElementById('signup-fields').classList.toggle('hidden');
+            document.getElementById('toggle-question').innerText = isSignup ? "이미 계정이 있으신가요?" : "계정이 없으신가요?";
+            document.getElementById('toggle-link').innerText = isSignup ? "로그인하기" : "회원가입하기";
+        }
+
+        async function handleAuth() {
+            const loginId = document.getElementById('loginId').value;
+            const loginPw = document.getElementById('password').value;
+
+            if (isSignup) {
+                const name = document.getElementById('nickname').value;
+                const res = await fetch(`${API_BASE}/auth/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: "include",
+                    body: JSON.stringify({ login_id: loginId, login_pw: loginPw, name: name })
+                });
+                const data = await safeJson(res);
+                if (res.ok) { alert("가입 성공! 로그인해주세요."); toggleAuth(); }
+                else { alert(data.detail ?? "회원가입 실패"); }
+                return;
+            }
+
+            // 로그인
+            const loginForm = new URLSearchParams();
+            loginForm.set("username", loginId);
+            loginForm.set("password", loginPw);
+            const res = await fetch(`${API_BASE}/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                credentials: "include",
+                body: loginForm.toString(),
+            });
+
+            const data = await safeJson(res);
+            if (!res.ok) {
+                alert(data.detail ?? "로그인 실패");
+                return;
+            }
+
+            let displayName = "사용자";
+            const meRes = await fetch(`${API_BASE}/auth/me`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                credentials: "include",
+            });
+            if (meRes.ok) {
+                const me = await safeJson(meRes);
+                displayName = me.name ?? displayName;
+            }
+
+            const sessionRes = await fetch(`${API_BASE}/chat/session`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                credentials: "include",
+                body: JSON.stringify({
+                    session_id: localStorage.getItem("session_id"),
+                }),
+            });
+            if (sessionRes.ok) {
+                const sessionData = await safeJson(sessionRes);
+                currentSessionId = sessionData.session_id ?? null;
+                if (currentSessionId) localStorage.setItem("session_id", currentSessionId);
+            }
+
+            onLoginSuccess(displayName);
+            await loadInitialHistory();
+
+            closeModal();
+        }
+
+        function onLoginSuccess(name) {
+            isLoggedIn = true;
+            localStorage.setItem("display_name", name);
+            document.getElementById('loginTabBtn').classList.add('hidden');
+            document.getElementById('profileEditBtn').classList.remove('hidden');
+            document.getElementById('logoutBtn').classList.remove('hidden');
+            document.getElementById('userInfo').innerText = `${name}님 환영합니다!`;
+            document.getElementById('userInfo').classList.remove('hidden');
+        }
+
+        function showLoggedOutUI() {
+            isLoggedIn = false;
+            localStorage.removeItem("display_name");
+            document.getElementById('profileEditBtn').classList.add('hidden');
+            document.getElementById('logoutBtn').classList.add('hidden');
+            document.getElementById('loginTabBtn').classList.remove('hidden');
+            document.getElementById('userInfo').classList.add('hidden');
+        }
+
+        function setAuthChecking(isChecking, hasCachedUser) {
+            const userInfo = document.getElementById('userInfo');
+            if (isChecking) {
+                if (!hasCachedUser) {
+                    userInfo.innerText = "로그인 확인 중...";
+                    userInfo.classList.remove('hidden');
+                    document.getElementById('loginTabBtn').classList.add('hidden');
+                    document.getElementById('profileEditBtn').classList.add('hidden');
+                    document.getElementById('logoutBtn').classList.add('hidden');
+                }
+            } else if (!isLoggedIn) {
+                userInfo.classList.add('hidden');
+                document.getElementById('loginTabBtn').classList.remove('hidden');
+            }
+        }
+
+        function applyCachedAuthUI() {
+            const cachedName = localStorage.getItem("display_name");
+            if (!cachedName) return false;
+
+            document.getElementById('loginTabBtn').classList.add('hidden');
+            document.getElementById('profileEditBtn').classList.remove('hidden');
+            document.getElementById('logoutBtn').classList.remove('hidden');
+            document.getElementById('userInfo').innerText = `${cachedName}님 환영합니다!`;
+            document.getElementById('userInfo').classList.remove('hidden');
+            return true;
+        }
+
+        async function handleLogout() {
+            try {
+                await fetch(`${API_BASE}/auth/logout`, {
+                    method: "POST",
+                    credentials: "include",
+                });
+            } catch (e) {
+                console.error(e);
+            }
+            localStorage.removeItem("session_id");
+            localStorage.removeItem("display_name");
+            currentSessionId = null;
+            showLoggedOutUI();
+            location.reload();
+        }
+
+        // ====== 회원정보 수정 모달 ======
+        async function openProfileEditModal() {
+            try {
+                const res = await fetch(`${API_BASE}/auth/me`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    credentials: "include",
+                });
+
+                if (!res.ok) {
+                    alert("로그인이 필요합니다.");
+                    return;
+                }
+
+                const data = await safeJson(res);
+                document.getElementById('editName').value = data.name || '';
+                document.getElementById('editCurrentPassword').value = '';
+                document.getElementById('editNewPassword').value = '';
+                document.getElementById('profile-edit-modal').classList.remove('hidden');
+            } catch (e) {
+                console.error(e);
+                alert("오류가 발생했습니다.");
+            }
+        }
+
+        function closeProfileEditModal() {
+            document.getElementById('profile-edit-modal').classList.add('hidden');
+            document.getElementById('editName').value = '';
+            document.getElementById('editCurrentPassword').value = '';
+            document.getElementById('editNewPassword').value = '';
+        }
+
+        async function handleProfileUpdate() {
+            const name = document.getElementById('editName').value;
+            const currentPassword = document.getElementById('editCurrentPassword').value;
+            const newPassword = document.getElementById('editNewPassword').value;
+
+            // 현재 비밀번호는 필수
+            if (!currentPassword.trim()) {
+                alert("현재 비밀번호를 입력해주세요.");
+                return;
+            }
+
+            const body = {
+                current_password: currentPassword.trim()
+            };
+            if (name.trim()) body.name = name.trim();
+            if (newPassword.trim()) body.new_password = newPassword.trim();
+
+            try {
+                const res = await fetch(`${API_BASE}/auth/user`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    credentials: "include",
+                    body: JSON.stringify(body),
+                });
+
+                const data = await safeJson(res);
+
+                if (!res.ok) {
+                    alert(data.detail || "수정에 실패했습니다.");
+                    return;
+                }
+
+                alert("회원정보가 수정되었습니다.");
+                if (body.name) {
+                    document.getElementById('userInfo').innerText = `${body.name}님 환영합니다!`;
+                }
+                closeProfileEditModal();
+            } catch (e) {
+                console.error(e);
+                alert("오류가 발생했습니다.");
+            }
+        }
+
+        // ====== 이미지 업로드 (단일 파일) ======
+        function handleImageUpload(event) {
+            const files = Array.from(event.target.files || []);
+            if (!files.length) return;
+
+            // 첫 번째 파일만 선택 (기존 파일 교체)
+            selectedImageFile = files[0];
+
+            renderPreviews();
+            updateSendButton();
+
+            event.target.value = '';
+        }
+
+        function renderPreviews() {
+            const strip = document.getElementById('previewStrip');
+            strip.innerHTML = '';
+
+            if (!selectedImageFile) {
+                strip.classList.add('hidden');
+                return;
+            }
+
+            strip.classList.remove('hidden');
+
+            const item = document.createElement('div');
+            item.className = 'preview-item';
+
+            const img = document.createElement('img');
+            img.alt = selectedImageFile.name;
+
+            const reader = new FileReader();
+            reader.onload = () => { img.src = reader.result; };
+            reader.readAsDataURL(selectedImageFile);
+
+            const removeBtn = document.createElement('div');
+            removeBtn.className = 'preview-remove';
+            removeBtn.innerText = '×';
+            removeBtn.onclick = () => removePreview();
+
+            item.appendChild(img);
+            item.appendChild(removeBtn);
+            strip.appendChild(item);
+        }
+
+        function removePreview() {
+            selectedImageFile = null;
+            renderPreviews();
+            updateSendButton();
+        }
+
+        function updateSendButton() {
+            const msg = document.getElementById('userMsg').value;
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = (msg.trim().length === 0);
+        }
+
+        // ====== (추가) assistant placeholder / update ======
+        function appendAssistantPlaceholder(text) {
+            const content = document.getElementById('chatContent');
+            const box = document.getElementById('chatBox');
+            if (!content || !box) return null;
+            const div = document.createElement('div');
+            const id = `a_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+            div.id = id;
+            div.className = `msg assistant`;
+            div.innerHTML = renderMessageContent(text);
+            content.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+            return id;
+        }
+
+        function updateAssistantPlaceholder(id, text, imageUrls) {
+            const div = document.getElementById(id);
+            if (!div) return;
+            div.innerHTML = renderMessageContent(text);
+            if (Array.isArray(imageUrls)) {
+                imageUrls.forEach((url) => {
+                    div.innerHTML += `<img src="${url}" onclick="openImageModal('${url}')">`;
+                });
+            } else if (imageUrls) {
+                div.innerHTML += `<img src="${imageUrls}" onclick="openImageModal('${imageUrls}')">`;
+            }
+            const box = document.getElementById('chatBox');
+            box.scrollTop = box.scrollHeight;
+        }
+
+        async function streamAssistantText(id, text, { speed = 15, chunkSize = 1 } = {}) {
+            const div = document.getElementById(id);
+            const box = document.getElementById('chatBox');
+            if (!div || !box) return;
+            if (!text) {
+                updateAssistantPlaceholder(id, "");
+                return;
+            }
+
+            if (!streamAssistantText._timers) {
+                streamAssistantText._timers = new Map();
+            }
+            const timers = streamAssistantText._timers;
+            const prevTimer = timers.get(id);
+            if (prevTimer) clearInterval(prevTimer);
+
+            let index = 0;
+            await new Promise((resolve) => {
+                const timer = setInterval(() => {
+                    if (!document.getElementById(id)) {
+                        clearInterval(timer);
+                        timers.delete(id);
+                        resolve();
+                        return;
+                    }
+                    index = Math.min(text.length, index + chunkSize);
+                    div.innerHTML = renderMessageContent(text.slice(0, index));
+                    box.scrollTop = box.scrollHeight;
+                    if (index >= text.length) {
+                        clearInterval(timer);
+                        timers.delete(id);
+                        resolve();
+                    }
+                }, speed);
+                timers.set(id, timer);
+            });
+        }
+
+        function renderMessageContent(text) {
+            if (!text) return "";
+            if (window.marked && window.DOMPurify) {
+                const rawHtml = marked.parse(text, { breaks: true });
+                return DOMPurify.sanitize(rawHtml);
+            }
+            return `<p style="margin:0;">${escapeHtml(text)}</p>`;
+        }
+
+        // ====== (추가) HTML 이스케이프 ======
+        function escapeHtml(str) {
+            return String(str ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+
+        // ====== sendChat ======
+        async function sendChat() {
+            const input = document.getElementById('userMsg');
+            const msg = input.value;
+
+            if (msg.trim().length === 0) return;
+
+            const previewUrls = selectedImageFile ? [await fileToDataUrl(selectedImageFile)] : [];
+
+            appendMsg('user', msg, previewUrls);
+
+            input.value = '';
+            updateSendButton();
+
+            const form = new FormData();
+            if (currentSessionId) {
+                form.append("session_id", currentSessionId);
+            }
+            form.append("message", msg);
+
+            if (selectedImageFile) {
+                form.append("image", selectedImageFile);
+            }
+
+            selectedImageFile = null;
+            renderPreviews();
+
+            const loadingId = appendAssistantPlaceholder("");
+            if (loadingId) streamAssistantText(loadingId, "처리 중입니다...");
+
+            try {
+                await sendChatStream(form, loadingId);
+            } catch (e) {
+                console.error(e);
+                await streamAssistantText(loadingId, "요청 처리 중 오류가 발생했습니다.");
+            }
+        }
+
+        async function sendChatStream(form, loadingId) {
+            if (!loadingId) return;
+
+            const res = await fetch(`${API_BASE}/chat/message/stream`, {
+                method: 'POST',
+                body: form,
+                credentials: "include",
+            });
+
+            if (!res.ok || !res.body) {
+                const err = await safeJson(res);
+                throw new Error(err.detail || "stream failed");
+            }
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let assistantText = "";
+            let hasChunks = false;
+
+            const applySessionId = (sessionId) => {
+                if (!sessionId) return;
+                currentSessionId = sessionId;
+                localStorage.setItem("session_id", sessionId);
+            };
+
+            const normalizeImageUrls = (imageValue) => {
+                if (!imageValue) return [];
+                const images = Array.isArray(imageValue) ? imageValue : [imageValue];
+                return images.map((img) => {
+                    if (!img) return null;
+                    if (img.startsWith("data:image/")) return img;
+                    if (img.startsWith("http")) return img;
+                    if (img.startsWith("/")) return `${API_BASE}${img}`;
+                    return `${API_BASE}/images/${img}`;
+                }).filter(Boolean);
+            };
+
+            const handlePayload = (payload) => {
+                if (!payload) return;
+                if (payload.session_id) applySessionId(payload.session_id);
+
+                if (payload.type === "chunk") {
+                    assistantText += payload.content || "";
+                    hasChunks = true;
+                    updateAssistantPlaceholder(loadingId, assistantText);
+                    return;
+                }
+
+                if (payload.type === "progress") {
+                    streamAssistantText(loadingId, payload.message || "처리 중입니다...");
+                    return;
+                }
+
+                if (payload.type === "done") {
+                    const output = payload.output || null;
+                    const outputText = payload.assistant_message
+                        || (output ? output.output_text : "")
+                        || assistantText;
+                    const imageUrls = normalizeImageUrls(output ? output.image : null);
+
+                    if (outputText) {
+                        if (hasChunks) {
+                            updateAssistantPlaceholder(loadingId, outputText, imageUrls);
+                        } else {
+                            streamAssistantText(loadingId, outputText);
+                            updateAssistantPlaceholder(loadingId, outputText, imageUrls);
+                        }
+                    } else if (imageUrls.length) {
+                        updateAssistantPlaceholder(loadingId, "", imageUrls);
+                    }
+                    return;
+                }
+
+                if (payload.type === "error") {
+                    streamAssistantText(loadingId, payload.message || "요청 실패");
+                }
+            };
+
+            const handleEventBlock = (block) => {
+                const lines = block.split("\n");
+                const dataLines = lines.filter((line) => line.startsWith("data:"));
+                if (dataLines.length === 0) return;
+                const dataText = dataLines.map((line) => line.replace(/^data:\s?/, "")).join("");
+                try {
+                    handlePayload(JSON.parse(dataText));
+                } catch (e) {
+                    console.error(e);
+                }
+            };
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const parts = buffer.split("\n\n");
+                buffer = parts.pop();
+                parts.forEach(handleEventBlock);
+            }
+
+            if (buffer.trim()) {
+                handleEventBlock(buffer);
+            }
+        }
+
+        function fileToDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function appendMsg(role, text, imageUrls, messageId) {
+            const content = document.getElementById('chatContent');
+            const box = document.getElementById('chatBox');
+            if (!content || !box) return;
+
+            const div = createMessageElement(role, text, imageUrls, messageId);
+            content.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+
+
+        // ====== 이미지 모달 제어 ======
+        function openImageModal(imageUrl) {
+            const modal = document.getElementById('image-modal');
+            const modalImg = document.getElementById('modal-image');
+            modalImg.src = imageUrl;
+            modal.classList.remove('hidden');
+        }
+
+        function closeImageModal() {
+            const modal = document.getElementById('image-modal');
+            modal.classList.add('hidden');
+        }
+    </script>
+</body>
+
+</html><!DOCTYPE html>

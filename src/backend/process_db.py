@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, TypedDict
+from typing import Dict, List, Optional
 import logging
 
 from sqlalchemy import create_engine
@@ -109,51 +109,6 @@ def get_latest_session_by_user_id(db: Session, user_id: int):
         .first()
     )
 
-def get_session_summaries(db: Session, user_id: int, limit: int = 20):
-    """
-    유저 세션 목록(List)
-    """
-    sessions = (
-        db.query(models.ChatSession)
-        .filter(models.ChatSession.user_id == user_id)
-        .order_by(models.ChatSession.created_at.desc())
-        .limit(limit)
-        .all()
-    )
-
-    results = []
-    for session in sessions:
-        last_message = (
-            db.query(models.ChatHistory)
-            .filter(models.ChatHistory.session_id == session.session_id)
-            .order_by(models.ChatHistory.created_at.desc())
-            .first()
-        )
-
-        results.append({
-            "session_id": session.session_id,
-            "created_at": session.created_at,
-            "last_message": last_message.content if last_message else None,
-            "last_message_at": last_message.created_at if last_message else None,
-        })
-
-    return results
-
-
-def user_owns_session(db: Session, user_id: int, session_id: str) -> bool:
-    """
-    세션 소유권 체크
-    """
-    return (
-        db.query(models.ChatSession)
-        .filter(
-            models.ChatSession.session_id == session_id,
-            models.ChatSession.user_id == user_id,
-        )
-        .first()
-        is not None
-    )
-
 def attach_session_to_user(db: Session, session_id: str, user_id: int) -> Optional[models.ChatSession]:
     """
     게스트 session_id를 로그인 user_id에 귀속시킴.
@@ -226,49 +181,28 @@ def get_image_by_hash(db: Session, file_hash: str) -> models.ImageMatching | Non
         .first()
     )
 
-
-class ImagePayload(TypedDict):
-    file_hash: str
-    file_directory: str
-
-
-def attach_image_to_chat(
-    db: Session,
-    chat_history_id: int,
-    image: ImagePayload,
-):
-    """
-    chat_history_id에 단일 이미지 연결
-    image: {"file_hash": <file hash>, "file_directory": <file_directory>}
-    """
-    image_row = save_image_from_hash(
-        db=db,
-        file_hash=image["file_hash"],
-        file_directory=image["file_directory"],
-    )
-    (
-        db.query(models.ChatHistory)
-        .filter(models.ChatHistory.id == chat_history_id)
-        .update({"image_id": image_row.id})
-    )
-    db.commit()
-    return image_row
-
 # -----------------------------
 # Chat History 저장/조회
 # -----------------------------
-def save_chat_message(db: Session, data: Dict):
+def save_chat_message(
+        db: Session, 
+        session_id: str,
+        role: str,
+        content: str,
+        image_id: Optional[int] = None,
+    ):
     """
     텍스트 메시지 저장.
     image_id가 있으면 함께 저장.
     """
-    logger.info(f"save_chat_message: session_id={data['session_id']}, role={data['role']}, image_id={data.get('image_id')}")
+    logger.info(f"save_chat_message: session_id={session_id}, role={role}, image_id={image_id}")
+
 
     chat = models.ChatHistory(
-        session_id=data["session_id"],
-        role=data["role"],
-        content=data["content"],
-        image_id=data.get("image_id"),
+        session_id=session_id,
+        role=role,
+        content=content,
+        image_id=image_id,
     )
     db.add(chat)
     db.commit()
@@ -300,79 +234,6 @@ def _to_history_dicts(messages: list[models.ChatHistory]):
             "created_at": message.created_at,
         })
     return history
-
-
-def _collect_user_history_images(
-    db: Session,
-    user_id: int,
-    role: Optional[str] = None,
-) -> List[Dict]:
-    allowed_roles = ("input", "output")
-    if role is not None and role not in allowed_roles:
-        return []
-
-    results = []
-
-    chat_q = (
-        db.query(models.ChatHistory, models.ImageMatching)
-        .join(models.ImageMatching, models.ImageMatching.id == models.ChatHistory.image_id)
-        .join(models.ChatSession, models.ChatSession.session_id == models.ChatHistory.session_id)
-        .filter(models.ChatSession.user_id == user_id)
-    )
-    if role == "input":
-        chat_q = chat_q.filter(models.ChatHistory.role == "user")
-    elif role == "output":
-        chat_q = chat_q.filter(models.ChatHistory.role == "assistant")
-
-    for chat_history, image in chat_q.all():
-        role_value = "input" if chat_history.role == "user" else "output"
-        results.append({
-            "history_id": chat_history.id,
-            "image_id": image.id,
-            "role": role_value,
-            "created_at": chat_history.created_at,
-            "image": image,
-        })
-
-    if role is None or role == "input":
-        gen_in_q = (
-            db.query(models.GenerationHistory, models.ImageMatching)
-            .join(models.ImageMatching, models.ImageMatching.id == models.GenerationHistory.input_image_id)
-            .join(models.ChatSession, models.ChatSession.session_id == models.GenerationHistory.session_id)
-            .filter(models.ChatSession.user_id == user_id)
-        )
-        for gen_history, image in gen_in_q.all():
-            results.append({
-                "history_id": gen_history.id,
-                "image_id": image.id,
-                "role": "input",
-                "created_at": gen_history.created_at,
-                "image": image,
-            })
-
-    if role is None or role == "output":
-        gen_out_q = (
-            db.query(models.GenerationHistory, models.ImageMatching)
-            .join(models.ImageMatching, models.ImageMatching.id == models.GenerationHistory.output_image_id)
-            .join(models.ChatSession, models.ChatSession.session_id == models.GenerationHistory.session_id)
-            .filter(models.ChatSession.user_id == user_id)
-        )
-        for gen_history, image in gen_out_q.all():
-            results.append({
-                "history_id": gen_history.id,
-                "image_id": image.id,
-                "role": "output",
-                "created_at": gen_history.created_at,
-                "image": image,
-            })
-
-    deduped = {}
-    for entry in results:
-        key = (entry["image_id"], entry["role"])
-        if key not in deduped or entry["created_at"] > deduped[key]["created_at"]:
-            deduped[key] = entry
-
-    return list(deduped.values())
 
 
 
@@ -407,35 +268,26 @@ def get_user_history_page(db, user_id, cursor_id=None, limit=15):
 
     return history, next_cursor
 
-def get_session_history_page(db, session_id, cursor_id=None, limit=20):
+def get_chat_history_by_session(
+    db: Session,
+    session_id: str,
+    limit: Optional[int] = 10,
+) -> List[models.ChatHistory]:
     """
-    세션별 히스토리 페이징
+    세션별 대화 이력 조회
     """
-    q = (
+    query = (
         db.query(models.ChatHistory)
-        .options(
-            selectinload(models.ChatHistory.image)
-        )
         .filter(models.ChatHistory.session_id == session_id)
-        .order_by(models.ChatHistory.created_at.desc(), models.ChatHistory.id.desc())
+        .order_by(models.ChatHistory.created_at.desc())
     )
-
-    if cursor_id:
-        q = q.filter(models.ChatHistory.id < cursor_id)
-
-    messages_desc = q.limit(limit).all()
-    if not messages_desc:
-        return [], None
-
-    next_cursor = messages_desc[-1].id if len(messages_desc) == limit else None
-    messages = list(reversed(messages_desc))
-    history = _to_history_dicts(messages)
-
-    return history, next_cursor
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
 
 
 # -----------------------------
-# Generation History 저장
+# Generation History 저장/조회
 # -----------------------------
 def save_generation_history(db: Session, data: Dict):
     """
@@ -459,3 +311,52 @@ def save_generation_history(db: Session, data: Dict):
     db.commit()
     db.refresh(gen_history)
     return gen_history
+
+
+def get_generation_history_by_session(
+    db: Session,
+    session_id: str,
+    limit: Optional[int] = 5,
+) -> List[models.GenerationHistory]:
+    """
+    세션별 생성 이력 조회
+    """
+    query = (
+        db.query(models.GenerationHistory)
+        .filter(models.GenerationHistory.session_id == session_id)
+        .order_by(models.GenerationHistory.created_at.desc())
+    )
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
+
+
+def get_latest_generation(
+    db: Session,
+    session_id: str,
+) -> Optional[models.GenerationHistory]:
+    """
+    세션의 가장 최근 생성 이력 조회
+    """
+    return (
+        db.query(models.GenerationHistory)
+        .filter(models.GenerationHistory.session_id == session_id)
+        .order_by(models.GenerationHistory.created_at.desc())
+        .first()
+    )
+
+
+def get_generation_by_session_and_id(
+    db: Session,
+    session_id: str,
+    generation_id: int,
+) -> Optional[models.GenerationHistory]:
+    """
+    세션ID와 생성ID로 특정 생성 이력 조회
+    """
+    return (
+        db.query(models.GenerationHistory)
+        .filter(models.GenerationHistory.session_id == session_id)
+        .filter(models.GenerationHistory.id == generation_id)
+        .first()
+    )

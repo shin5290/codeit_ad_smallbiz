@@ -53,7 +53,6 @@ class PromptTemplateManager:
             user_input (str): 한글 사용자 요청
             style (str): 스타일 힌트 (realistic, semi_realistic, anime)
                          ※ LoRA로 적용되므로 프롬프트에는 반영 안함
-
         Returns:
             dict: {
                 "positive": "상세한 prompt...",
@@ -99,9 +98,10 @@ Remember:
 - Describe like you're directing a camera crew
 - Include: subject, action, setting, lighting, atmosphere, textures, colors
 - NO negative prompts (Z-Image Turbo doesn't support them)
-- Output valid JSON with "positive" and "style" fields only"""
+- Output valid JSON with "positive" and "style" fields only
+"""
 
-            # 5. GPT API 호출
+            # 6. GPT API 호출
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -110,10 +110,10 @@ Remember:
                 ]
             )
 
-            # 6. 응답 추출
+            # 7. 응답 추출
             result = response.choices[0].message.content.strip()
 
-            # 7. JSON 파싱
+            # 8. JSON 파싱
             if "```json" in result:
                 result = result.split("```json")[1].split("```")[0].strip()
             elif "```" in result:
@@ -121,7 +121,7 @@ Remember:
 
             prompt_data = json.loads(result)
 
-            # 8. 결과 검증
+            # 9. 결과 검증
             positive = prompt_data.get("positive", "")
             detected_style = prompt_data.get("style", style)
 

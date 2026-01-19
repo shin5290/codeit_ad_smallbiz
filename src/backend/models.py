@@ -95,6 +95,7 @@ class ChatHistory(Base):
         index=True,
     )
 
+
     created_at = Column(DateTime, server_default=func.now())
 
     session = relationship("ChatSession", back_populates="chat_histories")
@@ -157,6 +158,8 @@ class GenerationHistory(Base):
         back_populates="generation_output_histories",
         foreign_keys=[output_image_id],
     )
+
+    
 
 
 
