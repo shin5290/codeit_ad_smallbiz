@@ -305,6 +305,7 @@ def save_generation_history(db: Session, data: Dict):
         style=data.get("style"),
         industry=data.get("industry"),
         seed=data.get("seed"),
+        strength=data.get("strength"),
         aspect_ratio=data.get("aspect_ratio"),
     )
     db.add(gen_history)

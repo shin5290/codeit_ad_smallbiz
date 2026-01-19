@@ -6,13 +6,17 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, AsyncIterator
 
 from src.backend import process_db, schemas, models
-from src.backend.chatbot import get_chatbot
 from src.utils.config import PROJECT_ROOT
 from src.utils.security import verify_password, create_access_token, decode_token
 from src.utils.session import normalize_session_id, ensure_chat_session
-from src.utils.image import save_uploaded_image, load_image_from_payload
+from src.utils.image import save_uploaded_image, load_image_from_payload, image_payload
 from src.generation.text_generation.text_generator import TextGenerator
 from src.generation.image_generation.generator import generate_and_save_image
+from src.backend.chatbot import (
+    get_conversation_manager,
+    get_llm_orchestrator,
+    get_consulting_service,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -248,8 +252,8 @@ async def ingest_user_message(
     image_id, input_image = await _save_uploaded_image_payload(db=db, image=image)
 
     # 3) chat_history DB 저장 (image_id 포함)
-    chatbot = get_chatbot()
-    chat_history_id = chatbot.conv.add_message(
+    conv_manager = get_conversation_manager()
+    chat_history_id = conv_manager.add_message(
         db,
         session_key,
         "user",
@@ -279,6 +283,7 @@ class GeneratedContent:
     industry: Optional[str] = None
     seed: Optional[int] = None
     aspect_ratio: Optional[str] = None
+    strength: Optional[float] = None
 
     def to_public_dict(self) -> dict:
         """클라이언트 응답용 최소 필드를 딕셔너리로 변환."""
@@ -299,10 +304,14 @@ class GeneratedContent:
 async def generate_contents(
     *,
     input_text: str,
-    input_image: Optional[dict]=None,
+    input_image: Optional[dict] = None,
     generation_type: str,
     style: Optional[str] = None,
     aspect_ratio: Optional[str] = None,
+    industry: Optional[str] = None,
+    strength: Optional[float] = None,
+    text_tone: Optional[str] = None,
+    text_max_length: Optional[int] = None,
 ) -> GeneratedContent:
     """
     콘텐츠 생성
@@ -313,6 +322,10 @@ async def generate_contents(
         generation_type: 생성 타입 (text, image)
         style: 이미지 스타일 (ultra_realistic, semi_realistic, anime)
         aspect_ratio: 이미지 비율 (1:1, 16:9, 9:16, 4:3)
+        industry: 업종 (cafe, restaurant 등)
+        strength: 수정 강도 (0.0~1.0)
+        text_tone: 텍스트 톤 (warm, professional, friendly, energetic)
+        text_max_length: 텍스트 최대 길이 (10~200)
     Returns:
         GeneratedContent: 생성된 광고 콘텐츠
     """
@@ -325,9 +338,9 @@ async def generate_contents(
     output_image = None
     gen_prompt = None
     gen_method = None
-    gen_industry = None
     gen_seed = None
     reference_image = None
+    effective_strength = strength
 
     # input_image 로드
     if input_image:
@@ -344,10 +357,21 @@ async def generate_contents(
             logger.info("generate_contents: 텍스트 생성 시작")
             text_gen = get_text_generator()
 
+            safe_max_length = 100
+            if text_max_length is not None:
+                try:
+                    safe_max_length = int(text_max_length)
+                except (TypeError, ValueError):
+                    safe_max_length = 100
+            if safe_max_length < 10:
+                safe_max_length = 10
+            elif safe_max_length > 200:
+                safe_max_length = 200
+
             ad_copy = text_gen.generate_ad_copy(
                 user_input=input_text,
-                tone="warm",
-                max_length=100,
+                tone=text_tone or "warm",
+                max_length=safe_max_length,
             )
 
             output_text = ad_copy
@@ -359,11 +383,15 @@ async def generate_contents(
 
             # generate_and_save_image가 내부적으로 PromptTemplateManager를 사용하여
             # user_input으로부터 프롬프트를 자동 생성함
+            if reference_image is not None and effective_strength is None:
+                effective_strength = 0.6
             img_result = generate_and_save_image(
                 user_input=input_text,
                 style=style or "ultra_realistic",
                 aspect_ratio=aspect_ratio or "1:1",
+                industry=industry or "general",
                 reference_image=reference_image,
+                strength=effective_strength,
             )
 
             if img_result["success"]:
@@ -393,7 +421,8 @@ async def generate_contents(
         prompt=gen_prompt,
         generation_method=gen_method,
         style=style,
-        industry=gen_industry,
+        industry=industry,
+        strength=effective_strength if generation_type == "image" else None,
         seed=gen_seed,
         aspect_ratio=aspect_ratio,
     )
@@ -416,9 +445,9 @@ def persist_generation_result(
         )
         output_image_id = output_row.id
 
-    # Chat History에 텍스트 결과 저장
-    chatbot = get_chatbot()
-    chatbot.conv.add_message(
+    # Chat History에 결과 저장
+    conv_manager = get_conversation_manager()
+    conv_manager.add_message(
         db,
         session_id,
         "assistant",
@@ -436,7 +465,7 @@ def persist_generation_result(
         input_image_id = input_row.id
 
     # Generation History 이력 저장
-    process_db.save_generation_history(
+    gen_history = process_db.save_generation_history(
         db=db,
         data={
             "session_id": session_id,
@@ -450,213 +479,16 @@ def persist_generation_result(
             "style": gen.style,
             "industry": gen.industry,
             "seed": gen.seed,
+            "strength": gen.strength,
             "aspect_ratio": gen.aspect_ratio,
         }
     )
-
-
-async def _analyze_user_intent(
-    db: Session,
-    input_text: str,
-    session_id: Optional[str],
-) -> Dict:
-    """
-    사용자 입력의 의도를 분석 (generation/modification/consulting)
-    """
-    chatbot = get_chatbot()
-
-    # 최근 대화 히스토리 조회
-    context = {}
-    if session_id:
-        recent_conversations = chatbot.conv.get_recent_messages(db, session_id, limit=5)
-        generation_history = chatbot.conv.get_generation_history(db, session_id, limit=5)
-        context = {
-            "recent_conversations": recent_conversations,
-            "generation_history": generation_history,
-        }
-
-    # LLM을 통한 의도 분석
-    intent_result = await chatbot.llm.analyze_intent(input_text, context)
-    return intent_result
-
-
-async def _refine_generation_input(
-    *,
-    db: Session,
-    session_id: Optional[str],
-    user_message: str,
-    intent: str,
-    generation_type: Optional[str],
-    target_generation_id: Optional[int],
-) -> str:
-    """
-    전체 히스토리를 활용해 생성 입력을 정제
-    """
-    if not session_id:
-        return user_message
-
-    chatbot = get_chatbot()
-    chat_history = chatbot.conv.get_full_messages(db, session_id)
-    if user_message:
-        if (
-            not chat_history
-            or chat_history[-1].get("role") != "user"
-            or chat_history[-1].get("content") != user_message
-        ):
-            chat_history.append(
-                {
-                    "role": "user",
-                    "content": user_message,
-                    "image_id": None,
-                    "timestamp": "pending",
-                }
-            )
-
-    generation_history = chatbot.conv.get_full_generation_history(db, session_id)
-
-    try:
-        refined = await chatbot.llm.refine_generation_input(
-            intent=intent,
-            generation_type=generation_type,
-            target_generation_id=target_generation_id,
-            chat_history=chat_history,
-            generation_history=generation_history,
-        )
-        return refined or user_message
-    except Exception as exc:
-        logger.error(f"_refine_generation_input: 실패 - {exc}", exc_info=True)
-        return user_message
-
-
-async def _execute_generation_pipeline(
-    *,
-    db: Session,
-    input_text: str,
-    session_id: Optional[str],
-    user_id: Optional[int],
-    generation_input: str,
-    generation_type: str,
-    style: Optional[str],
-    aspect_ratio: Optional[str],
-    ingest: Optional[IngestResult] = None,
-    image: Optional[UploadFile] = None,
-) -> Dict:
-    """
-    생성 파이프라인 실행 (ingest 결과 재사용 가능)
-    """
-    if ingest is None:
-        ingest = await ingest_user_message(
-            db=db,
-            input_text=input_text,
-            session_id=session_id,
-            user_id=user_id,
-            image=image,
-        )
-
-    gen_result = await generate_contents(
-        input_text=generation_input,
-        input_image=ingest.input_image,
-        generation_type=generation_type,
-        style=style,
-        aspect_ratio=aspect_ratio,
-    )
-
-    persist_generation_result(
-        db=db,
-        session_id=ingest.session_id,
-        gen=gen_result,
-    )
-
-    result = {
-        "session_id": ingest.session_id,
-        "output": gen_result.to_public_dict(),
-    }
-    return result
-
-
-def _build_consulting_context(
-    *,
-    chatbot,
-    db: Session,
-    session_id: str,
-    message: str,
-    recent_limit: int = 5,
-) -> Dict:
-    """
-    상담 응답에 필요한 대화/생성/지식베이스 컨텍스트를 구성.
-    """
-    recent_conversations = chatbot.conv.get_recent_messages(
-        db,
-        session_id,
-        limit=recent_limit,
-    )
-
-    generation_history = chatbot.conv.get_generation_history(db, session_id, limit=5)
-    context = {
-        "recent_conversations": recent_conversations,
-        "generation_history": generation_history,
-        "knowledge_base": [],
-    }
-
-    if chatbot.knowledge:
-        try:
-            knowledge_results = chatbot.knowledge.search(
-                query=message,
-                category="faq",
-                limit=3,
-            )
-            context["knowledge_base"] = knowledge_results
-            logger.info(
-                "_build_consulting_context: 지식 검색 결과 %s건",
-                len(knowledge_results),
-            )
-        except Exception as exc:
-            logger.warning(f"_build_consulting_context: 지식 검색 실패: {exc}")
-
-    return context
-
-
-async def _dispatch_consulting_intent(
-    *,
-    chatbot,
-    db: Session,
-    session_id: str,
-    message: str,
-) -> AsyncIterator[Dict]:
-    """
-    상담 응답을 스트리밍으로 생성하며 청크/완료 이벤트를 순차 반환.
-    """
-    context = _build_consulting_context(
-        chatbot=chatbot,
-        db=db,
-        session_id=session_id,
-        message=message,
-        recent_limit=5,
-    )
-
-    assistant_chunks: List[str] = []
-    async for chunk in chatbot.llm.stream_consulting_response(message, context):
-        if chunk:
-            assistant_chunks.append(chunk)
-            yield {"type": "chunk", "content": chunk}
-    assistant_message = "".join(assistant_chunks).strip() or "무엇을 도와드릴까요?"
-
-    chatbot.conv.add_message(db, session_id, "assistant", assistant_message)
-
-    yield {
-        "type": "done",
-        "session_id": session_id,
-        "intent": "consulting",
-        "assistant_message": assistant_message,
-        "redirect_to_pipeline": False,
-        "ready_to_generate": False,
-    }
+    return gen_history
 
 
 # =====================================================
 # RAG 챗봇 서비스
 # =====================================================
-
 async def handle_chat_message_stream(
     *,
     db: Session,
@@ -665,14 +497,13 @@ async def handle_chat_message_stream(
     message: str,
     image: Optional[UploadFile] = None,
 ) -> AsyncIterator[Dict]:
-    """
-    RAG 챗봇 메시지 처리 스트리밍 서비스 (SSE용)
-    - consulting: 응답을 스트리밍으로 전송
-    - generation/modification: 생성 결과를 스트리밍으로 반환
-    """
-    logger.info(f"handle_chat_message_stream: session_id={session_id}, user_id={user_id}")
-    chatbot = get_chatbot()
+    """RAG 챗봇 메시지 처리 스트리밍"""
+    
+    conv_manager = get_conversation_manager()
+    llm = get_llm_orchestrator()
+    consulting = get_consulting_service()
 
+    # 1. 입력 수집
     ingest = await ingest_user_message(
         db=db,
         input_text=message,
@@ -682,54 +513,67 @@ async def handle_chat_message_stream(
     )
     session_key = ingest.session_id
 
-    recent_conversations = chatbot.conv.get_recent_messages(db, session_key, limit=5)
-    generation_history = chatbot.conv.get_generation_history(db, session_key, limit=5)
-    context = {
-        "recent_conversations": recent_conversations,
-        "generation_history": generation_history,
+    # 2. Intent 분석 (플랫폼/스타일 자동 결정 - generation_history 불필요)
+    recent_conversations = conv_manager.get_recent_messages(db, session_key, limit=3)
+    
+    intent_result = await llm.analyze_intent(
+        user_message=message,
+        recent_conversations=recent_conversations
+    )
+    intent = intent_result.get("intent", "consulting")
+    
+    # Intent 분석 결과에서 생성 파라미터 추출
+    generation_type = intent_result.get("generation_type") or "image"
+    aspect_ratio = intent_result.get("aspect_ratio")
+    style = intent_result.get("style")
+    industry = intent_result.get("industry")
+    strength = intent_result.get("strength")
+    text_tone = intent_result.get("text_tone")
+    text_max_length = intent_result.get("text_max_length")
+
+    yield {
+        "type": "meta",
+        "session_id": session_key,
+        "intent": intent,
+        "aspect_ratio": aspect_ratio,
+        "style": style,
+        "industry": industry,
+        "strength": strength,
+        "text_tone": text_tone,
+        "text_max_length": text_max_length,
     }
 
-    intent_result = await chatbot.llm.analyze_intent(message, context)
-    intent = intent_result.get("intent", "consulting")
-    generation_type = intent_result.get("generation_type") or "image"
-    target_generation_id = intent_result.get("target_generation_id")
-
-    yield {"type": "meta", "session_id": session_key, "intent": intent}
-
+    # 3. Consulting 분기
     if intent == "consulting":
-        async for payload in _dispatch_consulting_intent(
-            chatbot=chatbot,
-            db=db,
-            session_id=session_key,
-            message=message,
-        ):
+        async for payload in consulting.stream_response(db, session_key, message):
             yield payload
         return
 
+    # 4. Generation/Modification 분기
     yield {
         "type": "progress",
-        "session_id": session_key,
-        "intent": intent,
         "stage": "analyzing",
-        "message": "요청을 정리하고 있습니다.",
+        "message": "메세지를 분석중입니다.",
     }
 
-    generation_input = await _refine_generation_input(
-        db=db,
-        session_id=session_key,
-        user_message=message,
+    # Refinement (텍스트 정제 + 수정 대상 ID 찾기)
+    chat_history = conv_manager.get_full_messages(db, session_key)
+    generation_history = conv_manager.get_full_generation_history(db, session_key)
+    
+    refinement_result = await llm.refine_generation_input(
         intent=intent,
         generation_type=generation_type,
-        target_generation_id=target_generation_id,
+        chat_history=chat_history,
+        generation_history=generation_history,
     )
-    generation_input = generation_input or message
+    
+    generation_input = refinement_result.get("refined_input") or message
+    target_generation_id = refinement_result.get("target_generation_id")  # Refinement에서 찾음
 
     try:
         if intent == "modification":
             yield {
                 "type": "progress",
-                "session_id": session_key,
-                "intent": intent,
                 "stage": "generating",
                 "message": "광고를 수정하고 있습니다.",
             }
@@ -737,95 +581,132 @@ async def handle_chat_message_stream(
             result = await handle_chat_revise(
                 db=db,
                 session_id=session_key,
-                user_id=user_id,
-                revision_request=message,
                 target_generation_id=target_generation_id,
                 generation_input=generation_input,
-                save_user_message=False,
+                style=style,  # Intent에서 결정된 스타일 전달
+                aspect_ratio=aspect_ratio,  # Intent에서 결정된 비율 전달
+                strength=strength,  # Intent에서 결정된 강도 전달
+                text_tone=text_tone,
+                text_max_length=text_max_length,
             )
-            output = result.get("output") or {}
-            assistant_message = output.get("output_text") or "광고가 수정되었습니다."
+            output = result.get("output", {})
 
             yield {
                 "type": "done",
-                "session_id": session_key,
                 "intent": intent,
-                "assistant_message": assistant_message,
                 "output": output,
                 "generation_id": result.get("generation_id"),
             }
             return
 
+        # Generation
         yield {
             "type": "progress",
-            "session_id": session_key,
-            "intent": intent,
             "stage": "generating",
-            "message": "광고를 생성하고 있습니다.",
+            "message": f"광고를 생성하고 있습니다. (비율: {aspect_ratio or '기본'})",
         }
 
         result = await _execute_generation_pipeline(
             db=db,
-            input_text=message,
-            session_id=session_key,
-            user_id=user_id,
             generation_input=generation_input,
             generation_type=generation_type,
-            style=None,
-            aspect_ratio=None,
+            aspect_ratio=aspect_ratio,
+            style=style,
+            industry=industry,
+            strength=strength,
+            text_tone=text_tone,
+            text_max_length=text_max_length,
             ingest=ingest,
-            image=image,
         )
-        output = result.get("output") or {}
-        assistant_message = output.get("output_text") or "광고가 생성되었습니다."
+        output = result.get("output", {})
 
         yield {
             "type": "done",
-            "session_id": session_key,
             "intent": intent,
-            "assistant_message": assistant_message,
             "output": output,
         }
-    except HTTPException as exc:
-        if exc.status_code == 404 and intent == "modification":
-            assistant_message = "수정할 광고가 없습니다. 먼저 광고를 생성해주세요. 어떤 광고를 만들어 드릴까요?"
-            chatbot.conv.add_message(db, session_key, "assistant", assistant_message)
-            yield {
-                "type": "done",
-                "session_id": session_key,
-                "intent": intent,
-                "assistant_message": assistant_message,
-                "needs_generation_first": True,
-                "output": {
-                    "content_type": "consulting",
-                    "output_text": assistant_message,
-                    "image": None,
-                },
-            }
-        else:
-            raise
+
     except Exception as exc:
-        logger.error(f"handle_chat_message_stream: 실패 - {exc}", exc_info=True)
+        logger.error(f"Stream failed: {exc}", exc_info=True)
         yield {"type": "error", "message": "요청 처리 중 오류가 발생했습니다."}
+
+
+async def _execute_generation_pipeline(
+    *,
+    db: Session,
+    generation_input: str,
+    generation_type: str,
+    aspect_ratio: Optional[str] = None,
+    style: Optional[str] = None,
+    industry: Optional[str] = None,
+    strength: Optional[float] = None,
+    text_tone: Optional[str] = None,
+    text_max_length: Optional[int] = None,
+    ingest: Optional[IngestResult] = None,
+) -> Dict:
+    """
+    생성 파이프라인 실행
+    
+    파라미터 우선순위:
+    1. 명시적으로 전달된 값 (aspect_ratio, style)
+    2. Intent 분석에서 자동 결정된 값
+    3. 기본값
+    """
+    # aspect_ratio 최종 결정 (Intent 결과 or 기본값)
+    final_aspect_ratio = aspect_ratio or "1:1"
+
+    # style 최종 결정 (Intent 결과 or 기본값)
+    final_style = style or "ultra_realistic"
+
+    logger.info(
+        f"Generation pipeline: type={generation_type}, "
+        f"ratio={final_aspect_ratio}, style={final_style}, industry={industry}"
+    )
+
+    # 콘텐츠 생성
+    gen_result = await generate_contents(
+        input_text=generation_input,
+        input_image=ingest.input_image,
+        generation_type=generation_type,
+        style=final_style,
+        aspect_ratio=final_aspect_ratio,
+        industry=industry,  # 업종 정보도 전달 (프롬프트 생성 시 활용 가능)
+        strength=strength,
+        text_tone=text_tone,
+        text_max_length=text_max_length,
+    )
+
+    # 결과 저장
+    persist_generation_result(
+        db=db,
+        session_id=ingest.session_id,
+        gen=gen_result,
+    )
+
+    return {
+        "session_id": ingest.session_id,
+        "output": gen_result.to_public_dict(),
+    }
 
 
 async def handle_chat_revise(
     *,
     db: Session,
     session_id: str,
-    user_id: Optional[int],
-    revision_request: str,
     target_generation_id: Optional[int] = None,
     generation_input: Optional[str] = None,
-    save_user_message: bool = False,
+    style: Optional[str] = None,  # Intent에서 전달받음
+    aspect_ratio: Optional[str] = None,  # Intent에서 전달받음
+    strength: Optional[float] = None,  # Intent에서 전달받음
+    text_tone: Optional[str] = None,
+    text_max_length: Optional[int] = None,
 ):
     """
-    광고 수정 요청 처리
+    광고 수정 요청 처리 서비스
+    - 수정 시에도 Intent 분석 결과의 스타일/비율 적용 가능
     """
-    logger.info(f"handle_chat_revise: session_id={session_id}, 요청={revision_request}")
 
-    # 1. 대상 생성 이력 선택
-    chatbot = get_chatbot()
+    # 대상 생성 이력 선택
     latest_generation = _resolve_target_generation(
         db=db,
         session_id=session_id,
@@ -833,135 +714,45 @@ async def handle_chat_revise(
     )
 
     if not latest_generation:
-        raise HTTPException(
-            status_code=404,
-            detail="수정할 광고를 찾을 수 없습니다. 먼저 광고를 생성해주세요."
-        )
+        raise HTTPException(404, "수정할 광고를 찾을 수 없습니다.")
 
-    logger.info(f"handle_chat_revise: 생성 이력 발견 id={latest_generation.id}")
 
-    # 2. 수정 요청 파싱
-    updated_params = await _parse_revision_request(
-        chatbot=chatbot,
-        db=db,
-        session_id=session_id,
-        revision_request=revision_request,
-        latest_generation=latest_generation,
-        generation_input=generation_input,
+    # 수정 파라미터 구성 (Intent 결과 우선, 없으면 기존값 유지)
+    reference_payload = (
+        image_payload(latest_generation.output_image)
+        or image_payload(latest_generation.input_image)
     )
-
-    reference_payload = None
-    reference_image_id = None
-    if updated_params["generation_type"] == "image":
-        reference_image = latest_generation.output_image or latest_generation.input_image
-        if reference_image:
-            reference_payload = {
-                "file_hash": reference_image.file_hash,
-                "file_directory": reference_image.file_directory,
-            }
-            reference_image_id = reference_image.id
-    # TODO: i2i 기능 완성 시 input_image=reference_payload로 전달하고
-    # input_image_id=reference_image_id로 저장하도록 변경하세요.
-    i2i_payload = None
-    i2i_reference_image_id = None
-
-    # 3. 수정 메시지 저장
-    if save_user_message:
-        chatbot.conv.add_message(db, session_id, "user", revision_request)
-
-    try:
-        gen_result = await generate_contents(
-            input_text=updated_params["input_text"],
-            input_image=i2i_payload,
-            generation_type=updated_params["generation_type"],
-            style=updated_params.get("style"),
-            aspect_ratio=updated_params.get("aspect_ratio"),
-        )
-
-        output_image_id = None
-        if gen_result.output_image:
-            output_row = process_db.save_image_from_hash(
-                db=db,
-                file_hash=gen_result.output_image["file_hash"],
-                file_directory=gen_result.output_image["file_directory"],
-            )
-            output_image_id = output_row.id
-
-        assistant_message = gen_result.output_text or "광고가 수정되었습니다."
-        chatbot.conv.add_message(
-            db,
-            session_id,
-            "assistant",
-            assistant_message,
-            output_image_id,
-        )
-
-        new_gen = process_db.save_generation_history(
-            db=db,
-            data={
-                "session_id": session_id,
-                "content_type": gen_result.content_type,
-                "input_text": gen_result.input_text,
-                "output_text": gen_result.output_text,
-                "prompt": gen_result.prompt,
-                "input_image_id": i2i_reference_image_id,
-                "output_image_id": output_image_id,
-                "generation_method": gen_result.generation_method,
-                "style": gen_result.style,
-                "industry": gen_result.industry,
-                "seed": gen_result.seed,
-                "aspect_ratio": gen_result.aspect_ratio,
-            },
-        )
-
-        result = {
-            "session_id": session_id,
-            "generation_id": new_gen.id,
-            "output": gen_result.to_public_dict(),
-        }
-
-        logger.info(f"handle_chat_revise: 완료 - new_id={new_gen.id}")
-        return result
-
-    except Exception as exc:
-        logger.error(f"handle_chat_revise: 실패 - {exc}", exc_info=True)
-        raise
-
-
-async def _parse_revision_request(
-    chatbot,
-    db: Session,
-    session_id: str,
-    revision_request: str,
-    latest_generation: models.GenerationHistory,
-    generation_input: Optional[str] = None,
-) -> Dict:
-    """
-    수정 요청을 파싱하여 업데이트된 파라미터 반환
-    """
     updated_params = {
-        "input_text": latest_generation.input_text or "",
+        "input_text": generation_input or latest_generation.input_text or "",
         "generation_type": latest_generation.content_type,
-        "style": latest_generation.style,
-        "aspect_ratio": latest_generation.aspect_ratio,
+        "style": style or latest_generation.style,  # Intent 결과 or 기존 스타일
+        "aspect_ratio": aspect_ratio or latest_generation.aspect_ratio,  # Intent 결과 or 기존 비율
+        "reference_image": reference_payload,
+        "strength": strength,  # Intent 결과 우선
     }
 
-    if generation_input:
-        cleaned = generation_input.strip()
-        cleaned = re.sub(
-            r"이전 생성물\s*\(ID:\s*\d+\)\s*을?\s*기준으로\s*",
-            "",
-            cleaned,
-        ).strip()
-        cleaned = re.sub(
-            r"이전 생성물\s*ID\s*\d+\s*을?\s*기준으로\s*",
-            "",
-            cleaned,
-        ).strip()
-        if cleaned != generation_input and (latest_generation.input_text or ""):
-            cleaned = f"{latest_generation.input_text} {cleaned}".strip()
-            logger.info("_parse_revision_request: 기본 input_text로 generation_input 정규화")
-        updated_params["input_text"] = cleaned
-        return updated_params
 
-    return updated_params
+    # 콘텐츠 생성
+    gen_result = await generate_contents(
+        input_text=updated_params["input_text"],
+        input_image=updated_params["reference_image"],  # 기존 생성물 또는 입력 이미지 사용
+        generation_type=updated_params["generation_type"],
+        style=updated_params["style"],
+        aspect_ratio=updated_params["aspect_ratio"],
+        strength=updated_params["strength"],
+        text_tone=text_tone,
+        text_max_length=text_max_length,
+    )
+
+    # 결과 저장
+    gen_history = persist_generation_result(
+        db=db,
+        session_id=session_id,
+        gen=gen_result,
+    )
+
+    return {
+        "session_id": session_id,
+        "generation_id": gen_history.id,
+        "output": gen_result.to_public_dict(),
+    }
