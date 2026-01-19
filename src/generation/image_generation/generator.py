@@ -39,6 +39,7 @@ def generate_and_save_image(
     user_input: str,
     style: Literal["realistic", "ultra_realistic", "semi_realistic", "anime"] = "realistic",
     aspect_ratio: Literal["1:1", "3:4", "4:3", "16:9", "9:16"] = "1:1",
+    industry: Optional[Literal["cafe", "restaurant", "retail", "service"]] = None,
     num_inference_steps: int = 8,  # Z-Image Turbo 기본값
     seed: Optional[int] = None,
     filename: Optional[str] = None,

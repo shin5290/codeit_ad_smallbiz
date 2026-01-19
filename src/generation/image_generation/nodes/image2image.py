@@ -139,9 +139,7 @@ class Image2ImageNode(BaseNode):
                 raise ValueError("reference_image must be a PIL.Image.Image object")
 
             # 해상도 결정
-            ar_config = aspect_ratio_templates.get(aspect_ratio, aspect_ratio_templates["1:1"])
-            width = ar_config["width"]
-            height = ar_config["height"]
+            width, height = aspect_ratio_templates.get_size(aspect_ratio, aspect_ratio_templates["1:1"])
 
             # 입력 이미지 리사이즈
             reference_image = reference_image.resize((width, height), Image.Resampling.LANCZOS)
