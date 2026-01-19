@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Dict, List, Optional
 import logging
 
@@ -48,7 +49,13 @@ def check_duplicate_id(db: Session, login_id: str) -> bool:
 
 def create_user(db: Session, login_id: str, login_pw: str, name: str):
     hashed_pw = hash_password(login_pw)
-    db_user = models.User(login_id=login_id, login_pw=hashed_pw, name=name)
+    is_admin = login_id == "admin"
+    db_user = models.User(
+        login_id=login_id,
+        login_pw=hashed_pw,
+        name=name,
+        is_admin=is_admin,
+    )
     db.add(db_user)
     try:
         db.commit()
@@ -73,6 +80,53 @@ def update_user(db: Session, user: models.User, name: Optional[str] = None, new_
 def delete_user(db: Session, user: models.User):
     db.delete(user)
     db.commit()
+
+
+def list_users(
+    db: Session,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """
+    유저 목록 조회 (관리자용)
+    """
+    query = (
+        db.query(models.User)
+        .order_by(models.User.created_at.desc(), models.User.user_id.desc())
+    )
+    total = query.count()
+    users = query.offset(offset).limit(limit).all()
+    return users, total
+
+
+def delete_users_by_ids(
+    db: Session,
+    *,
+    user_ids: List[int],
+    exclude_admin: bool = True,
+    exclude_user_id: Optional[int] = None,
+):
+    """
+    복수 유저 삭제 (관리자용)
+    """
+    if not user_ids:
+        return [], []
+
+    query = db.query(models.User).filter(models.User.user_id.in_(user_ids))
+    if exclude_admin:
+        query = query.filter(models.User.is_admin.is_(False))
+    if exclude_user_id is not None:
+        query = query.filter(models.User.user_id != exclude_user_id)
+
+    users = query.all()
+    deleted_ids = [u.user_id for u in users]
+    for user in users:
+        db.delete(user)
+    db.commit()
+
+    skipped_ids = [uid for uid in user_ids if uid not in deleted_ids]
+    return deleted_ids, skipped_ids
 
 
 # -----------------------------
@@ -361,3 +415,72 @@ def get_generation_by_session_and_id(
         .filter(models.GenerationHistory.id == generation_id)
         .first()
     )
+
+
+def get_admin_generation_page(
+    db: Session,
+    *,
+    limit: int = 5,
+    offset: int = 0,
+    user_id: Optional[int] = None,
+    login_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    content_type: Optional[str] = None,
+    start_at: Optional[datetime] = None,
+    end_at: Optional[datetime] = None,
+):
+    """
+    관리자용 생성 이력 조회 (필터/페이징)
+    """
+    query = (
+        db.query(models.GenerationHistory)
+        .join(models.ChatSession, models.ChatSession.session_id == models.GenerationHistory.session_id)
+        .outerjoin(models.User, models.User.user_id == models.ChatSession.user_id)
+        .options(
+            selectinload(models.GenerationHistory.input_image),
+            selectinload(models.GenerationHistory.output_image),
+            selectinload(models.GenerationHistory.session).selectinload(models.ChatSession.user),
+        )
+    )
+
+    if session_id:
+        query = query.filter(models.GenerationHistory.session_id == session_id)
+    if content_type:
+        query = query.filter(models.GenerationHistory.content_type == content_type)
+    if user_id is not None:
+        query = query.filter(models.ChatSession.user_id == user_id)
+    if login_id:
+        query = query.filter(models.User.login_id.ilike(f"%{login_id}%"))
+    if start_at is not None:
+        query = query.filter(models.GenerationHistory.created_at >= start_at)
+    if end_at is not None:
+        query = query.filter(models.GenerationHistory.created_at < end_at)
+
+    total = query.count()
+    items = (
+        query.order_by(models.GenerationHistory.created_at.desc(), models.GenerationHistory.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return items, total
+
+
+def get_latest_user_input_before(
+    db: Session,
+    *,
+    session_id: str,
+    before_at: Optional[datetime],
+):
+    """
+    세션 내 마지막 사용자 메시지 조회 (생성 시점 기준)
+    """
+    query = (
+        db.query(models.ChatHistory)
+        .filter(models.ChatHistory.session_id == session_id)
+        .filter(models.ChatHistory.role == "user")
+        .order_by(models.ChatHistory.created_at.desc(), models.ChatHistory.id.desc())
+    )
+    if before_at is not None:
+        query = query.filter(models.ChatHistory.created_at <= before_at)
+    return query.first()

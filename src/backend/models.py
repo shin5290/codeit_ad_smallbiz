@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    BigInteger, Column, Float, Integer, String, Text, ForeignKey,
+    BigInteger, Boolean, Column, Float, Integer, String, Text, ForeignKey,
     DateTime, func, Index
 )
 from sqlalchemy.orm import relationship, declarative_base
@@ -21,6 +21,7 @@ class User(Base):
     login_id = Column(String(50), unique=True, nullable=False, index=True)
     login_pw = Column(String(255), nullable=False)
     name = Column(String(50), nullable=False)
+    is_admin = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now())
 
     sessions = relationship(

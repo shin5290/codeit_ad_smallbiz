@@ -95,7 +95,7 @@ def register_user(db, signup: schemas.SignupRequest):
     return user
 
 
-def authenticate_user(db, login_id: str, login_pw: str, response: Response) -> None:
+def authenticate_user(db, login_id: str, login_pw: str, response: Response) -> models.User:
     """
     사용자 인증(로그인) 서비스
     - 아이디 존재 여부 확인, 비밀번호 검증
@@ -116,6 +116,8 @@ def authenticate_user(db, login_id: str, login_pw: str, response: Response) -> N
         samesite="lax",
         path="/",
     )
+
+    return user
 
 
 def update_user(db: Session, current_user, update: schemas.UpdateUserRequest):

@@ -70,3 +70,59 @@ class HistoryPage(BaseModel):
     items: List[ChatMessage]
     next_cursor: Optional[int] = None
 
+
+# -----------------------------
+# Admin
+# -----------------------------
+class AdminUserItem(BaseModel):
+    user_id: int
+    login_id: str
+    name: str
+    created_at: datetime
+    is_admin: bool
+
+
+class AdminUserListResponse(BaseModel):
+    users: List[AdminUserItem]
+    total: int
+
+
+class AdminDeleteUsersRequest(BaseModel):
+    user_ids: List[int]
+
+
+class AdminDeleteUsersResponse(BaseModel):
+    deleted_ids: List[int]
+    skipped_ids: List[int]
+
+
+class AdminImageRef(BaseModel):
+    file_hash: str
+
+
+class AdminGenerationItem(BaseModel):
+    id: int
+    session_id: str
+    user_id: Optional[int] = None
+    login_id: Optional[str] = None
+    name: Optional[str] = None
+    content_type: str
+    input_text: Optional[str] = None
+    output_text: Optional[str] = None
+    prompt: Optional[str] = None
+    input_image: Optional[AdminImageRef] = None
+    output_image: Optional[AdminImageRef] = None
+    generation_method: Optional[str] = None
+    style: Optional[str] = None
+    industry: Optional[str] = None
+    seed: Optional[int] = None
+    strength: Optional[float] = None
+    aspect_ratio: Optional[str] = None
+    created_at: datetime
+
+
+class AdminGenerationPage(BaseModel):
+    items: List[AdminGenerationItem]
+    total: int
+    page: int
+    limit: int
