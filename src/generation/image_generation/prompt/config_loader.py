@@ -6,110 +6,219 @@ industries.yaml을 로드하고 Hybrid Prompting 시스템과 통합
 import yaml
 from pathlib import Path
 from typing import Dict, List, Optional
-from .prompt_templates import HybridPromptBuilder, NegativePromptBuilder, PromptStructure
-from .style_router import StyleRouter
+
+from src.generation.image_generation.prompt.prompt_templates import (
+    HybridPromptBuilder, NegativePromptBuilder)
+from src.generation.image_generation.prompt.style_router import StyleRouter
 
 
 class IndustryConfigLoader:
     """
-    industries.yaml 로더
+    industries.yaml 로더 (v3.0.0 계층 구조 지원)
+
+    한글 키워드는 YAML의 korean_keywords 필드에서 직접 로드
     """
-    
+
+    # 등급 목록 상수
+    GRADES = ['s_grade', 'a_grade', 'b_grade', 'c_grade', 'd_grade', 'e_grade']
+
     def __init__(self, config_path: Optional[str] = None):
-        """
-        Args:
-            config_path: YAML 설정 파일 경로 (None이면 자동으로 config/industries.yaml 사용)
-        """
         if config_path is None:
-            # 현재 파일 위치 기준으로 config/industries.yaml 찾기
             self.config_path = Path(__file__).parent / "config" / "industries.yaml"
         else:
             self.config_path = Path(config_path)
         self.config = self._load_config()
-    
+
+        # 캐시: 하위 그룹 코드 → (등급, 하위그룹 데이터) 매핑
+        self._subgroup_cache = self._build_subgroup_cache()
+
+        # 캐시: 업종명 → 하위 그룹 코드 매핑
+        self._business_to_subgroup = self._build_business_mapping()
+
+        # 캐시: 하위 그룹별 키워드 맵 (영어 + 한글)
+        self._keyword_map = self._build_detection_keywords()
+
     def _load_config(self) -> Dict:
         """YAML 파일 로드"""
         if not self.config_path.exists():
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
-        
+
         with open(self.config_path, 'r', encoding='utf-8') as f:
             return yaml.safe_load(f)
-    
+
+    def _build_subgroup_cache(self) -> Dict[str, tuple]:
+        """하위 그룹 코드로 빠르게 접근할 수 있는 캐시 생성"""
+        cache = {}
+        for grade_key in self.GRADES:
+            grade_data = self.config.get(grade_key, {})
+            for key, value in grade_data.items():
+                # 하위 그룹은 dict이고 prompt_template을 가짐
+                if isinstance(value, dict) and 'prompt_template' in value:
+                    cache[key] = (grade_key, value)
+        return cache
+
+    def _build_business_mapping(self) -> Dict[str, str]:
+        """개별 업종명 → 하위 그룹 코드 매핑"""
+        mapping = {}
+        for subgroup_key, (grade_key, subgroup_data) in self._subgroup_cache.items():
+            businesses = subgroup_data.get('businesses', [])
+            for business in businesses:
+                # 업종명 정규화 (소문자, 공백 제거)
+                normalized = business.lower().replace(' ', '_').replace('/', '_')
+                mapping[normalized] = subgroup_key
+                # 원본도 추가
+                mapping[business.lower()] = subgroup_key
+        return mapping
+
     def get_industry(self, industry_code: str) -> Optional[Dict]:
         """
-        업종 설정 가져오기
-        
+        업종 설정 가져오기 (v3.0.0 호환)
+
         Args:
-            industry_code: 업종 코드 (cafe, gym 등)
-        
+            industry_code: 하위 그룹 코드 (s1_hot_cooking, a1_beauty 등)
+                          또는 레거시 코드 (cafe, gym 등)
+
         Returns:
             Dict: 업종 설정 또는 None
         """
-        return self.config.get(industry_code)
-    
+        # 1. 새 구조에서 하위 그룹 코드로 직접 찾기
+        if industry_code in self._subgroup_cache:
+            return self._subgroup_cache[industry_code][1]
+
+        # 2. 레거시 코드 호환 (cafe → s3_emotional 등)
+        legacy_mapping = self._get_legacy_mapping()
+        if industry_code in legacy_mapping:
+            mapped_code = legacy_mapping[industry_code]
+            if mapped_code in self._subgroup_cache:
+                return self._subgroup_cache[mapped_code][1]
+
+        # 3. 개별 업종명으로 찾기
+        normalized_code = industry_code.lower().replace(' ', '_')
+        if normalized_code in self._business_to_subgroup:
+            subgroup_code = self._business_to_subgroup[normalized_code]
+            return self._subgroup_cache[subgroup_code][1]
+
+        # 4. 없으면 general (s4_neat_variety 또는 기본값)
+        return self._subgroup_cache.get('s4_neat_variety')
+
+    def _get_legacy_mapping(self) -> Dict[str, str]:
+        """레거시 업종 코드 → 신규 하위 그룹 코드 매핑"""
+        return {
+            # S등급
+            "cafe": "s3_emotional",
+            "bakery": "s3_emotional",
+            "restaurant": "s1_hot_cooking",
+
+            # A등급
+            "gym": "a2_wellness",
+            "hair_salon": "a1_beauty",
+            "nail_salon": "a1_beauty",
+            "flower_shop": "a4_delicate_care",
+            "clothing_store": "a3_fashion",
+
+            # C등급
+            "laundry": "a4_delicate_care",  # 세탁소는 A4로 이동
+
+            # 기본값
+            "general": "s4_neat_variety"
+        }
+
     def get_all_industries(self) -> Dict[str, Dict]:
-        """모든 업종 설정 반환"""
-        # metadata, common_negative 제외
-        exclude = ['metadata', 'common_negative']
-        return {k: v for k, v in self.config.items() if k not in exclude}
-    
+        """모든 하위 그룹 설정 반환"""
+        return {k: v for k, (_, v) in self._subgroup_cache.items()}
+
+    def get_all_subgroups(self) -> List[str]:
+        """사용 가능한 하위 그룹 코드 리스트"""
+        return list(self._subgroup_cache.keys())
+
     def get_industry_names(self) -> List[str]:
-        """사용 가능한 업종 코드 리스트"""
-        return list(self.get_all_industries().keys())
-    
+        """사용 가능한 하위 그룹 코드 리스트 (레거시 호환)"""
+        return self.get_all_subgroups()
+
+    def get_grade_info(self, grade_key: str) -> Optional[Dict]:
+        """등급 정보 가져오기 (core_strategy, characteristics 등)"""
+        grade_data = self.config.get(grade_key, {})
+        if not grade_data:
+            return None
+        return {
+            'name': grade_data.get('name', ''),
+            'name_ko': grade_data.get('name_ko', ''),
+            'characteristics': grade_data.get('characteristics', ''),
+            'core_strategy': grade_data.get('core_strategy', ''),
+            'total_businesses': grade_data.get('total_businesses', 0)
+        }
+
     def detect_industry(self, user_input: str) -> str:
         """
-        사용자 입력에서 업종 자동 감지
-        
+        사용자 입력에서 업종 자동 감지 (v3.0.0)
+
+        YAML의 keywords + korean_keywords 필드 활용
+
         Args:
             user_input: 사용자 입력 텍스트
-        
+
         Returns:
-            str: 감지된 업종 코드 또는 "general"
+            str: 감지된 하위 그룹 코드 또는 "s4_neat_variety" (기본값)
         """
         user_input_lower = user_input.lower()
-        
-        # 업종별 키워드 (우선순위 순)
-        industry_keywords = {
-            "cafe": ["카페", "커피", "라떼", "아메리카노", "에스프레소", "카푸치노", "음료"],
-            "bakery": ["빵", "베이커리", "크루아상", "바게트", "제과", "제빵", "케이크"],
-            "gym": ["헬스", "헬스장", "운동", "근육", "스쿼트", "웨이트", "피트니스", "짐", "gym"],
-            "restaurant": ["레스토랑", "식당", "음식", "요리", "파스타", "스테이크", "메뉴"],
-            "hair_salon": ["미용실", "헤어", "염색", "커트", "미용"],
-            "nail_salon": ["네일", "매니큐어", "손톱"],
-            "flower_shop": ["꽃", "플라워", "장미", "꽃집", "부케"],
-            "clothing_store": ["옷", "의류", "패션", "셔츠"],
-            "laundry": ["세탁", "빨래", "린넨", "다림질"]
-        }
-        
-        # 점수 계산
+
+        # 초기화 시 생성된 키워드 캐시 활용
         scores = {}
-        for industry, keywords in industry_keywords.items():
-            score = sum(1 for keyword in keywords if keyword in user_input)
+        for subgroup_code, keywords in self._keyword_map.items():
+            score = sum(1 for keyword in keywords if keyword in user_input_lower)
             if score > 0:
-                scores[industry] = score
-        
-        # 가장 높은 점수의 업종 반환
+                scores[subgroup_code] = score
+
+        # 가장 높은 점수의 하위 그룹 반환
         if scores:
             return max(scores.items(), key=lambda x: x[1])[0]
-        
-        return "general"
+
+        return "s4_neat_variety"  # 기본값
+
+    def _build_detection_keywords(self) -> Dict[str, List[str]]:
+        """
+        감지용 키워드 맵 구축
+
+        YAML의 korean_keywords 필드를 직접 활용 (하드코딩 제거)
+        """
+        keyword_map = {}
+
+        for subgroup_code, (grade_key, subgroup_data) in self._subgroup_cache.items():
+            keywords = []
+
+            # 1. YAML의 keywords 필드 (영어)
+            yaml_keywords = subgroup_data.get('keywords', [])
+            keywords.extend([kw.lower() for kw in yaml_keywords])
+
+            # 2. YAML의 korean_keywords 필드 (한글) - 직접 로드
+            korean_keywords = subgroup_data.get('korean_keywords', [])
+            keywords.extend(korean_keywords)
+
+            # 3. businesses 필드에서 추출
+            businesses = subgroup_data.get('businesses', [])
+            for business in businesses:
+                words = business.lower().replace('/', ' ').split()
+                keywords.extend(words)
+
+            keyword_map[subgroup_code] = list(set(keywords))
+
+        return keyword_map
 
 
 class PromptGenerator:
     """
-    통합 프롬프트 생성기
-    
+    통합 프롬프트 생성기 (v3.0.0 호환)
+
     IndustryConfigLoader + HybridPromptBuilder 통합
     """
-    
+
     def __init__(self, config_path: Optional[str] = None):
         """
         Args:
             config_path: YAML 설정 파일 경로 (None이면 자동으로 config/industries.yaml 사용)
         """
         self.loader = IndustryConfigLoader(config_path)
-    
+
     def generate(
         self,
         industry: str,
@@ -148,10 +257,11 @@ class PromptGenerator:
         if not StyleRouter.is_valid_style(style):
             style = "realistic"
 
-        # 1. 업종 설정 로드
+        # 1. 업종 설정 로드 (v3.0.0 호환)
         industry_config = self.loader.get_industry(industry)
         if not industry_config:
-            raise ValueError(f"Unknown industry: {industry}")
+            # fallback: 기본값 사용
+            industry_config = self.loader.get_industry("s4_neat_variety")
 
         # 2. Hybrid Prompt 빌드 (업종 템플릿 기반)
         builder = HybridPromptBuilder(industry_config)
@@ -173,18 +283,18 @@ class PromptGenerator:
             additional_context=structure.setting
         )
 
-        # 4. 스타일별 Technical 키워드 적용
-        structure.technical = StyleRouter.get_style_technical(style)[:2]
+        # 스타일별 Technical 키워드 적용(현재 get_style_technical 제거)
+        # structure.technical = StyleRouter.get_style_technical(style)[:2]
 
-        # 5. 프롬프트 조립
+        # 4. 프롬프트 조립
         positive_prompt = structure.build()
 
-        # 6. 가중치 적용 (옵션)
+        # 5. 가중치 적용 (옵션)
         if apply_weights and weights:
             from .prompt_templates import apply_prompt_weights
             positive_prompt = apply_prompt_weights(positive_prompt, weights)
 
-        # 7. Negative Prompt 생성 (스타일 반영)
+        # 6. Negative Prompt 생성 (스타일 반영)
         negative_prompt = NegativePromptBuilder.build(
             industry=industry,
             style=style
@@ -196,7 +306,7 @@ class PromptGenerator:
             "style": style,
             "structure": structure.to_dict()
         }
-    
+
     def generate_simple(
         self,
         industry: str,
@@ -205,23 +315,23 @@ class PromptGenerator:
     ) -> str:
         """
         간단한 프롬프트 생성 (Positive만)
-        
+
         Args:
             industry: 업종
             product: 주요 상품/서비스
             **kwargs: 추가 파라미터 (theme, mood, time 등)
-        
+
         Returns:
             str: Positive prompt
         """
         user_input = {"product": product, **kwargs}
         result = self.generate(industry, user_input)
         return result["positive"]
-    
+
     def get_industry_info(self, industry: str) -> Dict:
         """
         업종 정보 조회
-        
+
         Returns:
             Dict: {
                 "name": "...",
@@ -234,7 +344,7 @@ class PromptGenerator:
         config = self.loader.get_industry(industry)
         if not config:
             return {}
-        
+
         return {
             "name": config.get("name", ""),
             "name_ko": config.get("name_ko", ""),
@@ -245,143 +355,12 @@ class PromptGenerator:
 
 
 # ============================================
-# 예시 사용법
-# ============================================
-
-if __name__ == "__main__":
-    print("=" * 70)
-    print("SDXL Prompt Generator - Test Suite")
-    print("=" * 70)
-    
-    # 1. Config Loader 테스트
-    print("\n[Test 1] Industry Config Loader")
-    print("-" * 70)
-    
-    loader = IndustryConfigLoader()
-    industries = loader.get_industry_names()
-    print(f"Available industries: {', '.join(industries)}")
-    
-    cafe_config = loader.get_industry("cafe")
-    print(f"\nCafe templates available:")
-    print(f"  - Subject patterns: {len(cafe_config['prompt_template']['subject_patterns'])}")
-    print(f"  - Setting patterns: {len(cafe_config['prompt_template']['setting_patterns'])}")
-    print(f"  - Lighting phrases: {len(cafe_config['prompt_template']['lighting_phrases'])}")
-    
-    # 2. Prompt Generator 테스트
-    print("\n\n[Test 2] Prompt Generation - Cafe")
-    print("-" * 70)
-    
-    generator = PromptGenerator()
-    
-    # Cafe 예시
-    cafe_result = generator.generate(
-        industry="cafe",
-        user_input={
-            "product": "strawberry latte",
-            "surface": "marble table",
-            "theme": "warm",
-            "mood": "cozy",
-            "time": "morning"
-        },
-        composition="overhead"
-    )
-    
-    print("\n✅ Positive Prompt:")
-    print(cafe_result["positive"])
-    print("\n❌ Negative Prompt:")
-    print(cafe_result["negative"])
-    
-    # 3. Gym 예시
-    print("\n\n[Test 3] Prompt Generation - Gym")
-    print("-" * 70)
-    
-    gym_result = generator.generate(
-        industry="gym",
-        user_input={
-            "person_type": "athletic man",
-            "activity": "barbell squat",
-            "focus": "muscle definition"
-        }
-    )
-    
-    print("\n✅ Positive Prompt:")
-    print(gym_result["positive"])
-    print("\n❌ Negative Prompt:")
-    print(gym_result["negative"])
-    
-    # 4. 가중치 적용 테스트
-    print("\n\n[Test 4] Weighted Prompt - Laundry")
-    print("-" * 70)
-    
-    laundry_result = generator.generate(
-        industry="laundry",
-        user_input={
-            "item": "white linens",
-            "state": "freshly laundered",
-            "quality": "crisp and clean"
-        },
-        apply_weights=True,
-        weights={
-            "freshly laundered": 1.3,
-            "crisp": 1.2
-        }
-    )
-    
-    print("\n✅ Weighted Positive Prompt:")
-    print(laundry_result["positive"])
-    
-    # 5. Simple Generation
-    print("\n\n[Test 5] Simple Generation")
-    print("-" * 70)
-    
-    simple_prompt = generator.generate_simple(
-        industry="bakery",
-        product="croissant",
-        theme="rustic",
-        time="morning"
-    )
-    
-    print("\n✅ Simple Prompt:")
-    print(simple_prompt)
-    
-    # 6. Industry Info
-    print("\n\n[Test 6] Industry Information")
-    print("-" * 70)
-    
-    cafe_info = generator.get_industry_info("cafe")
-    print(f"\nIndustry: {cafe_info['name']} ({cafe_info['name_ko']})")
-    print(f"Description: {cafe_info['description']}")
-    print(f"Keywords: {', '.join(cafe_info['keywords'][:5])}...")
-    print(f"Required layers: {', '.join(cafe_info['required_layers'])}")
-    
-    # 7. All Industries
-    print("\n\n[Test 7] All Industries Quick Test")
-    print("-" * 70)
-    
-    test_cases = {
-        "cafe": {"product": "latte"},
-        "gym": {"activity": "workout", "person_type": "athlete"},
-        "laundry": {"item": "shirt", "state": "clean"},
-        "bakery": {"product": "bread"},
-        "restaurant": {"dish": "pasta"}
-    }
-    
-    for industry, user_input in test_cases.items():
-        result = generator.generate(industry=industry, user_input=user_input)
-        prompt = result["positive"]
-        print(f"\n{industry.upper()}: {prompt[:80]}...")
-    
-    print("\n" + "=" * 70)
-    print("✅ All tests completed!")
-    print("=" * 70)
-
-
-# ============================================
 # 전역 인스턴스 (다른 모듈에서 import 가능)
 # ============================================
 
-try:
-    industry_config = IndustryConfigLoader()
-except Exception as e:
-    print(f"⚠️  industries.yaml 로드 실패: {e}")
-    industry_config = None
+if __name__ == "__main__":
+    try:
+        industry_config = IndustryConfigLoader()
+    except Exception as e:
+        print(f"⚠️  industries.yaml 로드 실패: {e}")
+        industry_config = None

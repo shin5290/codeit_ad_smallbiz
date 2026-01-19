@@ -9,21 +9,21 @@ Z-Image Turbo 특징:
 - 자연어 문장 형태 선호 (카메라 지시처럼)
 - 가중치 문법 미지원
 """
-
-import sys
 import io
+import json
+import os
+import sys
+
+from dotenv import load_dotenv
+from openai import OpenAI
+
+from src.generation.image_generation.prompt.config_loader import industry_config
 
 # UTF-8 인코딩 강제 설정
 if sys.platform == 'win32':
     sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
-
-import os
-import json
-from dotenv import load_dotenv
-from openai import OpenAI
-from .config_loader import industry_config
 
 load_dotenv()
 
@@ -217,10 +217,10 @@ Blend photography with artistic:
 
     def _get_industry_reference_keywords(self, industry: str) -> str:
         """
-        YAML에서 업종별 참고 키워드 추출 (GPT 참고용)
+        YAML에서 업종별 참고 키워드 추출 (GPT 참고용, v3.0.0 호환)
 
         Args:
-            industry: 업종 코드 (cafe, gym 등)
+            industry: 업종 코드 (s1_hot_cooking, a1_beauty 등)
 
         Returns:
             str: 참고용 키워드 문자열
@@ -235,6 +235,10 @@ Blend photography with artistic:
 
             template = industry_data["prompt_template"]
             keywords = []
+
+            # visual_core 추가 (신규 필드, 프롬프트 생성 시 핵심 키워드로 활용 가능)
+            if "visual_core" in industry_data:
+                keywords.append(f"Visual Core: {industry_data['visual_core']}")
 
             # 주요 키워드 카테고리 추출
             if "lighting_phrases" in template:
@@ -278,16 +282,13 @@ Blend photography with artistic:
 
     def _detect_industry(self, user_input: str) -> str:
         """
-        사용자 입력에서 업종 자동 감지 (YAML 기반)
-
-        Args:
-            user_input: 사용자 입력 텍스트
+        사용자 입력에서 업종 자동 감지 (v3.0.0)
 
         Returns:
-            str: 감지된 업종 ("cafe", "gym", ...) 또는 "general"
+            str: 하위 그룹 코드 (s1_hot_cooking, a1_beauty 등)
         """
         if industry_config is None:
-            return "general"
+            return "s4_neat_variety"
 
         return industry_config.detect_industry(user_input)
 
@@ -310,40 +311,3 @@ def clean_input(text):
     except Exception as e:
         print(f"⚠️  입력 정제 중 오류: {e}")
         return ''.join(char for char in text if ord(char) < 128).strip()
-
-
-# ============================================
-# 테스트 코드
-# ============================================
-
-if __name__ == "__main__":
-    print("=" * 80)
-    print("🔍 Z-Image Turbo Prompt Generator")
-    print("=" * 80)
-
-    manager = PromptTemplateManager()
-
-    # 테스트 케이스
-    test_cases = [
-        ("카페 신메뉴 딸기라떼 홍보, 따뜻한 느낌", "realistic"),
-        ("귀여운 곰 캐릭터가 헬스장에서 운동하는 광고", "anime"),
-        ("빵집 갓 구운 크루아상 나무 보드에 올린 사진", "realistic"),
-    ]
-
-    print("\n📝 테스트 케이스:")
-    for i, (test_input, test_style) in enumerate(test_cases, 1):
-        print(f"\n{'='*80}")
-        print(f"Test {i}: {test_input} (style: {test_style})")
-        print(f"{'='*80}")
-
-        result = manager.generate_detailed_prompt(test_input, test_style)
-
-        print(f"\n결과:")
-        print(f"  Style: {result['style']}")
-        print(f"  Industry: {result['industry']}")
-        print(f"  Prompt ({len(result['positive'])} chars):")
-        print(f"  {result['positive'][:200]}...")
-
-    print(f"\n{'='*80}")
-    print("✅ 테스트 완료")
-    print(f"{'='*80}")
