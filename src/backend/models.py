@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, Integer, String, Text, ForeignKey,
+    BigInteger, Column, Float, Integer, String, Text, ForeignKey,
     DateTime, func, Index
 )
 from sqlalchemy.orm import relationship, declarative_base
@@ -143,7 +143,8 @@ class GenerationHistory(Base):
     generation_method = Column(String(50))  # control_type (canny, depth, openpose)
     style = Column(String(50))
     industry = Column(String(50))
-    seed = Column(Integer)
+    seed = Column(BigInteger)
+    strength = Column(Float)
     aspect_ratio = Column(String(10))
     created_at = Column(DateTime, server_default=func.now())
 

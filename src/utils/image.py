@@ -1,7 +1,7 @@
 import os, hashlib, logging
 from fastapi import HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from typing import Optional, List
+from typing import Optional, Dict
 from sqlalchemy.orm import Session
 
 from PIL import Image
@@ -81,7 +81,7 @@ async def save_uploaded_image(*, image: UploadFile, base_dir: str) -> Optional[d
         raise
 
 
-def load_image_from_payload(payload: Optional[dict]) -> Optional[Image.Image]:
+def load_image_from_payload(payload: Optional[Dict]) -> Optional[Image.Image]:
     """
     payload를 PIL Image로 변환
     payload: {"file_hash": ..., "file_directory": ...}
@@ -107,3 +107,13 @@ def get_image_file_response(db: Session, file_hash: str) -> FileResponse:
         raise HTTPException(status_code=404, detail="File missing on disk")
 
     return FileResponse(path)
+
+
+def image_payload(image) -> Optional[Dict]:
+    """이미지 객체를 payload dict로 변환"""
+    if not image:
+        return None
+    return {
+        "file_hash": image.file_hash,
+        "file_directory": image.file_directory,
+    }
