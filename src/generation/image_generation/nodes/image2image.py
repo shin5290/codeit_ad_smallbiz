@@ -200,6 +200,9 @@ class Image2ImageNode(BaseNode):
         torch.cuda.empty_cache()
         print(f"[{self.node_name}] I2I Pipeline flushed")
 
+    def get_required_inputs(self):
+        return ['prompt', 'reference_image']
+
     def get_input_keys(self):
         return ["prompt", "reference_image", "strength", "aspect_ratio", "num_inference_steps", "seed"]
 
