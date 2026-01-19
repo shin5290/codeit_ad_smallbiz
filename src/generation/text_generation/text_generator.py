@@ -23,7 +23,7 @@ class TextGenerator:
         self.client = OpenAI(api_key=api_key)
         self.model = "gpt-4o-mini"
     
-    def generate_ad_copy(self, user_input, tone="warm", max_length=20, conversation_history=None):
+    def generate_ad_copy(self, user_input, tone="warm", max_length=100):
         """
         광고 문구 생성
 
@@ -32,9 +32,6 @@ class TextGenerator:
                 예: "카페 신메뉴 홍보, 따뜻한 느낌, 겨울"
             tone (str): 톤 앤 매너 ("warm", "professional", "friendly")
             max_length (int): 최대 글자 수 (기본 20자)
-            conversation_history (list): 대화 히스토리 (선택사항)
-                [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
-
         Returns:
             str: 생성된 광고 문구
                 예: "따뜻한 겨울, 새로운 맛"
@@ -43,15 +40,12 @@ class TextGenerator:
         print(f"📝 광고 문구 생성 중...")
         print(f"   입력: {user_input}")
         print(f"   톤: {tone}, 최대 {max_length}자")
-        if conversation_history:
-            print(f"   대화 히스토리: {len(conversation_history)}개 메시지")
-        
         try:
             # 1. 시스템 프롬프트 선택
             system_prompt = self._get_system_prompt(tone, max_length)
 
             # 2. 사용자 프롬프트 구성
-            user_prompt = self._build_user_prompt(user_input, max_length, conversation_history)
+            user_prompt = self._build_user_prompt(user_input, max_length)
             
             # 3. GPT API 호출
             response = self.client.chat.completions.create(
@@ -86,7 +80,8 @@ class TextGenerator:
 규칙:
 - {max_length}자 이내 (공백 포함)
 - 번호, 특수문자 없이 문구만 작성
-- 한국어로 작성
+- 사용자 별다른 요청 없을시 무조건 한국어로 작성
+- 사용자 요청시 요청한 언어로 작성
 - 광고 문구 1개만 생성"""
         
         tone_styles = {
@@ -100,37 +95,17 @@ class TextGenerator:
         
         return f"{base_prompt}\n\n톤 앤 매너:\n{tone_guide}"
     
-    def _build_user_prompt(self, user_input, max_length, conversation_history=None):
+    def _build_user_prompt(self, user_input, max_length):
         """사용자 프롬프트 구성"""
-
-        # 대화 히스토리 컨텍스트 구성
-        conversation_context = ""
-        if conversation_history and len(conversation_history) > 0:
-            # 최근 5개 메시지만 사용
-            recent_messages = conversation_history[-5:]
-            conv_str = "\n".join([
-                f"- {msg['role']}: {msg['content'][:100]}"
-                for msg in recent_messages
-            ])
-            conversation_context = f"""
-대화 맥락:
-사용자가 AI 어시스턴트와 대화를 나누고 있습니다. 이전 대화를 참고하여 더 맞춤형 광고 문구를 생성하세요:
-{conv_str}
-
-이전 대화에서 언급된 스타일, 선호도, 세부사항을 반영하세요.
-"""
 
         return f"""다음 내용으로 광고 문구를 만들어주세요:
 
 {user_input}
 
-{conversation_context}
-
 요구사항:
 - {max_length}자 이내
 - 광고 문구만 작성 (설명, 번호 등 불필요한 내용 제외)
 - 감성적이면서도 명확한 메시지 전달
-- 대화 맥락이 있다면 이를 반영한 맞춤형 문구 작성
 
 광고 문구:"""
     

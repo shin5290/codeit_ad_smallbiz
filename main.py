@@ -1,38 +1,34 @@
-import os, sys, uuid, asyncio, hashlib, logging
+import os, logging, json
 from contextlib import asynccontextmanager
-from typing import Optional, List
+from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Response, status, File, UploadFile, Form, BackgroundTasks
+from fastapi import Depends, FastAPI, HTTPException, Response, status, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from uvicorn.logging import AccessFormatter, DefaultFormatter
 
 import src.backend.process_db as process_db
 import src.backend.schemas as schemas
 import src.backend.services as services
-import src.backend.task as task_service
 from src.utils.image import get_image_file_response
-from src.utils.session import resolve_session_id, normalize_session_id, ensure_chat_session
-
-# RAG 챗봇 라우터 import
-from src.backend.routers import chat
+from src.utils.session import resolve_session_id
 
 # 로깅 설정
-class CustomFormatter(logging.Formatter):
-    def format(self, record):
-        # 모듈명 추출 (src.backend.services -> services)
-        name_parts = record.name.split('.')
-        module_name = name_parts[-1] if name_parts else record.name
-        record.module_name = module_name
-        return super().format(record)
-
 handler = logging.StreamHandler()
-handler.setFormatter(CustomFormatter('[%(asctime)s]  %(levelname)-7s [%(module_name)s] %(message)s', datefmt='%y/%m/%d %H:%M:%S'))
+handler.setFormatter(DefaultFormatter("%(levelprefix)s %(asctime)s.%(msecs)03d - %(message)s", use_colors=True, datefmt='%Y-%m-%d %H:%M:%S'))
+
 logging.root.handlers = []
 logging.root.addHandler(handler)
 logging.root.setLevel(logging.INFO)
+
+access_handler = logging.StreamHandler()
+access_handler.setFormatter(AccessFormatter("%(levelprefix)s %(asctime)s.%(msecs)03d - \"%(request_line)s\" %(status_code)s", datefmt="%Y-%m-%d %H:%M:%S"))
+access_logger = logging.getLogger("uvicorn.access")
+access_logger.handlers = [access_handler]
+access_logger.propagate = False
 
 logger = logging.getLogger(__name__)
 
@@ -50,14 +46,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# RAG 챗봇 라우터 등록
-app.include_router(chat.router)
+# 정적 파일 서빙 설정
+app.mount(
+    "/static",
+    StaticFiles(directory="src/frontend/static"),
+    name="static",
+)
+
 
 @app.get("/")
 async def read_index():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_dir, "src", "frontend", "test.html")
     return FileResponse(file_path, headers={"Cache-Control": "no-store"})
+
+
+
+# -----------------------------
+# 인증 및 사용자 관리
+# -----------------------------
 
 @app.get("/auth/me")
 def me(current_user = Depends(services.get_current_user)):
@@ -76,17 +83,19 @@ def signup(user: schemas.SignupRequest, db: Session = Depends(process_db.get_db)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
-@app.post("/auth/login", response_model=schemas.TokenResponse)
+@app.post("/auth/login", response_model=schemas.AuthResponse)
 def login(
+    response: Response,
     db: Session = Depends(process_db.get_db),
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
-    token = services.authenticate_user(db, form_data.username, form_data.password)
-    return {"access_token": token, "token_type": "bearer"}
+    services.authenticate_user(db, form_data.username, form_data.password, response)
+    return {"ok": True}
 
 
-@app.post("/auth/logout")
-def logout():
+@app.post("/auth/logout", response_model=schemas.AuthResponse)
+def logout(response: Response):
+    response.delete_cookie("access_token", path="/")
     return {"ok": True}
 
 @app.put("/auth/user", response_model=schemas.UserResponse)
@@ -113,77 +122,44 @@ def delete_user(
 
 
 
-@app.post("/generate")
-async def generate_advertisement(
-    background_tasks: BackgroundTasks,
-    input_text: str = Form(...),
-    image: Optional[UploadFile] = File(None),
-    session_id: Optional[str] = Form(None),
-    generation_type: Optional[str] = Form(None),  # text, image
-    style: Optional[str] = Form(None),  # ultra_realistic, semi_realistic, anime
-    aspect_ratio: Optional[str] = Form(None),  # 1:1, 16:9, 9:16, 4:3
+# -----------------------------
+# 챗봇 및 대화 관리
+# -----------------------------
+
+@app.post("/chat/message/stream")
+async def chat_message_stream(
+    message: str = Form(..., description="사용자 메시지"),
+    session_id: Optional[str] = Form(None, description="세션 ID (선택)"),
+    image: Optional[UploadFile] = File(None, description="업로드 이미지 (선택)"),
     db: Session = Depends(process_db.get_db),
-    current_user=Depends(services.get_current_user),
+    current_user=Depends(services.get_current_user_optional),
 ):
     """
-    광고 생성 요청 엔드포인트
-    - 즉시 task_id 반환
-    - 백그라운드에서 파이프라인 실행
-    - /tasks/{task_id}로 진행 상황 조회
+    챗봇에 메시지 전송 (스트리밍)
+    - consulting 응답을 SSE로 스트리밍
     """
-    task_id = str(uuid.uuid4())
     user_id = current_user.user_id if current_user else None
 
-    logger.info(
-        f"[/generate] Request received - "
-        f"task_id={task_id}, "
-        f"input_text={input_text[:50] if len(input_text) > 50 else input_text}, "
-        f"generation_type={generation_type}, "
-        f"has_image={image is not None}"
+    async def event_stream():
+        try:
+            async for payload in services.handle_chat_message_stream(
+                db=db,
+                session_id=session_id,
+                user_id=user_id,
+                message=message,
+                image=image,
+            ):
+                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+        except Exception as exc:
+            logger.error(f"chat_message_stream failed: {exc}", exc_info=True)
+            error_payload = {"type": "error", "message": "요청 처리 중 오류가 발생했습니다."}
+            yield f"data: {json.dumps(error_payload, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-    if image:
-        logger.info(
-            f"[/generate] Image details - "
-            f"filename={image.filename}, "
-            f"content_type={image.content_type}, "
-            f"size={image.size if hasattr(image, 'size') else 'unknown'}"
-        )
-
-    try:
-        session_key = normalize_session_id(session_id)
-        session_key = ensure_chat_session(db, session_key, user_id)
-        logger.info(f"[/generate] Session: {session_key}, User: {user_id}, Task: {task_id}")
-
-        # Task 생성 (즉시)
-        task_service.create_task(task_id)
-
-        # 백그라운드 작업으로 파이프라인 실행
-        background_tasks.add_task(
-            services.handle_generate_pipeline,
-            db=db,
-            input_text=input_text,
-            session_id=session_key,
-            user_id=user_id,
-            image=image,
-            task_id=task_id,
-            create_task_entry=False,  # 이미 생성했으므로 False
-            generation_type=generation_type,
-            style=style,
-            aspect_ratio=aspect_ratio,
-        )
-
-        logger.info(f"[/generate] Task {task_id} created and queued for background processing")
-
-        # 즉시 task_id 반환
-        return {
-            "task_id": task_id,
-            "session_id": session_key,
-            "status": "processing"
-        }
-
-    except Exception as exc:
-        logger.error(f"[/generate] Failed to create task {task_id}: {exc}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"요청 처리 실패: {exc}")
 
 
 @app.post("/chat/session", response_model=schemas.SessionResponse)
@@ -205,6 +181,11 @@ def get_chat_history_page(
     current_user=Depends(services.get_current_user),
     db: Session = Depends(process_db.get_db),
 ):
+    """
+    유저의 대화 히스토리 페이지 조회
+    - limit: 한 페이지에 불러올 아이템 수  
+    - cursor: 다음 페이지를 불러오기 위한 커서 ID (없으면 첫 페이지)
+    """
     if not current_user:
         raise HTTPException(status_code=401, detail="유효하지 않은 사용자")
     items, next_cursor = process_db.get_user_history_page(
@@ -215,7 +196,61 @@ def get_chat_history_page(
     )
     return {"items": items, "next_cursor": next_cursor}
 
+@app.get("/chat/history/{session_id}")
+async def get_chat_history(
+    session_id: str,
+    limit: int = 20,
+    db: Session = Depends(process_db.get_db),
+    current_user=Depends(services.get_current_user),
+):
+    """대화 히스토리 조회(챗봇용)"""
+    messages = process_db.get_chat_history_by_session(db, session_id, limit=limit)
 
+    return {
+        "session_id": session_id,
+        "messages": [
+            {
+                "role": msg.role,
+                "content": msg.content,
+                "timestamp": msg.created_at.isoformat(),
+                "image_id": msg.image_id,
+            }
+            for msg in messages
+        ]
+    }
+
+
+@app.get("/chat/generation/{session_id}")
+async def get_generation_history(
+    session_id: str,
+    limit: int = 10,
+    db: Session = Depends(process_db.get_db),
+    current_user=Depends(services.get_current_user),
+):
+    """세션의 광고 생성 이력 조회"""
+    generations = process_db.get_generation_history_by_session(db, session_id, limit=limit)
+
+    return {
+        "session_id": session_id,
+        "generations": [
+            {
+                "id": gen.id,
+                "content_type": gen.content_type,
+                "output_text": gen.output_text,
+                "style": gen.style,
+                "aspect_ratio": gen.aspect_ratio,
+                "timestamp": gen.created_at.isoformat(),
+                "image": gen.output_image.file_directory if gen.output_image else None,
+            }
+            for gen in generations
+        ]
+    }
+
+
+
+# -----------------------------
+# 이미지 서빙
+# -----------------------------
 
 @app.get("/images/{file_hash}")
 def get_image(file_hash: str, db: Session = Depends(process_db.get_db)):
@@ -224,41 +259,3 @@ def get_image(file_hash: str, db: Session = Depends(process_db.get_db)):
     """
     return get_image_file_response(db, file_hash)
 
-
-@app.get("/tasks/{task_id}")
-async def get_task_status(task_id: str, response: Response):
-    """
-    작업 상태 조회
-    - 진행률, 상태, 결과 반환
-    - 프론트엔드에서 polling하여 진행 상황 확인
-    """
-    response.headers["Cache-Control"] = "no-store"
-    task = task_service.get_task(task_id)
-
-    if not task:
-        logger.warning(f"[GET /tasks/{task_id}] Task not found in storage")
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    task_dict = task.to_dict()
-
-    # 완료/실패 상태일 때만 로깅 (polling 노이즈 최소화)
-    if task.status in [task_service.TaskStatus.DONE, task_service.TaskStatus.FAILED]:
-        logger.info(
-            f"[GET /tasks/{task_id}] Status query - "
-            f"status={task.status}, progress={task.progress}%"
-        )
-
-    return task_dict
-
-
-@app.delete("/tasks/{task_id}")
-async def delete_task(task_id: str):
-    """
-    완료된 작업 삭제 (선택적)
-    """
-    deleted = task_service.delete_task(task_id)
-    
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Task not found")
-    
-    return {"message": "Task deleted"}

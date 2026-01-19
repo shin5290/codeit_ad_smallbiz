@@ -1,9 +1,8 @@
 from sqlalchemy import (
     Column, Integer, String, Text, ForeignKey,
-    DateTime, Boolean, func, Index
+    DateTime, func, Index
 )
 from sqlalchemy.orm import relationship, declarative_base
-from pgvector.sqlalchemy import Vector
 
 Base = declarative_base()
 
@@ -96,8 +95,6 @@ class ChatHistory(Base):
         index=True,
     )
 
-    # pgvector: 임베딩 벡터 (OpenAI text-embedding-3-small: 1536 차원)
-    embedding = Column(Vector(1536), nullable=True)
 
     created_at = Column(DateTime, server_default=func.now())
 
@@ -150,15 +147,6 @@ class GenerationHistory(Base):
     aspect_ratio = Column(String(10))
     created_at = Column(DateTime, server_default=func.now())
 
-    # Revision 관련 필드
-    is_confirmed = Column(Boolean, default=False)  # 최종 확정 여부
-    revision_of_id = Column(
-        Integer,
-        ForeignKey('generation_history.id'),
-        nullable=True
-    )  # 이전 버전 ID (self FK)
-    revision_number = Column(Integer, default=0)  # 수정 버전 번호
-
     session = relationship("ChatSession", back_populates="generation_histories")
     input_image = relationship(
         "ImageMatching",
@@ -171,12 +159,7 @@ class GenerationHistory(Base):
         foreign_keys=[output_image_id],
     )
 
-    # Revision 관계 정의
-    revision_of = relationship(
-        "GenerationHistory",
-        remote_side=[id],
-        backref="revisions"
-    )
+    
 
 
 

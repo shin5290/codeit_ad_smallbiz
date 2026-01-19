@@ -40,7 +40,7 @@ class PromptTemplateManager:
         self.client = OpenAI(api_key=api_key)
         self.model = "gpt-5-mini"
 
-    def generate_detailed_prompt(self, user_input: str, style: str = "realistic", conversation_history: list = None) -> dict:
+    def generate_detailed_prompt(self, user_input: str, style: str = "realistic") -> dict:
         """
         한글 사용자 입력 → Z-Image Turbo용 상세 영어 프롬프트 생성
 
@@ -53,9 +53,6 @@ class PromptTemplateManager:
             user_input (str): 한글 사용자 요청
             style (str): 스타일 힌트 (realistic, semi_realistic, anime)
                          ※ LoRA로 적용되므로 프롬프트에는 반영 안함
-            conversation_history (list): 대화 히스토리 (선택사항)
-                [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
-
         Returns:
             dict: {
                 "positive": "상세한 prompt...",
@@ -67,8 +64,6 @@ class PromptTemplateManager:
         print(f"\n{'='*80}")
         print(f"🎨 Z-Image Turbo 프롬프트 생성 중...")
         print(f"   입력: {user_input}")
-        if conversation_history:
-            print(f"   대화 히스토리: {len(conversation_history)}개 메시지")
         print(f"{'='*80}")
 
         try:
@@ -82,32 +77,12 @@ class PromptTemplateManager:
             # 3. 업종별 참고 키워드 가져오기 (YAML에서)
             reference_keywords = self._get_industry_reference_keywords(industry)
 
-            # 4. 대화 히스토리 컨텍스트 구성
-            conversation_context = ""
-            if conversation_history and len(conversation_history) > 0:
-                # 최근 5개 메시지만 사용 (토큰 절약)
-                recent_messages = conversation_history[-5:]
-                conv_str = "\n".join([
-                    f"- {msg['role']}: {msg['content'][:100]}"
-                    for msg in recent_messages
-                ])
-                conversation_context = f"""
-===== CONVERSATION CONTEXT =====
-The user has been chatting with an AI assistant. Consider this context when generating the prompt:
-{conv_str}
-
-Use this context to understand what the user wants (e.g., style preferences, specific details mentioned earlier).
-=================================
-"""
-
-            # 5. 사용자 프롬프트
+            # 4. 사용자 프롬프트
             user_prompt = f"""Generate a detailed Z-Image Turbo prompt for this request:
 
 User Input (Korean): {user_input}
 Style Hint: {style}
 Detected Industry: {industry}
-
-{conversation_context}
 
 ===== REFERENCE KEYWORDS (FOR INSPIRATION ONLY) =====
 {reference_keywords}
@@ -124,7 +99,7 @@ Remember:
 - Include: subject, action, setting, lighting, atmosphere, textures, colors
 - NO negative prompts (Z-Image Turbo doesn't support them)
 - Output valid JSON with "positive" and "style" fields only
-- If conversation context provided, incorporate any specific details or preferences mentioned"""
+"""
 
             # 6. GPT API 호출
             response = self.client.chat.completions.create(
