@@ -19,9 +19,9 @@ from PIL import Image
 
 from src.utils.config import PROJECT_ROOT as _PROJECT_ROOT
 from .workflow import ImageGenerationWorkflow
-from .nodes.text2image import Text2ImageNode
+from .nodes.text2image_sdxl import Text2ImageNode
 from .nodes.controlnet import ControlNetPreprocessorNode, ControlNetLoaderNode
-from .nodes.image2image import Image2ImageControlNetNode
+from .nodes.image2image_sdxl import Image2ImageControlNetNode
 from .prompt import PromptTemplateManager
 
 
