@@ -358,9 +358,13 @@ class PromptGenerator:
 # 전역 인스턴스 (다른 모듈에서 import 가능)
 # ============================================
 
+try:
+    industry_config = IndustryConfigLoader()
+except Exception as e:
+    print(f"⚠️  industries.yaml 로드 실패: {e}")
+    industry_config = None
+
+
 if __name__ == "__main__":
-    try:
-        industry_config = IndustryConfigLoader()
-    except Exception as e:
-        print(f"⚠️  industries.yaml 로드 실패: {e}")
-        industry_config = None
+    # 테스트 코드 등
+    pass
