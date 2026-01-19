@@ -9,31 +9,20 @@ Z-Image Turbo I2I를 사용한 이미지 스타일 변환
 - 일반 사진 → 초사실적 스타일
 """
 
-import os
 import gc
 import threading
 from typing import Dict, Any, Optional
-from pathlib import Path
 
 import torch
 from PIL import Image
-from diffusers import (
-    ZImageImg2ImgPipeline,
-    FlowMatchEulerDiscreteScheduler,
-)
 
 from .base import BaseNode
 from ..config import aspect_ratio_templates
-
-# Z-Image Turbo 모델 경로
-ZIT_MODELS_DIR = Path(os.getenv("ZIT_MODELS_DIR", "/opt/ai-models/zit"))
-ZIT_BASE_MODEL = ZIT_MODELS_DIR / "Z-Image-Turbo-BF16"
-ZIT_LORA_DIR = ZIT_MODELS_DIR / "lora"
+from .shared_cache import get_i2i_pipeline, flush_shared_cache
 
 # ==============================================================================
-# ★ 전역 상태 관리 (Text2ImageNode와 공유 가능)
+# ★ 전역 상태 관리 (공유 캐시 사용)
 # ==============================================================================
-_GLOBAL_I2I_PIPE = None
 _EXECUTION_LOCK = threading.Lock()
 _EXECUTION_COUNT = 0
 
@@ -66,51 +55,9 @@ class Image2ImageNode(BaseNode):
         self.auto_unload = auto_unload
 
     def load_pipeline(self):
-        """ZImageImg2ImgPipeline 로드 (전역 캐시)"""
-        global _GLOBAL_I2I_PIPE
-
-        if _GLOBAL_I2I_PIPE is not None:
-            return _GLOBAL_I2I_PIPE
-
-        print(f"[{self.node_name}] 🚀 Loading ZIT I2I Pipeline (20.5GB)...")
-        try:
-            scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(
-                str(ZIT_BASE_MODEL), subfolder="scheduler"
-            )
-
-            pipe = ZImageImg2ImgPipeline.from_pretrained(
-                str(ZIT_BASE_MODEL),
-                scheduler=scheduler,
-                torch_dtype=torch.bfloat16,
-                local_files_only=True,
-                low_cpu_mem_usage=True
-            )
-
-            # 전체 모델을 GPU로 이동 (20.5GB < 23GB VRAM)
-            pipe.to(self.device)
-            print(f"[{self.node_name}] Pipeline moved to {self.device}")
-
-            # Attention 최적화
-            try:
-                if hasattr(pipe, "transformer") and hasattr(pipe.transformer, "set_attn_processor"):
-                    from diffusers.models.attention_processor import AttnProcessor2_0
-                    pipe.transformer.set_attn_processor(AttnProcessor2_0())
-                    print(f"[{self.node_name}] FlashAttention enabled")
-            except Exception as e:
-                print(f"[{self.node_name}] Could not enable attention optimization: {e}")
-
-            # VAE 최적화
-            pipe.vae.enable_tiling()
-            pipe.vae.enable_slicing()
-            print(f"[{self.node_name}] VAE tiling/slicing enabled")
-
-            print(f"[{self.node_name}] ✅ I2I Pipeline loaded successfully")
-
-            _GLOBAL_I2I_PIPE = pipe
-            return pipe
-
-        except Exception as e:
-            raise RuntimeError(f"I2I Pipeline Load Failed: {e}")
+        """공유 캐시를 사용하여 I2I 파이프라인 로드"""
+        print(f"[{self.node_name}] Loading I2I pipeline (shared cache)...")
+        return get_i2i_pipeline(self.device)
 
     def get_generator_device(self, pipe):
         """Generator 디바이스 결정 (CPU offload 고려)"""
@@ -191,20 +138,11 @@ class Image2ImageNode(BaseNode):
             return {"image": image, "seed": seed, "width": width, "height": height}
 
     def flush_global(self):
-        """전역 캐시 완전 초기화"""
-        global _GLOBAL_I2I_PIPE
-        if _GLOBAL_I2I_PIPE is not None:
-            del _GLOBAL_I2I_PIPE
-            _GLOBAL_I2I_PIPE = None
-        gc.collect()
-        torch.cuda.empty_cache()
-        print(f"[{self.node_name}] I2I Pipeline flushed")
+        """전역 캐시 완전 초기화 (공유 캐시 사용)"""
+        flush_shared_cache()
 
     def get_required_inputs(self):
         return ['prompt', 'reference_image']
-
-    def get_input_keys(self):
-        return ["prompt", "reference_image", "strength", "aspect_ratio", "num_inference_steps", "seed"]
 
     def get_output_keys(self):
         return ["image", "seed", "width", "height"]

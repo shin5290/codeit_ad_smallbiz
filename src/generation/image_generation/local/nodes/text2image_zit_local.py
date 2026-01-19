@@ -1,12 +1,13 @@
 """
-Z-Image Turbo Text2Image Node
-Z-Image Turbo 모델을 사용한 고속 이미지 생성 노드
+Z-Image Turbo Text2Image Node (Enterprise Production Version)
+Path: src/generation/image_generation/nodes/text2image.py
 
-특징:
-- 8 steps로 고품질 이미지 생성 (~1-2초)
-- 긴 프롬프트 지원 (CLIP 77 토큰 제한 없음, T5 기반)
-- LoRA를 통한 스타일 전환 지원
-- Negative Prompt 미지원 (CFG 미사용)
+[리뷰 반영 최종 수정]
+1. Environment: PYTORCH_CUDA_ALLOC_CONF 설정을 최상단으로 이동 (torch import 전)
+2. Concurrency: threading.Lock 도입으로 멀티 쓰레드 동시 접근 방지 (GPU 보호)
+3. Resolution: 해상도 보정을 '내림'에서 '반올림'으로 변경 (사용자 의도 존중)
+4. Stability: 주기적 메모리 정리 (매번 X, 5회마다 O) 및 LoRA 로딩 안전장치 추가
+5. Safety: Generator 디바이스 Fallback 로직 강화
 """
 
 import os
@@ -22,32 +23,39 @@ import gc
 from PIL import Image
 import threading # [전략 2] 동시성 제어용
 
+from diffusers import (
+    DiffusionPipeline,
+    FlowMatchEulerDiscreteScheduler,
+    AutoencoderKL
+)
+
 from .base import BaseNode
 from ..config import (
     model_config,
     generation_config,
     aspect_ratio_templates,
 )
-from .shared_cache import get_t2i_pipeline, flush_shared_cache
 
-# Z-Image Turbo 모델 경로
-ZIT_MODELS_DIR = Path(os.getenv("ZIT_MODELS_DIR", "/opt/ai-models/zit"))
+# 경로 설정
+PROJECT_ROOT = Path(os.getcwd())
+LOCAL_ZIT_DIR = PROJECT_ROOT / "src" / "generation" / "image_generation" / "models" / "zit"
+ZIT_MODELS_DIR = Path(os.getenv("ZIT_MODELS_DIR", str(LOCAL_ZIT_DIR)))
 
-# Diffusers BF16 버전 (dimitribarbot - 20.5GB, 원본보다 12GB 작음)
-ZIT_BASE_MODEL = ZIT_MODELS_DIR / "Z-Image-Turbo-BF16"
+ZIT_BASE_MODEL = ZIT_MODELS_DIR / "Z-Image-Turbo-Base"
 ZIT_LORA_DIR = ZIT_MODELS_DIR / "lora"
 
-# 스타일별 LoRA 매핑
 STYLE_LORA_MAP = {
-    "realistic": None,  # 베이스 모델 그대로 사용
-    "ultra_realistic": None,  # 베이스 모델 그대로 사용
+    "realistic": None,
+    "ultra_realistic": None,
+    # 주의: 파일명에 특수문자/공백이 있으면 OS에 따라 로드 실패 가능성 있음
     "semi_realistic": "OB半写实肖像画2.0 OB Semi-Realistic Portraits z- image turbo(1).safetensors",
     "anime": "Anime-Z.safetensors",
 }
 
 # ==============================================================================
-# ★ 전역 상태 관리 (공유 캐시 사용)
+# ★ 전역 상태 관리 (캐시 + 락 + 실행 카운터)
 # ==============================================================================
+_GLOBAL_PIPE = None
 _CURRENT_LORA = "init"
 _EXECUTION_LOCK = threading.Lock() # [전략 2] GPU는 한 번에 하나의 작업만 수행
 _EXECUTION_COUNT = 0               # [전략 4] 주기적 청소를 위한 카운터
@@ -59,9 +67,35 @@ class Text2ImageNode(BaseNode):
         self.auto_unload = auto_unload
 
     def load_pipeline(self):
-        """공유 캐시를 사용하여 T2I 파이프라인 로드"""
-        print(f"[{self.node_name}] Loading T2I pipeline (shared cache)...")
-        return get_t2i_pipeline(self.device)
+        global _GLOBAL_PIPE
+        
+        if _GLOBAL_PIPE is not None:
+            return _GLOBAL_PIPE
+
+        print(f"[{self.node_name}] 🚀 Initializing Pipeline (Enterprise Settings)...")
+        try:
+            scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(
+                str(ZIT_BASE_MODEL), subfolder="scheduler"
+            )
+
+            pipe = DiffusionPipeline.from_pretrained(
+                str(ZIT_BASE_MODEL),
+                scheduler=scheduler,
+                torch_dtype=torch.bfloat16,
+                local_files_only=True,
+                trust_remote_code=True 
+            )
+            
+            # CPU Offload & VAE Optimization
+            pipe.enable_model_cpu_offload()
+            pipe.vae.enable_tiling()
+            pipe.vae.enable_slicing()
+            
+            _GLOBAL_PIPE = pipe
+            return pipe
+
+        except Exception as e:
+            raise RuntimeError(f"Pipeline Load Failed: {e}")
 
     def safe_unload_lora(self, pipe):
         """[전략 4] 안전하게 LoRA 언로드 (버전 호환성 체크)"""
@@ -144,18 +178,14 @@ class Text2ImageNode(BaseNode):
             pipe = self.load_pipeline()
             #self.switch_lora(pipe, style)
 
-            # 2. 제너레이터 생성 및 시드 추출
-            exec_device = self.get_generator_device(pipe)
+            # 2. 제너레이터 생성
+            generator = None
+            if seed is not None:
+                exec_device = self.get_generator_device(pipe)
+                generator = torch.Generator(device=exec_device).manual_seed(seed)
 
-            if seed is None:
-                # 랜덤 시드 생성 및 추출
-                import random
-                seed = random.randint(0, 2**32 - 1)
-
-            generator = torch.Generator(device=exec_device).manual_seed(seed)
-
-            print(f"[{self.node_name}] Generating ({width}x{height}, seed={seed})...")
-
+            print(f"[{self.node_name}] Generating ({width}x{height})...")
+            
             # 3. 생성
             with torch.no_grad():
                 image = pipe(
@@ -163,7 +193,7 @@ class Text2ImageNode(BaseNode):
                     height=height,
                     width=width,
                     num_inference_steps=num_inference_steps,
-                    guidance_scale=0.0,
+                    guidance_scale=0.0, 
                     generator=generator,
                     output_type="pil"
                 ).images[0]
@@ -182,10 +212,14 @@ class Text2ImageNode(BaseNode):
             return {"image": image, "seed": seed, "width": width, "height": height}
     
     def flush_global(self):
-        """전역 캐시 완전 초기화 (공유 캐시 사용)"""
-        global _CURRENT_LORA
-        flush_shared_cache()
+        """전역 캐시 완전 초기화"""
+        global _GLOBAL_PIPE, _CURRENT_LORA
+        if _GLOBAL_PIPE is not None:
+            del _GLOBAL_PIPE
+            _GLOBAL_PIPE = None
         _CURRENT_LORA = "init"
+        gc.collect()
+        torch.cuda.empty_cache()
 
     def get_required_inputs(self): return ["prompt"]
     def get_output_keys(self): return ["image", "seed", "width", "height"]
