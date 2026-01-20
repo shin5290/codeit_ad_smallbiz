@@ -117,21 +117,21 @@ Rules:
 - If no text overlay needed, set "text_overlay" to null
 
 Output format:
-{
+{{
     "positive": "detailed prompt...",
     "style": "realistic|semi_realistic|anime",
-    "text_overlay": {
+    "text_overlay": {{
         "product_name": "딸기라떼",
         "tagline": "신메뉴 출시"
-    }
-}
+    }}
+}}
 
 OR if no text overlay:
-{
+{{
     "positive": "detailed prompt...",
     "style": "realistic",
     "text_overlay": null
-}
+}}
 """
 
             # 6. GPT API 호출
