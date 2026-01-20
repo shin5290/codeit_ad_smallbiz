@@ -857,6 +857,10 @@
                 }
 
                 const data = await safeJson(res);
+                if (data.is_admin) {
+                    window.location.href = "/admin";
+                    return;
+                }
 
                 const sessionRes = await fetch(`${API_BASE}/chat/session`, {
                     method: "POST",
@@ -957,6 +961,7 @@
             }
 
             let displayName = "사용자";
+            let isAdmin = false;
             const meRes = await fetch(`${API_BASE}/auth/me`, {
                 method: "GET",
                 headers: {
@@ -967,6 +972,12 @@
             if (meRes.ok) {
                 const me = await safeJson(meRes);
                 displayName = me.name ?? displayName;
+                isAdmin = Boolean(me.is_admin);
+            }
+            if (isAdmin) {
+                localStorage.setItem("display_name", displayName);
+                window.location.href = "/admin";
+                return;
             }
 
             const sessionRes = await fetch(`${API_BASE}/chat/session`, {

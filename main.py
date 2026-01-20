@@ -59,7 +59,9 @@ async def read_index():
 
 
 @app.get("/admin")
-async def read_admin():
+async def read_admin(current_user=Depends(services.get_current_user_optional)):
+    if not current_user or not getattr(current_user, "is_admin", False):
+        return RedirectResponse(url="/", status_code=302)
     file_path = os.path.join(current_dir, "src", "frontend", "admin.html")
     return FileResponse(file_path, headers={"Cache-Control": "no-store"})
 

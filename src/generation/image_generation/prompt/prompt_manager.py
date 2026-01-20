@@ -19,11 +19,15 @@ from openai import OpenAI
 
 from src.generation.image_generation.prompt.config_loader import industry_config
 
-# UTF-8 인코딩 강제 설정
+# UTF-8 인코딩 강제 설정 (터미널 환경에서만 적용, Jupyter 환경 제외)
 if sys.platform == 'win32':
-    sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+    # Jupyter Notebook/IPython 환경에서는 buffer 속성이 없으므로 체크
+    if hasattr(sys.stdin, 'buffer'):
+        sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
+    if hasattr(sys.stdout, 'buffer'):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    if hasattr(sys.stderr, 'buffer'):
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 load_dotenv()
 

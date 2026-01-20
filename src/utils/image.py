@@ -1,13 +1,14 @@
-import os, hashlib, logging
+import os, hashlib
 from fastapi import HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from typing import Optional, Dict
 from sqlalchemy.orm import Session
-
 from PIL import Image
-from src.backend import process_db
 
-logger = logging.getLogger(__name__)
+from src.backend import process_db
+from .logging import get_logger
+
+logger = get_logger(__name__)
 
 def sha256_hex(data: bytes) -> str:
     """

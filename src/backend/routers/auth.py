@@ -12,7 +12,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def me(current_user = Depends(services.get_current_user)):
     if not current_user:
         raise HTTPException(status_code=401, detail="유효하지 않은 사용자")
-    return {"name": current_user.name}
+    return {"name": current_user.name, "is_admin": current_user.is_admin}
 
 @router.post("/signup", response_model=schemas.UserResponse)
 def signup(user: schemas.SignupRequest, db: Session = Depends(process_db.get_db)):
