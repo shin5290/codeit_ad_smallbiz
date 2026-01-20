@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, AsyncIterator
 
 from src.backend import process_db, schemas, models
-from src.utils.config import PROJECT_ROOT
 from src.utils.security import verify_password, create_access_token, decode_token
 from src.utils.session import normalize_session_id, ensure_chat_session
 from src.utils.image import save_uploaded_image, load_image_from_payload, image_payload
@@ -164,7 +163,9 @@ async def _save_uploaded_image_payload(
 
     logger.info("save_uploaded_image_payload: 업로드 이미지 디스크 + DB 저장 시작")
 
-    base_dir = os.path.join(PROJECT_ROOT, "data", "uploads")
+    STORAGE_BASE = "/mnt/data"
+    base_dir = os.path.join(STORAGE_BASE, "uploads")
+
     image_data = await save_uploaded_image(image=image, base_dir=base_dir)
     if not image_data:
         logger.warning("save_uploaded_image_payload: save_uploaded_image가 None 반환")

@@ -1,4 +1,4 @@
-import os, logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request, HTTPException
@@ -10,9 +10,11 @@ from uvicorn.logging import AccessFormatter, DefaultFormatter
 
 import src.backend.process_db as process_db
 import src.backend.services as services
-from src.backend.routers import admin as admin_router, auth, chat
+from src.backend.routers import admin, auth, chat
 from src.utils.image import get_image_file_response
 from src.utils.logging import setup_logging, get_logger
+from src.generation.image_generation.preload import preload_models
+
 
 # 로깅 설정
 setup_logging()
@@ -20,8 +22,16 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # DB 초기화
     process_db.init_db()
+
+    # 이미지 생성 모델 preload (GPU에 미리 올려둠)
+    logger.info("Starting model preload...")
+    preload_models(device="cuda")
+    logger.info("Server startup complete!")
+
     yield
+    
 
 app = FastAPI(lifespan=lifespan)
 
@@ -39,27 +49,23 @@ app.mount(
     StaticFiles(directory="src/frontend/static"),
     name="static",
 )
-
-app.include_router(admin_router.router) # 관리자 기능
+current_dir = os.path.dirname(os.path.abspath(__file__))
+app.include_router(admin.router) # 관리자 기능
 
 @app.get("/")
 async def read_index():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_dir, "src", "frontend", "test.html")
     return FileResponse(file_path, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/admin")
 async def read_admin():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_dir, "src", "frontend", "admin.html")
     return FileResponse(file_path, headers={"Cache-Control": "no-store"})
 
 
 app.include_router(auth.router) # 인증 및 사용자 관리
 app.include_router(chat.router) # 챗봇 및 대화 관리
-
-
 
 
 # 이미지 서빙
