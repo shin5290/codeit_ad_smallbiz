@@ -687,12 +687,15 @@
 
             hideLogin();
             await fetchUsers();
-            await fetchGenerations();
         }
 
         async function handleLogout() {
-            await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
-            showLogin('로그아웃되었습니다.');
+            try {
+                await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
+            } catch (e) {
+                console.error(e);
+            }
+            window.location.href = "/";
         }
 
         function resetFilters() {
@@ -756,7 +759,6 @@
 
         window.addEventListener('load', async () => {
             await fetchUsers();
-            await fetchGenerations();
         });
     </script>
 </body>

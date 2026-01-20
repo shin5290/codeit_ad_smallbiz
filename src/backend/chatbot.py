@@ -7,17 +7,15 @@ RAG 기반 챗봇 모듈
 - ConsultingService: 상담 전용 비즈니스 로직
 """
 
-import json
-import openai
-import re
+import json, openai, re
 from typing import Optional, List, Dict, AsyncIterator
 from sqlalchemy.orm import Session
-import logging
 
 from src.backend.consulting_knowledge_base import ConsultingKnowledgeBase
 from src.utils.image import image_payload 
+from src.utils.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # =====================================================

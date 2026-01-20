@@ -1,6 +1,5 @@
 from datetime import datetime
 from typing import Dict, List, Optional
-import logging
 
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
@@ -9,9 +8,9 @@ from sqlalchemy.orm import Session, sessionmaker, selectinload
 from src.backend import models
 from src.utils.security import hash_password
 from src.utils.config import settings
+from src.utils.logging import get_logger
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 engine = create_engine(settings.DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

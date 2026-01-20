@@ -6,19 +6,15 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, AsyncIterator
 
 from src.backend import process_db, schemas, models
+from src.backend.chatbot import get_conversation_manager, get_llm_orchestrator, get_consulting_service
+from src.generation.text_generation.text_generator import TextGenerator
+from src.generation.image_generation.generator import generate_and_save_image
 from src.utils.security import verify_password, create_access_token, decode_token
 from src.utils.session import normalize_session_id, ensure_chat_session
 from src.utils.image import save_uploaded_image, load_image_from_payload, image_payload
-from src.generation.text_generation.text_generator import TextGenerator
-from src.generation.image_generation.generator import generate_and_save_image
-from src.backend.chatbot import (
-    get_conversation_manager,
-    get_llm_orchestrator,
-    get_consulting_service,
-)
+from src.utils.logging import get_logger
 
-
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 _TEXT_GENERATOR = None  # 싱글톤 인스턴스
 
 def get_text_generator() -> TextGenerator:
