@@ -2,6 +2,11 @@
 Image Generator (Z-Image Turbo)
 Z-Image Turbo 모델을 사용한 고속 이미지 생성
 
+노드 기반 아키텍처:
+- PromptProcessorNode: 한글 → 영어 프롬프트 변환
+- Text2ImageNode / Image2ImageNode: 이미지 생성
+- SaveImageNode: 이미지 저장
+
 특징:
 - 8 steps로 고품질 이미지 생성 (~1-2초)
 - 긴 프롬프트 지원 (CLIP 77 토큰 제한 없음, T5 기반)
@@ -9,29 +14,27 @@ Z-Image Turbo 모델을 사용한 고속 이미지 생성
 - Negative Prompt 미지원 (CFG 미사용)
 
 흐름:
-1. Backend → 프롬프트 + 설정 생성
-2. Image Generator (이 모듈) → 이미지 생성 + 저장
-3. Backend → 저장 경로/URL 반환
+1. PromptProcessorNode → 한글 입력 → 영어 프롬프트
+2. Text2ImageNode/Image2ImageNode → 이미지 생성
+3. SaveImageNode → 이미지 저장
+4. Backend → 저장 경로/URL 반환
 """
 
 from typing import Optional, Literal, Dict, Any
 from pathlib import Path
-import io
-import hashlib
+import time
 
 from PIL import Image
 
-from src.utils.config import PROJECT_ROOT as _PROJECT_ROOT
 from .workflow import ImageGenerationWorkflow
 from .nodes.text2image import Text2ImageNode
 from .nodes.image2image import Image2ImageNode
-from .prompt import PromptTemplateManager
+from .nodes.prompt_processor import PromptProcessorNode
+from .nodes.save_image import SaveImageNode
 
 
-PROJECT_ROOT = Path(_PROJECT_ROOT)
-
-# 기본 저장 경로
-DEFAULT_STORAGE_DIR = PROJECT_ROOT / "data" / "generated"
+# 기본 저장 경로: /mnt/data/generated
+DEFAULT_STORAGE_DIR = Path("/mnt/data/generated")
 DEFAULT_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -52,10 +55,10 @@ def generate_and_save_image(
     """
     한글 사용자 입력으로 자동 프롬프트 생성 후 이미지 생성 및 저장
 
-    Z-Image Turbo 사용으로 SDXL 대비:
-    - 5배 빠른 생성 (8 steps vs 40 steps)
-    - 긴 프롬프트 지원 (토큰 제한 없음)
-    - LoRA로 스타일 전환
+    노드 기반 워크플로우:
+    1. PromptProcessorNode: 한글 → 영어 프롬프트 변환
+    2. Text2ImageNode/Image2ImageNode: 이미지 생성
+    3. SaveImageNode: 이미지 저장
 
     Args:
         user_input: 한글 사용자 입력 (자동으로 영어 프롬프트로 변환)
@@ -76,6 +79,11 @@ def generate_and_save_image(
         seed: 랜덤 시드 (재현성)
         filename: 커스텀 파일명 (선택, 미사용 - 해시 기반 자동 생성)
         storage_dir: 커스텀 저장 디렉토리 (선택)
+        reference_image: I2I용 참조 이미지 (선택)
+        strength: I2I 변형 강도 (0.3~0.7 권장)
+        control_type: ControlNet 타입 (현재 미사용)
+        controlnet_conditioning_scale: ControlNet 강도 (현재 미사용)
+
     Returns:
         Dict[str, Any]: 생성 결과
             {
@@ -99,93 +107,68 @@ def generate_and_save_image(
         ... )
         >>> print(result["image_path"])
     """
-    import time
     start_time = time.time()
 
+    # ControlNet 파라미터는 현재 미사용 (ZIT는 ControlNet 미지원)
+    _ = control_type
+    _ = controlnet_conditioning_scale
+
     try:
-        # 1. 한글 입력 → 상세 영어 프롬프트 생성 (GPT)
-        prompt_generator = PromptTemplateManager()
-        prompt_result = prompt_generator.generate_detailed_prompt(
-            user_input=user_input,
-            style=style
-        )
-
-        prompt = prompt_result["positive"]
-        # Z-Image Turbo는 negative_prompt 미지원 (CFG 미사용)
-        detected_style = prompt_result.get("style", style)
-
-        # GPT가 감지한 스타일로 업데이트
-        if detected_style in ["realistic", "ultra_realistic", "semi_realistic", "anime"]:
-            style = detected_style
-
-        # 2. 저장 디렉토리 설정
+        # 저장 디렉토리 설정
         if storage_dir is None:
             storage_dir = DEFAULT_STORAGE_DIR
-        storage_dir.mkdir(parents=True, exist_ok=True)
 
-        # 3. I2I 분기 처리
+        # 워크플로우 구성
         if reference_image is not None:
-            # ZIT I2I 사용 (스타일 변환)
-            _ = control_type  # ControlNet은 미사용
-            _ = controlnet_conditioning_scale  # ControlNet은 미사용
-
+            # I2I 워크플로우: Prompt → I2I → Save
             workflow = ImageGenerationWorkflow(name=f"ZIT_I2I_{style}")
+            workflow.add_node(PromptProcessorNode(default_style=style))
             workflow.add_node(Image2ImageNode(auto_unload=False))
+            workflow.add_node(SaveImageNode(storage_dir=storage_dir))
 
+            # 입력 데이터
             inputs = {
-                "prompt": prompt,
+                "user_input": user_input,
+                "style": style,
                 "reference_image": reference_image,
                 "strength": strength,
                 "aspect_ratio": aspect_ratio,
                 "num_inference_steps": num_inference_steps,
             }
-
-            if seed is not None:
-                inputs["seed"] = seed
-
         else:
-            # Text2Image (일반 생성)
+            # T2I 워크플로우: Prompt → T2I → Save
             workflow = ImageGenerationWorkflow(name=f"ZIT_Generate_{style}")
+            workflow.add_node(PromptProcessorNode(default_style=style))
             workflow.add_node(Text2ImageNode(auto_unload=False))
+            workflow.add_node(SaveImageNode(storage_dir=storage_dir))
 
+            # 입력 데이터
             inputs = {
-                "prompt": prompt,
+                "user_input": user_input,
                 "style": style,
                 "aspect_ratio": aspect_ratio,
                 "num_inference_steps": num_inference_steps,
             }
 
-            if seed is not None:
-                inputs["seed"] = seed
+        # seed 추가 (선택적)
+        if seed is not None:
+            inputs["seed"] = seed
 
-        # 5. 이미지 생성
+        # 워크플로우 실행
         result = workflow.run(inputs)
-        image = result["image"]
-
-        # 6. 해시 기반 파일명 생성 및 저장
-        buffer = io.BytesIO()
-        image.save(buffer, format='JPEG', quality=95)
-        image_bytes = buffer.getvalue()
-
-        filename = hashlib.sha256(image_bytes).hexdigest()
-        subdir = filename[:2]
-
-        save_path = storage_dir / subdir / f"{filename}.jpg"
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-        image.save(save_path, format='JPEG', quality=95)
 
         generation_time = time.time() - start_time
 
         return {
             "success": True,
-            "image_path": str(save_path.absolute()),
-            "filename": filename,
+            "image_path": result["image_path"],
+            "filename": result["filename"],
             "width": result["width"],
             "height": result["height"],
-            "style": style,
+            "style": result.get("detected_style", style),
             "seed": result.get("seed"),
             "generation_time": generation_time,
-            "prompt": prompt,
+            "prompt": result["prompt"],
             "error": None
         }
 
@@ -203,7 +186,7 @@ def generate_and_save_image(
             "style": style,
             "seed": seed,
             "generation_time": generation_time,
-            "prompt": prompt if 'prompt' in dir() else None,
+            "prompt": None,
             "error": error_msg
         }
 
@@ -221,7 +204,7 @@ def generate_batch_images(
     여러 프롬프트에 대해 배치로 이미지 생성 및 저장
 
     Args:
-        prompts: 프롬프트 리스트
+        prompts: 프롬프트 리스트 (한글 사용자 입력)
         style: 이미지 스타일
         aspect_ratio: 이미지 비율
         industry: 업종
@@ -255,11 +238,11 @@ def generate_batch_images(
         results.append(result)
 
         if result["success"]:
-            print(f"✅ Saved: {result['image_path']}")
+            print(f"Saved: {result['image_path']}")
         else:
-            print(f"❌ Failed: {result['error'][:100]}")
+            print(f"Failed: {result['error'][:100]}")
 
     success_count = sum(1 for r in results if r["success"])
-    print(f"\n✅ Batch complete: {success_count}/{len(results)} images generated")
+    print(f"\nBatch complete: {success_count}/{len(results)} images generated")
 
     return results

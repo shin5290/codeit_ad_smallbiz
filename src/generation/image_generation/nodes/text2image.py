@@ -28,7 +28,7 @@ from ..config import (
     generation_config,
     aspect_ratio_templates,
 )
-from .shared_cache import get_t2i_pipeline, flush_shared_cache
+from ..shared_cache import get_t2i_pipeline, flush_shared_cache
 
 # Z-Image Turbo 모델 경로
 ZIT_MODELS_DIR = Path(os.getenv("ZIT_MODELS_DIR", "/opt/ai-models/zit"))

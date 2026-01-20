@@ -18,7 +18,7 @@ from PIL import Image
 
 from .base import BaseNode
 from ..config import aspect_ratio_templates
-from .shared_cache import get_i2i_pipeline, flush_shared_cache
+from ..shared_cache import get_i2i_pipeline, flush_shared_cache
 
 # ==============================================================================
 # ★ 전역 상태 관리 (공유 캐시 사용)
