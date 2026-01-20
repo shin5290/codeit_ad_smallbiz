@@ -131,6 +131,9 @@ def get_t2i_pipeline(device: str = "cuda") -> ZImagePipeline:
         transformer=transformer
     )
 
+    # 파이프라인을 명시적으로 GPU로 이동
+    pipe.to(device)
+
     print("[SharedCache] T2I pipeline created (using shared components)")
     return pipe
 
@@ -151,6 +154,9 @@ def get_i2i_pipeline(device: str = "cuda") -> ZImageImg2ImgPipeline:
         tokenizer=tokenizer,
         transformer=transformer
     )
+
+    # 파이프라인을 명시적으로 GPU로 이동
+    pipe.to(device)
 
     print("[SharedCache] I2I pipeline created (using shared components)")
     return pipe
