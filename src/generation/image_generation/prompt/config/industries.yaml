@@ -26,7 +26,7 @@
 # S Grade: Sensory & Taste Stimulation
 # ============================================
 
-s_등급:
+s_grade:
   name: "S Grade - Sensory & Taste Stimulation"
   name_ko: "S등급 - 감성 및 미각 자극"
   characteristics: "High B2C, High Visual Dependency, High Competition"
@@ -573,8 +573,8 @@ s_등급:
 # A 등급: Visual Transformation & Self-Care
 # ============================================
 
-a_등급:
-  name: "A 등급 - Visual Transformation & Self-Care"
+a_grade:
+  name: "A Grade - Visual Transformation & Self-Care"
   name_ko: "A등급 - 비주얼 변화 및 자기관리"
   characteristics: "High B2C, High Visual Dependency, Medium-High Competition"
   core_strategy: "Style Proposal - Before/After, sophisticated model cuts, trendy fonts, 'Investment in Myself'"
@@ -1083,8 +1083,8 @@ a_등급:
 # B 등급: Space Experience & Education
 # ============================================
 
-b_등급:
-  name: "B 등급 - Space Experience & Education"
+b_grade:
+  name: "B Grade - Space Experience & Education"
   name_ko: "B등급 - 공간 체험 및 교육"
   characteristics: "Medium-High B2C, Medium Visual Dependency, High Competition"
   core_strategy: "Aesthetics of Space - Wide-angle interior lens, keywords: 'immersion', 'rest', 'enjoyment'"
@@ -1461,7 +1461,7 @@ b_등급:
 # C 등급: Trust-Based Professional Services
 # ============================================
 
-c_등급:
+c_grade:
   name: "C Grade - Trust-Based Professional Services"
   name_ko: "C등급 - 신뢰 기반 전문 서비스"
   characteristics: "Medium B2C, Low Visual Dependency, Medium Competition"
