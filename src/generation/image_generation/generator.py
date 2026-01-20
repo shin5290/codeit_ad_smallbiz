@@ -31,6 +31,8 @@ from .nodes.text2image import Text2ImageNode
 from .nodes.image2image import Image2ImageNode
 from .nodes.prompt_processor import PromptProcessorNode
 from .nodes.save_image import SaveImageNode
+from .nodes.gpt_layout_analyzer import GPTLayoutAnalyzerNode
+from .nodes.text_overlay import TextOverlayNode
 
 
 # 기본 저장 경로: /mnt/data/generated
@@ -56,9 +58,11 @@ def generate_and_save_image(
     한글 사용자 입력으로 자동 프롬프트 생성 후 이미지 생성 및 저장
 
     노드 기반 워크플로우:
-    1. PromptProcessorNode: 한글 → 영어 프롬프트 변환
+    1. PromptProcessorNode: 한글 → 영어 프롬프트 변환 + 텍스트 추출
     2. Text2ImageNode/Image2ImageNode: 이미지 생성
-    3. SaveImageNode: 이미지 저장
+    3. GPTLayoutAnalyzerNode: GPT-4V 이미지 분석 및 레이아웃 결정 (조건부)
+    4. TextOverlayNode: 텍스트 오버레이 (조건부)
+    5. SaveImageNode: 이미지 저장
 
     Args:
         user_input: 한글 사용자 입력 (자동으로 영어 프롬프트로 변환)
@@ -120,10 +124,15 @@ def generate_and_save_image(
 
         # 워크플로우 구성
         if reference_image is not None:
-            # I2I 워크플로우: Prompt → I2I → Save
+            # I2I 워크플로우: Prompt → I2I → (Text Overlay) → Save
             workflow = ImageGenerationWorkflow(name=f"ZIT_I2I_{style}")
             workflow.add_node(PromptProcessorNode(default_style=style))
             workflow.add_node(Image2ImageNode(auto_unload=False))
+
+            # 텍스트 오버레이 노드 (조건부 실행: text_data 있을 때만)
+            workflow.add_node(GPTLayoutAnalyzerNode())
+            workflow.add_node(TextOverlayNode())
+
             workflow.add_node(SaveImageNode(storage_dir=storage_dir))
 
             # 입력 데이터
@@ -136,10 +145,15 @@ def generate_and_save_image(
                 "num_inference_steps": num_inference_steps,
             }
         else:
-            # T2I 워크플로우: Prompt → T2I → Save
+            # T2I 워크플로우: Prompt → T2I → (Text Overlay) → Save
             workflow = ImageGenerationWorkflow(name=f"ZIT_Generate_{style}")
             workflow.add_node(PromptProcessorNode(default_style=style))
             workflow.add_node(Text2ImageNode(auto_unload=False))
+
+            # 텍스트 오버레이 노드 (조건부 실행: text_data 있을 때만)
+            workflow.add_node(GPTLayoutAnalyzerNode())
+            workflow.add_node(TextOverlayNode())
+
             workflow.add_node(SaveImageNode(storage_dir=storage_dir))
 
             # 입력 데이터

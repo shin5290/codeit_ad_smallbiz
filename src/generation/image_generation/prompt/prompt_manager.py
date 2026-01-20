@@ -98,7 +98,36 @@ Remember:
 - Describe like you're directing a camera crew
 - Include: subject, action, setting, lighting, atmosphere, textures, colors
 - NO negative prompts (Z-Image Turbo doesn't support them)
-- Output valid JSON with "positive" and "style" fields only
+
+## TEXT EXTRACTION FOR OVERLAY
+Extract key text elements that should be overlaid on the final image:
+- Product names (제품명, 상품명)
+- Promotional phrases (홍보 문구, 캐치프레이즈)
+- Key messages (핵심 메시지, 할인율, 이벤트명)
+
+Rules:
+- Only extract if explicitly mentioned in user input
+- Keep original Korean text (don't translate to English)
+- Maximum 2-3 text elements (most important ones)
+- Use descriptive keys: "product_name", "tagline", "discount", "event_name"
+- If no text overlay needed, set "text_overlay" to null
+
+Output format:
+{
+    "positive": "detailed prompt...",
+    "style": "realistic|semi_realistic|anime",
+    "text_overlay": {
+        "product_name": "딸기라떼",
+        "tagline": "신메뉴 출시"
+    }
+}
+
+OR if no text overlay:
+{
+    "positive": "detailed prompt...",
+    "style": "realistic",
+    "text_overlay": null
+}
 """
 
             # 6. GPT API 호출
@@ -124,17 +153,21 @@ Remember:
             # 9. 결과 검증
             positive = prompt_data.get("positive", "")
             detected_style = prompt_data.get("style", style)
+            text_overlay = prompt_data.get("text_overlay", None)
 
             print(f"\n✅ 프롬프트 생성 완료!")
             print(f"   Style: {detected_style}")
             print(f"   Positive: {len(positive)} chars (~{len(positive.split())} words)")
+            if text_overlay:
+                print(f"   Text Overlay: {text_overlay}")
             print(f"{'='*80}\n")
 
             return {
                 "positive": positive,
                 "negative": "",  # Z-Image Turbo는 negative 미지원
                 "style": detected_style,
-                "industry": industry
+                "industry": industry,
+                "text_overlay": text_overlay  # 텍스트 오버레이 데이터 추가
             }
 
         except Exception as e:
@@ -207,13 +240,15 @@ Blend photography with artistic:
 2. Write in flowing sentences, not comma-separated keywords
 3. Include TEXTURE descriptions (skin pores, fabric weave, condensation drops)
 4. Specify LIGHTING source and quality
-5. If text/words needed in image, put them in "quotes"
+5. ⚠️ NEVER include text/typography/letters in the image - text will be added separately as post-processing
 6. 80-250 words is optimal (model attention fades after ~75 tokens for key elements)
 
 ## COMMON MISTAKES TO AVOID
 - Don't mix contradictory styles ("photorealistic anime")
 - Don't use generic terms ("beautiful", "amazing") - be SPECIFIC
-- Don't forget texture keywords (images look plastic without them)"""
+- Don't forget texture keywords (images look plastic without them)
+- NEVER generate text/words/typography in the image (e.g., "NEW!", "SALE", brand names)
+- Text overlay will be applied separately after image generation"""
 
     def _get_industry_reference_keywords(self, industry: str) -> str:
         """

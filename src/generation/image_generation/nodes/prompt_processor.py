@@ -90,11 +90,12 @@ class PromptProcessorNode(BaseNode):
         return {
             "prompt": result["positive"],
             "detected_style": detected_style,
-            "industry": result.get("industry", "unknown")
+            "industry": result.get("industry", "unknown"),
+            "text_data": result.get("text_overlay", None)  # GPT가 추출한 텍스트 데이터
         }
 
     def get_required_inputs(self) -> list:
         return ["user_input"]
 
     def get_output_keys(self) -> list:
-        return ["prompt", "detected_style", "industry"]
+        return ["prompt", "detected_style", "industry", "text_data"]

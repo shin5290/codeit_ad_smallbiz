@@ -10,6 +10,8 @@ from .text2image import Text2ImageNode
 from .image2image import Image2ImageNode
 from .prompt_processor import PromptProcessorNode
 from .save_image import SaveImageNode
+from .gpt_layout_analyzer import GPTLayoutAnalyzerNode
+from .text_overlay import TextOverlayNode
 from .controlnet import ControlNetPreprocessorNode, ControlNetLoaderNode
 
 __all__ = [
@@ -21,6 +23,9 @@ __all__ = [
     # Utility Nodes
     "PromptProcessorNode",
     "SaveImageNode",
+    # Text Overlay Nodes
+    "GPTLayoutAnalyzerNode",
+    "TextOverlayNode",
     # ControlNet (Legacy/SDXL)
     "ControlNetPreprocessorNode",
     "ControlNetLoaderNode",
