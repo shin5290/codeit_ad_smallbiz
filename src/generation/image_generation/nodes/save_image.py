@@ -77,6 +77,13 @@ class SaveImageNode(BaseNode):
         """
         image: Image.Image = inputs["image"]
 
+        # JPEG는 RGBA를 지원하지 않으므로 RGB로 변환
+        if self.format.upper() == "JPEG" and image.mode == "RGBA":
+            # 흰색 배경에 알파 채널 합성
+            rgb_image = Image.new("RGB", image.size, (255, 255, 255))
+            rgb_image.paste(image, mask=image.split()[3])  # 알파 채널을 마스크로 사용
+            image = rgb_image
+
         # 1. 이미지를 바이트로 변환 (해시 계산용)
         buffer = io.BytesIO()
         image.save(buffer, format=self.format, quality=self.quality)
