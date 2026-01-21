@@ -1,0 +1,201 @@
+{
+  "note": "Based on core places (review_count >= 500) and up to 6 photos per place",
+  "vision_model": "gpt-4o-mini",
+  "core_place_count": 592,
+  "visual_place_count": 200,
+  "visual_photo_count": 1001,
+  "top_tags": {
+    "shot_type": [
+      {
+        "value": "product",
+        "count": 521,
+        "share": 0.5205
+      },
+      {
+        "value": "interior",
+        "count": 205,
+        "share": 0.2048
+      },
+      {
+        "value": "exterior",
+        "count": 180,
+        "share": 0.1798
+      },
+      {
+        "value": "detail",
+        "count": 40,
+        "share": 0.04
+      },
+      {
+        "value": "people",
+        "count": 39,
+        "share": 0.039
+      },
+      {
+        "value": "menu",
+        "count": 9,
+        "share": 0.009
+      },
+      {
+        "value": "exterior|product",
+        "count": 3,
+        "share": 0.003
+      },
+      {
+        "value": "people|product",
+        "count": 2,
+        "share": 0.002
+      },
+      {
+        "value": "people|product|menu",
+        "count": 1,
+        "share": 0.001
+      },
+      {
+        "value": "product|people|menu",
+        "count": 1,
+        "share": 0.001
+      }
+    ],
+    "angle": [
+      {
+        "value": "eye_level",
+        "count": 856,
+        "share": 0.8551
+      },
+      {
+        "value": "wide",
+        "count": 75,
+        "share": 0.0749
+      },
+      {
+        "value": "top_down",
+        "count": 66,
+        "share": 0.0659
+      },
+      {
+        "value": "close_up",
+        "count": 2,
+        "share": 0.002
+      },
+      {
+        "value": "45deg",
+        "count": 1,
+        "share": 0.001
+      },
+      {
+        "value": "eye_level|wide",
+        "count": 1,
+        "share": 0.001
+      }
+    ],
+    "lighting": [
+      {
+        "value": "natural",
+        "count": 611,
+        "share": 0.6104
+      },
+      {
+        "value": "mixed",
+        "count": 215,
+        "share": 0.2148
+      },
+      {
+        "value": "warm_indoor",
+        "count": 125,
+        "share": 0.1249
+      },
+      {
+        "value": "night_neon",
+        "count": 50,
+        "share": 0.05
+      }
+    ],
+    "mood": [
+      {
+        "value": "cozy",
+        "count": 653,
+        "share": 0.6523
+      },
+      {
+        "value": "bright",
+        "count": 190,
+        "share": 0.1898
+      },
+      {
+        "value": "modern",
+        "count": 145,
+        "share": 0.1449
+      },
+      {
+        "value": "minimal",
+        "count": 3,
+        "share": 0.003
+      },
+      {
+        "value": "dark",
+        "count": 3,
+        "share": 0.003
+      },
+      {
+        "value": "vintage",
+        "count": 2,
+        "share": 0.002
+      },
+      {
+        "value": "dramatic",
+        "count": 1,
+        "share": 0.001
+      },
+      {
+        "value": "warm",
+        "count": 1,
+        "share": 0.001
+      },
+      {
+        "value": "cozy|bright",
+        "count": 1,
+        "share": 0.001
+      },
+      {
+        "value": "bright|cozy",
+        "count": 1,
+        "share": 0.001
+      }
+    ],
+    "composition": [
+      {
+        "value": "centered",
+        "count": 853,
+        "share": 0.8521
+      },
+      {
+        "value": "rule_of_thirds",
+        "count": 91,
+        "share": 0.0909
+      },
+      {
+        "value": "close_up",
+        "count": 56,
+        "share": 0.0559
+      },
+      {
+        "value": "centered|rule_of_thirds",
+        "count": 1,
+        "share": 0.001
+      }
+    ],
+    "has_text_overlay": [
+      {
+        "value": "no",
+        "count": 774,
+        "share": 0.7732
+      },
+      {
+        "value": "yes",
+        "count": 227,
+        "share": 0.2268
+      }
+    ]
+  }
+}

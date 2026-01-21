@@ -1,0 +1,36 @@
+# RAG + Agent + Self-Refine 상담 챗봇 의존성 (백엔드)
+
+# Core LLM
+langchain>=0.1.0
+langchain-openai>=0.0.5
+langchain-community>=0.0.20
+openai>=1.0.0
+
+# Embeddings & Vector Store
+sentence-transformers>=2.2.2
+faiss-cpu>=1.7.4
+
+# Reranking
+cohere>=4.37
+
+# Agent Tools
+tavily>=0.3.3  # 없으면 DuckDuckGo 폴백
+
+# API Server
+fastapi>=0.109.0
+uvicorn>=0.25.0
+pydantic>=2.5.0
+
+# Data Collection
+requests>=2.31.0
+selenium>=4.16.0  # 선택적
+
+# Utilities
+python-dotenv>=1.0.0
+numpy>=1.24.0
+
+# Development
+pytest>=7.4.0
+pytest-asyncio>=0.23.0
+black>=23.12.0
+isort>=5.13.0
