@@ -74,6 +74,20 @@ def load_shared_components(device: str = "cuda") -> Tuple:
             low_cpu_mem_usage=True
         )
 
+        print(f"[SharedCache] Overriding transformer with fp8 model")
+        fp8_path = ZIT_BASE_MODEL / "z_image_turbo_fp8_e4m3fn.safetensors"
+
+        if fp8_path.exists():
+            transformer_cls = temp_pipe.transformer.__class__
+            if hasattr(transformer_cls, "from_single_file"):
+                temp_pipe.transformer = transformer_cls.from_single_file(
+                    str(fp8_path),
+                    torch_dtype=torch.float8_e4m3fn  # FP8 지원되는 경우
+                )
+                print(f"[SharedCache] ✅ FP8 model loaded successfully")
+        else:
+            print(f"[SharedCache] 🚀 Failed load fp8 model, Load bf16 instead")
+
         # 컴포넌트 추출
         _GLOBAL_TRANSFORMER = temp_pipe.transformer
         _GLOBAL_VAE = temp_pipe.vae
