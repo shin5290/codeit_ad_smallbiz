@@ -249,12 +249,13 @@ Analyze the provided advertising image and determine the optimal layout for over
 - **Visual flow**: Text should guide the viewer's eye naturally (top→bottom, left→right for Korean)
 - **Hierarchy**: Primary text (product name) should be more prominent than secondary text (tagline)
 
-### 2. COLOR SELECTION
+### 2. COLOR SELECTION (CRITICAL FOR VISIBILITY!)
 - **Contrast ratio**: Ensure WCAG AA compliance (contrast ratio > 4.5:1 for readability)
 - **Background analysis**:
-  - Dark background (avg brightness < 128) → Use light/white text (RGB: 240-255)
-  - Light background (avg brightness > 128) → Use dark text (RGB: 0-50)
-  - Complex background → Consider stroke/shadow effects
+  - Dark background (avg brightness < 128) → Use WHITE text (RGB: 255, 255, 255) with dark stroke
+  - Light background (avg brightness > 128) → Use BLACK text (RGB: 0, 0, 0) with white stroke
+  - Complex/medium background → ALWAYS use strong stroke (width: 4-6px) with contrasting color
+- **CRITICAL**: When in doubt, use WHITE text with thick BLACK stroke (works on 90% of images)
 - **Brand harmony**: Colors should complement the overall image mood
 
 ### 3. FONT SELECTION
@@ -272,24 +273,38 @@ Analyze the provided advertising image and determine the optimal layout for over
   - Style: Serif, refined, elegant
 
 ### 4. FONT SIZE HIERARCHY
-- **Product Name / Main Text**: 60-100px (needs to be immediately visible)
-- **Tagline / Secondary Text**: 30-50px (supporting information)
-- **Fine Print / Details**: 20-30px (additional info, disclaimers)
+- **Product Name / Main Text**: 80-140px (needs to be LARGE and immediately visible, DOMINANT presence)
+- **Tagline / Secondary Text**: 40-70px (supporting information, but still clearly readable)
+- **Fine Print / Details**: 25-40px (additional info, disclaimers)
+- **CRITICAL**: Korean advertising text must be BOLD and LARGE - err on the larger side!
 
-### 5. EFFECTS DECISION TREE
+### 5. EFFECTS DECISION TREE (ALWAYS PRIORITIZE READABILITY!)
 - **Clean, simple background (sky, solid color, blur)**:
-  - No effects needed, or minimal shadow (offset: 2-3px, blur: 3-5px)
+  - Add subtle shadow (offset: 3-4px, blur: 6-8px) for depth
 
-- **Medium complexity (patterns, gradients)**:
-  - Add stroke (width: 2-4px, contrasting color) OR shadow (offset: 3-5px, blur: 5-8px)
+- **Medium complexity (patterns, gradients, food photography)**:
+  - ALWAYS add thick stroke (width: 4-6px, contrasting color) + shadow (offset: 3-5px, blur: 6-10px)
 
 - **High complexity (busy scene, multiple objects)**:
-  - Combine stroke + shadow, OR use semi-transparent background_box (alpha: 0.6-0.8)
+  - Use THICK stroke (width: 6-8px) + shadow, OR semi-transparent background_box (alpha: 0.7-0.85)
+
+- **DEFAULT SAFE OPTION**: White text + thick black stroke (6px) + subtle shadow works on 90% of images!
 
 ### 6. KOREAN TEXT CONSIDERATIONS
 - Korean text is denser than Latin alphabet → needs slightly larger font size
 - Ensure adequate letter spacing for readability
 - Korean reads top-to-bottom or left-to-right → position accordingly
+
+### 7. KEYWORD EMPHASIS (SPLIT LAYERS FOR STYLING)
+- **Identify keywords to emphasize**: product names, brand names, numbers, key actions
+- **Split into separate layers** if different styling is needed:
+  - Example: "삼겹살엔 역시 소주" → Layer 1: "삼겹살엔 역시 " (regular) + Layer 2: "소주" (emphasized)
+  - Position layers adjacent to each other (calculate x offset based on text width)
+- **Emphasis techniques**:
+  - Larger font size (1.5-2x the base layer)
+  - Different font family (e.g., NanumMyeongjo for elegance, NanumGothicBold for impact)
+  - Different color (brand color, contrasting color, gradient effect via background_box)
+  - Stronger effects (thicker stroke, brighter color)
 
 ## OUTPUT REQUIREMENTS
 You MUST call the `apply_text_overlay` function with a complete layout specification.

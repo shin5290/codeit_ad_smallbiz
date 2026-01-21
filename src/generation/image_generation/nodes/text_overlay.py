@@ -234,23 +234,24 @@ class TextOverlayNode(BaseNode):
             if blur > 0:
                 text_layer = text_layer.filter(ImageFilter.GaussianBlur(radius=blur // 2))
 
-        # 3. Stroke (외곽선)
+        # 3. Main Text with Stroke (외곽선)
         stroke_spec = effects.get("stroke", {})
         if stroke_spec.get("enabled", False):
             stroke_width = stroke_spec.get("width", 2)
             stroke_color = self._rgba_tuple(stroke_spec["color"])
 
+            # Stroke + Fill을 동시에 렌더링 (PIL 내부에서 stroke를 먼저 그린 후 fill)
             draw.text(
                 position,
                 text,
                 font=font,
-                fill=stroke_color,
+                fill=text_color,
                 stroke_width=stroke_width,
                 stroke_fill=stroke_color
             )
-
-        # 4. Main Text
-        draw.text(position, text, font=font, fill=text_color)
+        else:
+            # Stroke 없으면 일반 텍스트만
+            draw.text(position, text, font=font, fill=text_color)
 
         # 텍스트 레이어를 캔버스에 합성
         canvas = Image.alpha_composite(canvas, text_layer)
