@@ -4,6 +4,11 @@
 
 챗봇의 RAG 기반 Knowledge Base를 백엔드의 `ConsultingService`와 연동하는 방법입니다.
 
+## 현재 상태 (BHS 브랜치)
+- FastAPI 라우터(`/chat/message/stream`, `/chat/session`, `/chat/history`, `/chat/generation`)가 이미 연결되어 SSE로 응답합니다.
+- 스타트업에서 DB 초기화 + 이미지 모델 preload(`main.py`)가 실행됩니다.
+- 기본 Knowledge Base는 `MockKnowledgeBase`이며, 아래 방법으로 `SmallBizKnowledgeBase`로 전환할 수 있습니다.
+
 ## 연동 방법
 
 ### 1. consulting_knowledge_base.py 수정

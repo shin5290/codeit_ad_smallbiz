@@ -1,6 +1,6 @@
 # RAG 기반 상담 챗봇 시스템
 
-> **LangChain + Chroma + Agent** 통합 소상공인 마케팅 상담 챗봇 (백엔드 전용)
+> **LangChain + Chroma + Agent + FastAPI(SSE)** 소상공인 마케팅 상담 챗봇 (백엔드 전용)
 
 ## 🛠️ 기술 스택
 
@@ -279,6 +279,16 @@ consultant = SmallBizConsultant()
 print(consultant.consult("2024년 네이버/인스타 예산 배분 추천"))
 ```
 
+### 5. FastAPI 연동 (통합 서버)
+```bash
+# 레포 루트에서 실행
+uvicorn main:app --host 0.0.0.0 --port 9000
+```
+- SSE 채팅: `POST /chat/message/stream` (폼 필드 `message`, 선택: `session_id`, `image`)
+- 세션·히스토리: `POST /chat/session`, `GET /chat/history`, `GET /chat/generation/{session_id}`
+- 테스트 페이지: `/` (챗 UI), `/admin` (관리자; `is_admin=True` 계정 필요)
+- 서버 스타트업에서 DB 초기화 + 이미지 생성 모델 preload 수행
+
 ---
 
 ## 📝 개발 로드맵
@@ -290,7 +300,7 @@ print(consultant.consult("2024년 네이버/인스타 예산 배분 추천"))
 - [x] Phase 5: LangChain RAG 기본 구현
 - [x] Phase 6: LangChain Agent 구현
 - [x] Phase 7: Self-Refine 체인 (실험 완료)
-- [ ] Phase 8: FastAPI 연동 및 라우팅 정리
+- [x] Phase 8: FastAPI 연동 및 라우팅 정리 (SSE 포함)
 - [ ] Phase 9: 평가 및 최적화
 
 ---
@@ -309,4 +319,4 @@ print(consultant.consult("2024년 네이버/인스타 예산 배분 추천"))
 
 **작성일:** 2025-01-17
 **담당자:** 배현석
-**Framework:** LangChain + Chroma
+**Framework:** LangChain + Chroma + FastAPI (SSE)

@@ -1,7 +1,7 @@
 # RAG 상담 챗봇 구축 체크리스트 (백엔드 전용)
 
-> **최종 수정:** 2025-01-18  
-> **Framework:** LangChain + Chroma (FastAPI 연동 예정)  
+> **최종 수정:** 2025-01-21  
+> **Framework:** LangChain + Chroma (FastAPI 연동 완료, SSE 스트리밍)  
 
 ---
 
@@ -75,12 +75,13 @@
 
 산출물: `refine/self_refine.py` (테스트 로그)
 
-## ⬜ Phase 6: FastAPI 연동
-- [ ] `/consult` 엔드포인트에서 RAG/Agent 호출
-- [ ] 환경변수/모델 캐시/로깅 정리
-- [ ] 간단한 헬스체크/버전 엔드포인트
+## ✅ Phase 6: FastAPI 연동
+- [x] `/chat/message/stream` SSE 스트리밍 엔드포인트 연동
+- [x] 세션/대화/생성이력 API 정리 (`/chat/session`, `/chat/history`, `/chat/generation`)
+- [x] 서버 스타트업 훅에서 DB 초기화 및 이미지 모델 preload (`main.py`)
+- [x] 관리자/인증 라우터 통합 및 `is_admin` 권한 필드 추가
 
-산출물: `api/endpoints.py` 업데이트
+산출물: `main.py`, `src/backend/routers/chat.py`, `src/backend/services.py`, `src/backend/chatbot.py`, `src/frontend/test.html`, `src/frontend/admin.html`
 
 ---
 
@@ -92,7 +93,7 @@ Phase 2: ████████████████████ 100%  RAG 
 Phase 3: ████████████████████ 100%  프롬프트
 Phase 4: ████████████████████ 100%  Agent
 Phase 5: ████████████████████ 100%  Self-Refine 실험
-Phase 6: ░░░░░░░░░░░░░░░░░░░░   0%  FastAPI 연동
+Phase 6: ████████████████████ 100%  FastAPI 연동
 ```
 
 ---
