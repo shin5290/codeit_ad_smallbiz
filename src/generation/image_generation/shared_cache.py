@@ -73,7 +73,7 @@ def load_shared_components(device: str = "cuda") -> Tuple:
             local_files_only=True,
             low_cpu_mem_usage=True
         )
-
+        
         # 컴포넌트 추출
         _GLOBAL_TRANSFORMER = temp_pipe.transformer
         _GLOBAL_VAE = temp_pipe.vae
@@ -132,6 +132,7 @@ def get_t2i_pipeline(device: str = "cuda") -> ZImagePipeline:
     )
 
     # 파이프라인을 명시적으로 GPU로 이동
+    pipe.enable_attention_slicing()
     pipe.to(device)
 
     print("[SharedCache] T2I pipeline created (using shared components)")
@@ -156,8 +157,9 @@ def get_i2i_pipeline(device: str = "cuda") -> ZImageImg2ImgPipeline:
     )
 
     # 파이프라인을 명시적으로 GPU로 이동
+    pipe.enable_attention_slicing()
     pipe.to(device)
-
+    
     print("[SharedCache] I2I pipeline created (using shared components)")
     return pipe
 

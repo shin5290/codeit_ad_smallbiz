@@ -207,17 +207,14 @@ class TextOverlayNode(BaseNode):
         if canvas.mode != "RGBA":
             canvas = canvas.convert("RGBA")
 
-        # Separate layers for shadow and main text to avoid blurring text/box
-        shadow_layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-        shadow_draw = ImageDraw.Draw(shadow_layer)
-
+        # 텍스트 레이어 생성 (투명 배경)
         text_layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-        text_draw = ImageDraw.Draw(text_layer)
+        draw = ImageDraw.Draw(text_layer)
 
         # 1. Background Box
         bg_box = effects.get("background_box", {})
         if bg_box.get("enabled", False):
-            self._draw_background_box(text_draw, text, position, font, bg_box)
+            self._draw_background_box(draw, text, position, font, bg_box)
 
         # 2. Shadow
         shadow = effects.get("shadow", {})
@@ -231,11 +228,11 @@ class TextOverlayNode(BaseNode):
             shadow_pos = (position[0] + offset_x, position[1] + offset_y)
 
             # 그림자 렌더링
-            shadow_draw.text(shadow_pos, text, font=font, fill=shadow_color)
+            draw.text(shadow_pos, text, font=font, fill=shadow_color)
 
             # 블러 적용
             if blur > 0:
-                shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=blur // 2))
+                text_layer = text_layer.filter(ImageFilter.GaussianBlur(radius=blur // 2))
 
         # 3. Main Text with Stroke (외곽선)
         stroke_spec = effects.get("stroke", {})
@@ -244,7 +241,7 @@ class TextOverlayNode(BaseNode):
             stroke_color = self._rgba_tuple(stroke_spec["color"])
 
             # Stroke + Fill을 동시에 렌더링 (PIL 내부에서 stroke를 먼저 그린 후 fill)
-            text_draw.text(
+            draw.text(
                 position,
                 text,
                 font=font,
@@ -254,10 +251,9 @@ class TextOverlayNode(BaseNode):
             )
         else:
             # Stroke 없으면 일반 텍스트만
-            text_draw.text(position, text, font=font, fill=text_color)
+            draw.text(position, text, font=font, fill=text_color)
 
-        # Composite in order: shadow -> text
-        canvas = Image.alpha_composite(canvas, shadow_layer)
+        # 텍스트 레이어를 캔버스에 합성
         canvas = Image.alpha_composite(canvas, text_layer)
 
         return canvas
