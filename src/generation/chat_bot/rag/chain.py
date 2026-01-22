@@ -45,9 +45,13 @@ LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o")
 class E5Embeddings:
     """E5 모델용 LangChain 호환 임베딩 클래스"""
 
-    def __init__(self, model_name: str = EMBEDDING_MODEL):
+    def __init__(self, model_name: str = EMBEDDING_MODEL, device: str = "cpu"):
         from sentence_transformers import SentenceTransformer
-        self.model = SentenceTransformer(model_name)
+
+        # CPU 사용으로 VRAM 절약 (이미지 생성 모델에 GPU 전체 양보)
+        # - CPU: VRAM 0GB, latency +1~2초 (LLM 응답 시간 대비 허용 범위)
+        # - GPU 필요 시: device="cuda" 로 변경
+        self.model = SentenceTransformer(model_name, device=device)
 
     def _sanitize_text(self, text: str) -> str:
         """텍스트 전처리 (None, 빈 문자열, 인코딩 문제 해결)"""
