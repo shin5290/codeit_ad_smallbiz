@@ -16,7 +16,8 @@ Unified Logging Module
 import logging
 import os
 import sys
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict
 from logging.handlers import RotatingFileHandler
@@ -50,6 +51,10 @@ LEVEL_SHORT_MAP: Dict[str, int] = {
 
 LEVEL_TO_SHORT: Dict[int, str] = {v: k for k, v in LEVEL_SHORT_MAP.items()}
 
+# 제한 설정
+MAX_TOTAL_SIZE_BYTES = 100 * 1024 * 1024  # 전체 용량 100MB
+RETENTION_DAYS = 14                       # 보관 기간 2주
+
 
 # =====================================================
 # 커스텀 포매터
@@ -66,14 +71,15 @@ class CompactFormatter(logging.Formatter):
 
 
 class ColoredFormatter(CompactFormatter):
-    """터미널 색상을 지원하는 포매터"""
+    """터미널 색상을 지원하는 포매터 (Bold 적용)"""
 
+    # (수정 사항 1) ANSI 코드에 '1;'을 추가하여 Bold(진한 글씨) 적용
     COLORS = {
-        logging.DEBUG: "\033[36m",      # Cyan
-        logging.INFO: "\033[32m",       # Green
-        logging.WARNING: "\033[33m",    # Yellow
-        logging.ERROR: "\033[31m",      # Red
-        logging.CRITICAL: "\033[35m",   # Magenta
+        logging.DEBUG: "\033[1;36m",    # Bold Cyan
+        logging.INFO: "\033[1;32m",     # Bold Green
+        logging.WARNING: "\033[1;33m",  # Bold Yellow
+        logging.ERROR: "\033[1;31m",    # Bold Red
+        logging.CRITICAL: "\033[1;35m", # Bold Magenta
     }
     RESET = "\033[0m"
 
@@ -82,7 +88,9 @@ class ColoredFormatter(CompactFormatter):
         formatted = super().format(record)
 
         if color:
-            # 레벨 부분에만 색상 적용
+            # 레벨과 메시지 전체를 강조하고 싶다면 아래 주석을 해제하고 교체
+            # return f"{color}{formatted}{self.RESET}"
+            # 레벨 부분에만 색상/Bold 적용
             parts = formatted.split(" - ", 2)
             if len(parts) >= 2:
                 parts[1] = f"{color}{parts[1]}{self.RESET}"
@@ -96,53 +104,84 @@ class ColoredFormatter(CompactFormatter):
 # =====================================================
 def _get_log_dir() -> Path:
     """로그 디렉토리 경로 반환 (플랫폼 독립적)"""
-    # 환경 변수 우선
     if log_dir := os.environ.get("LOG_DIR"):
         return Path(log_dir)
 
-    # 프로젝트 루트의 logs 디렉토리 사용
     current = Path(__file__).resolve()
     for parent in current.parents:
         if (parent / "src").is_dir():
             return parent / "logs"
 
-    # 기본값
     return Path.cwd() / "logs"
 
 
 def _get_log_level() -> int:
     """환경 변수에서 로그 레벨 가져오기"""
     level_str = os.environ.get("LOG_LEVEL", "INFO").upper()
-
-    # 한 글자 단축형 지원
     if level_str in LEVEL_SHORT_MAP:
         return LEVEL_SHORT_MAP[level_str]
-
     return getattr(logging, level_str, logging.INFO)
+
+
+def _prune_old_logs(log_dir: Path):
+    """
+    로그 정리 함수
+    1. 2주 지난 파일 삭제
+    2. 전체 용량 100MB 초과 시 오래된 순 삭제
+    """
+    if not log_dir.exists():
+        return
+
+    # 로그 파일 목록 (.log로 끝나거나 회전된 파일들)
+    files = [f for f in log_dir.iterdir() if f.is_file() and "log" in f.name]
+
+    # 1. 기간 제한 (2주)
+    cutoff_time = time.time() - (RETENTION_DAYS * 24 * 60 * 60)
+    files_to_keep = []
+
+    for f in files:
+        if f.stat().st_mtime < cutoff_time:
+            try:
+                os.remove(f)
+            except OSError:
+                pass  # 삭제 실패 시 무시
+        else:
+            files_to_keep.append(f)
+
+    # 2. 전체 용량 제한 (100MB)
+    # 수정 시간 오름차순 정렬 (오래된 파일이 앞)
+    files_to_keep.sort(key=lambda x: x.stat().st_mtime)
+    current_size = sum(f.stat().st_size for f in files_to_keep)
+
+    # 용량이 초과되면 오래된 파일부터 삭제
+    while current_size > MAX_TOTAL_SIZE_BYTES and files_to_keep:
+        target = files_to_keep.pop(0) # 가장 오래된 파일
+        try:
+            size = target.stat().st_size
+            os.remove(target)
+            current_size -= size
+        except OSError:
+            pass
 
 
 def setup_logging(
     log_dir: Optional[str] = None,
     level: Optional[str] = None,
-    max_bytes: int = 10 * 1024 * 1024,  # 10MB
-    backup_count: int = 5,
+    max_bytes: int = 10 * 1024 * 1024,  # 파일 하나당 10MB
+    backup_count: int = 100,       # 테스트 환경 고려, 사실상 무제한
     use_color: bool = True,
 ) -> None:
     """
-    애플리케이션 로깅 설정 (콘솔 + 실행별 파일)
-
-    Args:
-        log_dir: 로그 디렉토리 경로 (None이면 자동 탐지)
-        level: 로그 레벨 ("DEBUG", "INFO", "D", "I" 등)
-        max_bytes: 로그 파일 최대 크기 (기본 10MB)
-        backup_count: 백업 파일 개수 (기본 5개)
-        use_color: 콘솔 색상 사용 여부
+    애플리케이션 로깅 설정
     """
     global RUN_ID, RUN_LOG_FILE
 
     # 로그 디렉토리 설정
     log_path = Path(log_dir) if log_dir else _get_log_dir()
     log_path.mkdir(parents=True, exist_ok=True)
+
+    # 시작 시 오래된 로그 정리 수행
+    _prune_old_logs(log_path)
 
     # 로그 레벨 결정
     if level:
@@ -151,7 +190,7 @@ def setup_logging(
     else:
         log_level = _get_log_level()
 
-    # 실행 단위 파일명 (프로세스 시작 시 1번)
+    # 실행 단위 파일명
     if RUN_ID is None:
         RUN_ID = datetime.now().strftime("%Y%m%d_%H%M%S")
         RUN_LOG_FILE = log_path / f"{RUN_ID}.log"
@@ -160,7 +199,6 @@ def setup_logging(
     console_handler = logging.StreamHandler(sys.stdout)
 
     if UVICORN_AVAILABLE:
-        # uvicorn 포매터 사용 (웹 서버 환경)
         console_handler.setFormatter(
             DefaultFormatter(
                 "%(levelprefix)s %(asctime)s.%(msecs)03d - %(message)s",
@@ -169,17 +207,17 @@ def setup_logging(
             )
         )
     elif use_color and sys.stdout.isatty():
-        # 커스텀 색상 포매터 (CLI 환경)
         console_handler.setFormatter(
             ColoredFormatter(DEFAULT_FORMAT, datefmt=DEFAULT_DATEFMT)
         )
     else:
-        # 일반 포매터 (파이프/리다이렉션 환경)
         console_handler.setFormatter(
             CompactFormatter(DEFAULT_FORMAT, datefmt=DEFAULT_DATEFMT)
         )
 
     # ---------- File Handler (Rotating) ----------
+    # 테스트 환경을 고려하여 backupCount를 크게 설정하여 개수 제한을 풀고,
+    # 전체 용량은 _prune_old_logs로 관리 전체 100MB로 맞춤,
     file_handler = RotatingFileHandler(
         RUN_LOG_FILE,
         maxBytes=max_bytes,
@@ -197,7 +235,7 @@ def setup_logging(
     root_logger.addHandler(file_handler)
     root_logger.setLevel(log_level)
 
-    # ---------- uvicorn.access 로거 (uvicorn 있을 때만) ----------
+    # ---------- uvicorn.access 로거 ----------
     if UVICORN_AVAILABLE:
         access_format = '%(levelprefix)s %(asctime)s.%(msecs)03d - "%(request_line)s" %(status_code)s'
 
@@ -213,20 +251,10 @@ def setup_logging(
         access_logger.handlers = [access_console, access_file]
         access_logger.propagate = False
 
-    # 초기화 완료 로그
     logging.getLogger(__name__).info(f"Logging initialized: {RUN_LOG_FILE}")
 
 
 def get_logger(name: str) -> logging.Logger:
-    """
-    이름으로 로거 가져오기
-
-    Args:
-        name: 로거 이름 (일반적으로 __name__ 사용)
-
-    Returns:
-        Logger 객체
-    """
     return logging.getLogger(name)
 
 
@@ -234,27 +262,22 @@ def get_logger(name: str) -> logging.Logger:
 # 편의 함수
 # =====================================================
 def log_debug(msg: str, logger: Optional[logging.Logger] = None):
-    """디버그 로그"""
     (logger or logging.getLogger()).debug(msg)
 
 
 def log_info(msg: str, logger: Optional[logging.Logger] = None):
-    """정보 로그"""
     (logger or logging.getLogger()).info(msg)
 
 
 def log_warning(msg: str, logger: Optional[logging.Logger] = None):
-    """경고 로그"""
     (logger or logging.getLogger()).warning(msg)
 
 
 def log_error(msg: str, logger: Optional[logging.Logger] = None):
-    """에러 로그"""
     (logger or logging.getLogger()).error(msg)
 
 
 def log_critical(msg: str, logger: Optional[logging.Logger] = None):
-    """심각 로그"""
     (logger or logging.getLogger()).critical(msg)
 
 
@@ -262,10 +285,8 @@ def log_critical(msg: str, logger: Optional[logging.Logger] = None):
 # 유틸리티 함수
 # =====================================================
 def get_current_log_file() -> Optional[Path]:
-    """현재 로그 파일 경로 반환"""
     return RUN_LOG_FILE
 
 
 def get_run_id() -> Optional[str]:
-    """현재 실행 ID 반환"""
     return RUN_ID

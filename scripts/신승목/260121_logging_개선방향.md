@@ -50,9 +50,9 @@ from logging.handlers import RotatingFileHandler
 
 file_handler = RotatingFileHandler(
     log_file,
-    maxBytes=10 * 1024 * 1024,  # 10MB
-    backupCount=5,               # 5개 백업 유지
-    encoding="utf-8"
+    maxBytes = 10 * 1024 * 1024,  # 파일당 용량 10MB (총 용량 100MB)
+    backupCount = 100,            # 100개, 테스트 환경 고려, 사실상 무제한
+    encoding = "utf-8"
 )
 ```
 - **효과**: 로그 파일이 10MB 초과시 자동 롤오버, 최대 5개 백업 유지
@@ -164,6 +164,10 @@ LEVEL_SHORT_MAP: Dict[str, int] = {
 }
 
 LEVEL_TO_SHORT: Dict[int, str] = {v: k for k, v in LEVEL_SHORT_MAP.items()}
+
+# 제한 설정
+MAX_TOTAL_SIZE_BYTES = 100 * 1024 * 1024  # 전체 용량 100MB
+RETENTION_DAYS = 14                      # 보관 기간 2주
 
 
 # =====================================================
