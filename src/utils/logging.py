@@ -89,12 +89,12 @@ class ColoredFormatter(CompactFormatter):
 
         if color:
             # 레벨과 메시지 전체를 강조하고 싶다면 아래 주석을 해제하고 교체
-            # return f"{color}{formatted}{self.RESET}"
+            return f"{color}{formatted}{self.RESET}"
             # 레벨 부분에만 색상/Bold 적용
-            parts = formatted.split(" - ", 2)
-            if len(parts) >= 2:
-                parts[1] = f"{color}{parts[1]}{self.RESET}"
-                formatted = " - ".join(parts)
+            # parts = formatted.split(" - ", 2)
+            # if len(parts) >= 2:
+            #     parts[1] = f"{color}{parts[1]}{self.RESET}"
+            #     formatted = " - ".join(parts)
 
         return formatted
 
