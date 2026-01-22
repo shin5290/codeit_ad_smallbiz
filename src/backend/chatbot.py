@@ -45,13 +45,96 @@ def _format_generation_history(generation_history: List[Dict]) -> str:
         content_type = gen.get("content_type") or "unknown"
         input_text = (gen.get("input_text") or "").strip()
         timestamp = gen.get("timestamp", "")
+        has_image = "Y" if gen.get("output_image") or gen.get("input_image") else "N"
+        chrono_rank = gen.get("_chronological_rank")
+        chrono_part = f", chrono_rank={chrono_rank}" if chrono_rank is not None else ""
+        prompt_text = (gen.get("prompt") or "").strip()
+        prompt_part = f", 프롬프트=\"{prompt_text[:80]}\"" if prompt_text else ""
         
         lines.append(
-            f"recent_rank={idx}, ID={gen_id}, 타입={content_type}, "
-            f"입력=\"{input_text[:100]}\", 시간={timestamp}"
+            f"recent_rank={idx}{chrono_part}, ID={gen_id}, 타입={content_type}, "
+            f"이미지={has_image}, 입력=\"{input_text[:100]}\"{prompt_part}, 시간={timestamp}"
         )
     
     return "\n".join(lines)
+
+
+def _summarize_chat_history(
+    chat_history: List[Dict],
+    *,
+    keep_last: int = 10,
+    summary_items: int = 6,
+    snippet_len: int = 80,
+) -> tuple[List[Dict], str]:
+    """대화 히스토리를 최근 N개로 제한하고 이전 내용은 요약 문자열로 반환."""
+    if not chat_history or len(chat_history) <= keep_last:
+        return chat_history, ""
+
+    recent = chat_history[-keep_last:]
+    older = chat_history[:-keep_last]
+    summary_lines: List[str] = []
+    for msg in older:
+        role = msg.get("role") or "unknown"
+        content = (msg.get("content") or "").strip().replace("\n", " ")
+        if not content:
+            continue
+        snippet = content[:snippet_len]
+        summary_lines.append(f"{role}: {snippet}")
+        if len(summary_lines) >= summary_items:
+            break
+
+    omitted = len(older) - len(summary_lines)
+    if summary_lines:
+        summary = " | ".join(summary_lines)
+        if omitted > 0:
+            summary += f" ... 외 {omitted}개"
+        return recent, summary
+
+    return recent, f"이전 대화 {len(older)}개 생략"
+
+
+def _summarize_generation_history(
+    generation_history: List[Dict],
+    *,
+    keep_latest: int = 5,
+    keep_oldest: int = 2,
+    summary_items: int = 4,
+    snippet_len: int = 80,
+) -> tuple[List[Dict], str]:
+    """생성 이력을 최신/최초 일부만 유지하고 중간은 요약 문자열로 반환."""
+    if not generation_history:
+        return generation_history, ""
+
+    total = len(generation_history)
+    if total <= keep_latest + keep_oldest:
+        return generation_history, ""
+
+    latest = generation_history[:keep_latest]
+    oldest = generation_history[-keep_oldest:]
+    middle = generation_history[keep_latest:-keep_oldest]
+
+    summary_lines: List[str] = []
+    for gen in middle:
+        gen_id = gen.get("id")
+        content_type = gen.get("content_type") or "unknown"
+        input_text = (gen.get("input_text") or "").strip().replace("\n", " ")
+        if not input_text:
+            continue
+        snippet = input_text[:snippet_len]
+        summary_lines.append(f"ID={gen_id}, 타입={content_type}, 입력={snippet}")
+        if len(summary_lines) >= summary_items:
+            break
+
+    omitted = len(middle) - len(summary_lines)
+    summary = ""
+    if summary_lines:
+        summary = " | ".join(summary_lines)
+        if omitted > 0:
+            summary += f" ... 외 {omitted}개"
+    else:
+        summary = f"중간 생성 이력 {len(middle)}개 생략"
+
+    return latest + oldest, summary
 
 
 def _extract_json_dict(content: Optional[str]) -> Optional[Dict]:
@@ -105,7 +188,7 @@ class ConversationManager:
         chat_row = process_db.save_chat_message(
             db, session_id, role, content, image_id=image_id
         )
-        logger.info(f"ConversationManager: saved message id={chat_row.id}")
+        logger.debug("ConversationManager: saved message id=%s", chat_row.id)
         return chat_row.id
 
     def get_recent_messages(
@@ -653,67 +736,110 @@ class LLMOrchestrator:
         """
 
         system_prompt = """
-당신은 광고 생성 요청을 정제하고 수정 대상을 찾는 맥락 분석기입니다.
+# Role: Ad Request Context Analyzer
+당신은 사용자의 발화와 생성 이력을 분석하여, 1) 수정 대상이 되는 특정 생성물의 ID를 찾고, 2) 최종적으로 반영해야 할 정제된 요청 사항(refined_input)을 도출하는 전문가입니다.
 
-## 역할 1: 수정 대상 특정 (intent=modification일 때만)
+---
 
-생성 이력 정보:
-- recent_rank=1이 가장 최신
-- 각 항목에 id, content_type, input_text, timestamp가 있음
+# Input Data Structure
+1. **Dialogue History:** 사용자와의 대화 내용
+2. **Generation History (List):**
+   - `id`: 고유 ID
+   - `recent_rank`: 1 (최신) ~ N (가장 오래됨)
+   - `chrono_rank`: 1 (가장 오래됨) ~ N (최신)
+   - `input_text`: 당시 요청 내용
+   - `is_image`: Y/N
 
-대상 선택 규칙:
-1. "방금", "최근", "마지막", "지금" → recent_rank=1 선택
-2. "2번", "두 번째" → recent_rank=2 선택
-3. "첫 번째", "처음", "맨 처음" → 가장 오래된 것 (마지막 rank)
-4. "그거", "저거" → 대화 맥락에서 가장 관련 있는 것
-5. 명확하지 않으면 recent_rank=1 (최신)
+---
 
-## 역할 2: 입력 텍스트 정제
+# Task 1: Target Identification Logic (수정 대상 찾기)
 
-### 번호 참조 해석
-- "2번으로 해줘" → 대화에서 2번 찾아서 실제 내용으로 치환
-- Assistant의 consulting 응답(추천 문구 등)도 확인
+사용자의 발화가 `intent=modification`일 때, 아래 우선순위 로직에 따라 단 **하나의 target_id**를 결정하십시오.
 
-### 대명사 해석
-- "그거", "저거", "그 문구" → 구체적 대상으로 치환
+### [우선순위 판단 로직]
+1. **명시적 순서 지칭 (Chronological):**
+   - "처음", "첫 번째", "맨 처음" → `chrono_rank=1`
+   - "두 번째", "세 번째" → `chrono_rank=n`
+2. **상대적 순서 지칭 (Recency):**
+   - "방금", "마지막", "이거", "지금 나온 거", "최근" → `recent_rank=1`
+   - "이전 거", "아까 거", "그 전 거" → `recent_rank=2`
+3. **내용 기반 지칭 (Content Matching):**
+   - "파란색 배경인 거", "고양이 나온 거" → `input_text`나 맥락상 해당 속성을 가진 항목 중 가장 최신(`recent_rank`가 낮은) 항목
+4. **대명사 (Implicit):**
+   - "그거", "저거" → 직전 대화에서 특정 이미지를 언급했다면 그 ID, 없다면 `recent_rank=1`
+5. **Fallback (예외 처리):**
+   - 사용자가 대상을 전혀 특정하지 않고 수정만 요청함 ("글자만 좀 바꿔줘") → `recent_rank=1`
 
-### modification 요청 처리
-- **절대 이전 생성물을 복사하지 말 것**
-- 다음을 요약:
-  1) 처음 생성 요청 내용
-  2) 제품/서비스 정보
-  3) 누적된 모든 수정 요구사항
+**주의:** 사용자가 "새로 만들어줘", "다시 해봐" 등 `generation` 의도를 보이면 `target_generation_id`는 `null`입니다.
 
-예시:
-대화:
-- User: "네이버 스토어 소개글 써줘. 행주 파는 곳, 기름 안 묻음"
-- Assistant: "대나무 행주로 깨끗한 주방"
-- User: "행주라는 단어 넣어줘"
-- Assistant: "대나무 행주로 깨끗한 주방"
-- User: "주방이라는 단어는 빼줘"
+---
 
-refined_input: "네이버 스토어 소개글. 대나무 행주 판매(기름 안 묻음). '행주' 단어 포함 필수, '주방' 단어 제외"
+# Task 2: Input Refinement Logic (텍스트 정제)
 
-### generation 요청 처리
-- 대화에서 언급된 모든 관련 정보 요약
-- 이전 consulting 응답에서 선택한 내용 포함
-- 구체적이고 실행 가능한 명령으로 작성
+단순히 사용자의 마지막 말만 번역하지 말고, **(기존 문맥 + 새로운 요청)**을 통합하여 완벽한 프롬프트를 만드십시오.
 
-## JSON 응답 형식
-{
-  "refined_input": "정제된 입력 텍스트",
-  "target_generation_id": 123 or null
-}
+1. **상속 (Inheritance):** 선택된 `target_generation_id`의 `input_text`를 베이스로 가져옵니다. (target이 없으면 대화 내 제품 정보가 베이스)
+2. **수정 (Modification):** 사용자의 새로운 요청(추가/삭제/변경)을 반영합니다.
+   - "A 빼줘" → A 삭제
+   - "B를 C로 바꿔줘" → B를 C로 치환
+3. **구체화 (Specification):** 대명사("그 문구")나 모호한 표현을 구체적인 값으로 치환합니다.
+4. **형식 (Output Format):** 문장 형태보다는, 이미지 생성/광고 문구 생성에 즉시 투입 가능한 **지시문 형태**로 요약합니다.
 
-target_generation_id는 modification일 때만 필요, generation이면 null
+
+---
+
+Output Format (JSON Only)
+반드시 아래 JSON 포맷으로만 응답하며, 마크다운 코드 블록(``json)을 사용하지 마십시오.
+**reasoning` 필드에 당신의 판단 근거를 먼저 작성해야 정확도가 올라갑니다.**
+
+{{
+  "reasoning": "사용자가 '두 번째 거'라고 했으므로 chrono_rank=2인 ID 105를 선택함. 기존 요청 '시원한 느낌'에 '빨간색 강조'를 추가함.",
+  "intent_type": "modification" | "generation",
+  "target_generation_id": 123 | null,
+  "refined_input": "여기에 정제된 텍스트 작성"
+}}
+
+
 """
 
+        latest_user_message = ""
+        for msg in reversed(chat_history or []):
+            if msg.get("role") == "user":
+                latest_user_message = (msg.get("content") or "").strip()
+                break
+
+        total_generations = len(generation_history or [])
+        if total_generations:
+            for idx, gen in enumerate(generation_history):
+                gen["_chronological_rank"] = total_generations - idx
+
+        condensed_chat_history, chat_summary = _summarize_chat_history(chat_history)
+        condensed_generation_history, generation_summary = _summarize_generation_history(
+            generation_history
+        )
+        condensed_image_history = [
+            gen for gen in condensed_generation_history
+            if gen.get("output_image") or gen.get("input_image") or gen.get("content_type") == "image"
+        ]
+
         prompt = f"""
+# 현재 사용자 메시지
+{latest_user_message or "(없음)"}
+
+# 이전 대화 요약
+{chat_summary or "(없음)"}
+
 # 전체 대화 히스토리
-{_format_chat_history(chat_history)}
+{_format_chat_history(condensed_chat_history)}
+
+# 이전 생성 요약
+{generation_summary or "(없음)"}
 
 # 생성 이력 (recent_rank=1이 최신)
-{_format_generation_history(generation_history)}
+{_format_generation_history(condensed_generation_history)}
+
+# 이미지 생성 이력 (이미지=Y만)
+{_format_generation_history(condensed_image_history) if condensed_image_history else "(없음)"}
 
 # 사용자 요청
 intent: {intent}
@@ -735,65 +861,51 @@ JSON 형식으로 응답:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
+                response_format={"type": "json_object"},
                 temperature=0.2,
             )
 
             content = response.choices[0].message.content or ""
-            
-            # JSON 파싱
-            try:
-                result = json.loads(content.strip())
-                refined_input = result.get("refined_input", "").strip()
-                target_id = result.get("target_generation_id")
-                
-                # target_id 유효성 검사
-                if isinstance(target_id, str) and target_id.isdigit():
-                    target_id = int(target_id)
-                if not isinstance(target_id, int):
-                    target_id = None
-                
-                # refined_input이 비어있으면 마지막 사용자 메시지 사용
-                if not refined_input:
-                    for msg in reversed(chat_history or []):
-                        if msg.get("role") == "user":
-                            refined_input = msg.get("content", "").strip()
-                            break
-                
-                logger.info(
-                    f"Refinement: input={refined_input[:100]}, target_id={target_id}"
-                )
-                
-                return {
-                    "refined_input": refined_input,
-                    "target_generation_id": target_id,
-                }
-                
-            except json.JSONDecodeError:
-                # JSON 파싱 실패 시 텍스트 그대로 사용
-                refined_input = content.strip()
-                if not refined_input:
-                    for msg in reversed(chat_history or []):
-                        if msg.get("role") == "user":
-                            refined_input = msg.get("content", "").strip()
-                            break
-                
+
+            result = _extract_json_dict(content)
+            if result is None:
+                logger.warning("Refinement JSON parse failed: %s", content.strip())
+                refined_input = content.strip() or latest_user_message
                 return {
                     "refined_input": refined_input,
                     "target_generation_id": None,
                 }
 
+            refined_input = (result.get("refined_input") or "").strip()
+            target_id = result.get("target_generation_id")
+
+            # target_id 유효성 검사
+            if isinstance(target_id, str) and target_id.isdigit():
+                target_id = int(target_id)
+            if not isinstance(target_id, int):
+                target_id = None
+
+            # refined_input이 비어있으면 마지막 사용자 메시지 사용
+            if not refined_input:
+                refined_input = latest_user_message
+
+            logger.info(
+                "Refinement: original=%s, refined=%s, target_id=%s",
+                latest_user_message,
+                refined_input,
+                target_id,
+            )
+
+            return {
+                "refined_input": refined_input,
+                "target_generation_id": target_id,
+            }
+
         except Exception as e:
             logger.error(f"Refinement failed: {e}", exc_info=True)
-            
-            # 폴백: 마지막 사용자 메시지
-            fallback = ""
-            for msg in reversed(chat_history or []):
-                if msg.get("role") == "user":
-                    fallback = msg.get("content", "").strip()
-                    break
-            
+
             return {
-                "refined_input": fallback,
+                "refined_input": latest_user_message,
                 "target_generation_id": None,
             }
 

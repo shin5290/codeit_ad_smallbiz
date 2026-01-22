@@ -1,5 +1,5 @@
 import asyncio
-import logging, os, re
+import logging, os
 from dataclasses import dataclass
 from fastapi import Cookie, Depends, HTTPException, Response, UploadFile
 from jose import JWTError
@@ -275,11 +275,16 @@ async def ingest_user_message(
     """
 
     session_id = normalize_session_id(session_id) # 프론트에서 받아온 값 정규화
-    logger.info(f"ingest_user_message: session_id={session_id}, user_id={user_id}, has_image={image is not None}")
+    logger.debug(
+        "ingest_user_message: session_id=%s, user_id=%s, has_image=%s",
+        session_id,
+        user_id,
+        image is not None,
+    )
 
     # 1) 세션 확보/생성/귀속
     session_key = ensure_chat_session(db, session_id, user_id)
-    logger.info(f"ingest_user_message: session_key={session_key}")
+    logger.debug("ingest_user_message: session_key=%s", session_key)
 
     # 2) 이미지 디스크 저장 + image_maching DB 저장
     image_id, input_image = await _save_uploaded_image_payload(db=db, image=image)
@@ -293,14 +298,18 @@ async def ingest_user_message(
         input_text,
         image_id,
     )
-    logger.info(f"ingest_user_message: 채팅 메시지 저장 완료 id={chat_history_id}")
-
     result = IngestResult(
         session_id=session_key,
         chat_history_id=chat_history_id,
         input_image=input_image,
     )
-    logger.info(f"ingest_user_message: 결과 반환 input_image={input_image is not None}")
+    logger.info(
+        "ingest_user_message: session_id=%s, user_id=%s, has_image=%s, chat_id=%s",
+        session_key,
+        user_id,
+        input_image is not None,
+        chat_history_id,
+    )
     return result
 
 @dataclass

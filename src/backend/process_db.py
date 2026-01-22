@@ -248,7 +248,12 @@ def save_chat_message(
     텍스트 메시지 저장.
     image_id가 있으면 함께 저장.
     """
-    logger.info(f"save_chat_message: session_id={session_id}, role={role}, image_id={image_id}")
+    logger.debug(
+        "save_chat_message: session_id=%s, role=%s, image_id=%s",
+        session_id,
+        role,
+        image_id,
+    )
 
 
     chat = models.ChatHistory(
@@ -261,7 +266,7 @@ def save_chat_message(
     db.commit()
     db.refresh(chat)
 
-    logger.info(f"save_chat_message: chat message saved with id={chat.id}")
+    logger.debug("save_chat_message: chat message saved with id=%s", chat.id)
     return chat
 
 def _to_history_dicts(messages: list[models.ChatHistory]):
