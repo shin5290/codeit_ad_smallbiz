@@ -111,6 +111,40 @@
 self.model = SentenceTransformer(model_name, device="cpu")  # VRAM 0GB
 ```
 
+**CPU 성능 최적화 (큐잉 + 마이크로배치):**
+
+동시 사용자 증가에 대비하여 큐잉과 마이크로배치를 적용했습니다.
+
+| 설정 | 값 | 이유 |
+|------|-----|------|
+| **threads** | 2 | 벤치마크 결과 최적 (4 이상은 오버헤드) |
+| **batch_wait_ms** | 50ms | 요청 모으는 대기 시간 |
+| **max_batch_size** | 8 | 배치당 최대 쿼리 수 |
+
+**벤치마크 결과 (CPU, threads=2):**
+| 시나리오 | batch_size | concurrency | p95 latency | per_sentence |
+|----------|------------|-------------|-------------|--------------|
+| 단일 요청 | 1 | 1 | 200ms | 200ms |
+| 동시 5명 | 1 | 5 | 815ms | 815ms |
+| 마이크로배치 | 4 | 1 | 342ms | **87ms** |
+| 마이크로배치 | 8 | 1 | 470ms | **53ms** |
+
+**설계 원칙:**
+1. **동시 encode 금지**: Lock으로 CPU 경쟁 방지 (conc 높으면 모두 느려짐)
+2. **큐잉**: 요청을 순차 처리하여 예측 가능한 latency 보장
+3. **마이크로배치**: 50ms 동안 요청 모아서 배치 처리 → 문장당 처리 효율 향상
+4. **p95 기준 설계**: 95% 사용자가 200ms 내 응답 받도록 보장
+
+```python
+# rag/chain.py - E5Embeddings 설정
+E5Embeddings(
+    device="cpu",           # VRAM 0GB
+    batch_wait_ms=50,       # 50ms 대기 후 배치 처리
+    max_batch_size=8,       # 최대 8개 묶어서 처리
+    enable_micro_batch=True # 마이크로배치 활성화
+)
+```
+
 ---
 
 ### 2. `rag/` - RAG 시스템 (LangChain)
