@@ -168,9 +168,9 @@ class Text2ImageNode(BaseNode):
                     output_type="pil"
                 ).images[0]
 
-            # [전략 4] 주기적 메모리 정리 (매번 하면 느림, 5회마다 실행)
+            # [전략 4] 주기적 메모리 정리 (매번 하면 느림, 3회마다 실행)
             _EXECUTION_COUNT += 1
-            if _EXECUTION_COUNT % 5 == 0:
+            if _EXECUTION_COUNT % 3 == 0:
                 print(f"[{self.node_name}] 🧹 Periodic Memory Cleanup (Count: {_EXECUTION_COUNT})")
                 gc.collect()
                 torch.cuda.empty_cache()
