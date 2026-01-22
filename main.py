@@ -1,5 +1,4 @@
 import os
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True, max_split_size_mb:256"
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request, HTTPException

@@ -73,17 +73,24 @@ def load_shared_components(device: str = "cuda") -> Tuple:
             local_files_only=True,
             low_cpu_mem_usage=True
         )
+        from accelerate import cpu_offload_with_hook
+
+        temp_pipe.text_encoder, te_hook = cpu_offload_with_hook(
+            temp_pipe.text_encoder, device
+        )
+        _GLOBAL_TEXT_ENCODER = temp_pipe.text_encoder   # 반드시 유지
+        _GLOBAL_TEXT_ENCODER_OFFLOAD_HOOK = te_hook
 
         # 컴포넌트 추출
         _GLOBAL_TRANSFORMER = temp_pipe.transformer
         _GLOBAL_VAE = temp_pipe.vae
-        _GLOBAL_TEXT_ENCODER = temp_pipe.text_encoder
+        #_GLOBAL_TEXT_ENCODER = temp_pipe.text_encoder
         _GLOBAL_TOKENIZER = temp_pipe.tokenizer
 
         # GPU로 이동
         _GLOBAL_TRANSFORMER.to(device)
         _GLOBAL_VAE.to(device)
-        _GLOBAL_TEXT_ENCODER.to(device)
+        #_GLOBAL_TEXT_ENCODER.to(device)
 
         # FlashAttention 최적화
         try:
