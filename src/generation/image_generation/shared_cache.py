@@ -139,6 +139,13 @@ def get_t2i_pipeline(device: str = "cuda") -> ZImagePipeline:
     pipe.text_encoder, te_hook = cpu_offload_with_hook(pipe.text_encoder, device)
     pipe._text_encoder_offload_hook = te_hook
 
+    pipe._execution_device = device
+
+    print("pipe.device", getattr(pipe, "device", None))
+    print("exec", getattr(pipe, "_execution_device", None))
+    print("transformer", next(pipe.transformer.parameters()).device)
+    print("text_encoder", next(pipe.text_encoder.parameters()).device)
+
     print("[SharedCache] T2I pipeline created (using shared components)")
     return pipe
 
@@ -167,6 +174,14 @@ def get_i2i_pipeline(device: str = "cuda") -> ZImageImg2ImgPipeline:
     from accelerate import cpu_offload_with_hook
     pipe.text_encoder, te_hook = cpu_offload_with_hook(pipe.text_encoder, device)
     pipe._text_encoder_offload_hook = te_hook
+
+    pipe._execution_device = device
+
+    print("pipe.device", getattr(pipe, "device", None))
+    print("exec", getattr(pipe, "_execution_device", None))
+    print("transformer", next(pipe.transformer.parameters()).device)
+    print("text_encoder", next(pipe.text_encoder.parameters()).device)
+
 
     print("[SharedCache] I2I pipeline created (using shared components)")
     return pipe
