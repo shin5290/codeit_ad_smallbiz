@@ -20,7 +20,7 @@ Z-Image Turbo 모델을 사용한 고속 이미지 생성
 4. Backend → 저장 경로/URL 반환
 """
 
-from typing import Optional, Literal, Dict, Any
+from typing import Optional, Literal, Dict, Any, Callable
 from pathlib import Path
 import time
 
@@ -53,6 +53,7 @@ def generate_and_save_image(
     strength: float = 0.6,  # I2I 변형 강도 (0.3~0.7 권장)
     control_type: Literal["canny", "depth", "pose"] = "canny",
     controlnet_conditioning_scale: float = 0.8,
+    progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> Dict[str, Any]:
     """
     한글 사용자 입력으로 자동 프롬프트 생성 후 이미지 생성 및 저장
@@ -122,6 +123,20 @@ def generate_and_save_image(
         if storage_dir is None:
             storage_dir = DEFAULT_STORAGE_DIR
 
+        def emit_progress(event: str, node_name: str) -> None:
+            if progress_callback:
+                progress_callback({"event": event, "node": node_name})
+
+        def on_node_start(node, _data) -> None:
+            if node.node_name in ("Text2ImageNode", "Image2ImageNode"):
+                emit_progress("image_generation_start", node.node_name)
+            elif node.node_name == "SaveImageNode":
+                emit_progress("image_save_start", node.node_name)
+
+        def on_node_end(node, _data) -> None:
+            if node.node_name == "PromptProcessorNode":
+                emit_progress("prompt_done", node.node_name)
+
         # 워크플로우 구성
         if reference_image is not None:
             # I2I 워크플로우: Prompt → I2I → (Text Overlay) → Save
@@ -169,7 +184,11 @@ def generate_and_save_image(
             inputs["seed"] = seed
 
         # 워크플로우 실행
-        result = workflow.run(inputs)
+        result = workflow.run(
+            inputs,
+            on_node_start=on_node_start,
+            on_node_end=on_node_end,
+        )
 
         generation_time = time.time() - start_time
 

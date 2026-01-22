@@ -1,14 +1,22 @@
+import asyncio
 import logging, os, re
 from dataclasses import dataclass
 from fastapi import Cookie, Depends, HTTPException, Response, UploadFile
 from jose import JWTError
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, AsyncIterator
+from starlette.concurrency import run_in_threadpool
+from typing import List, Optional, Dict, AsyncIterator, Callable, Any
 
 from src.backend import process_db, schemas, models
 from src.backend.chatbot import get_conversation_manager, get_llm_orchestrator, get_consulting_service
 from src.generation.text_generation.text_generator import TextGenerator
 from src.generation.image_generation.generator import generate_and_save_image
+from src.generation.image_generation.preload import (
+    get_model_load_error,
+    is_model_ready,
+    start_model_preload,
+    wait_for_model_ready,
+)
 from src.utils.security import verify_password, create_access_token, decode_token
 from src.utils.session import normalize_session_id, ensure_chat_session
 from src.utils.image import save_uploaded_image, load_image_from_payload, image_payload
@@ -16,6 +24,32 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 _TEXT_GENERATOR = None  # 싱글톤 인스턴스
+_IMAGE_PROGRESS_HINTS = {
+    "prompt_done": {
+        "percent": 70,
+        "message": "이미지 프롬프트 생성을 완료했습니다.",
+    },
+    "image_generation_start": {
+        "percent": 82,
+        "message": "이미지를 생성중입니다.",
+    },
+    "image_save_start": {
+        "percent": 96,
+        "message": "이미지를 저장중입니다.",
+    },
+}
+
+
+def _build_generation_progress_payload(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    hint = _IMAGE_PROGRESS_HINTS.get(event.get("event"))
+    if not hint:
+        return None
+    return {
+        "type": "progress",
+        "stage": "generation_update",
+        "message": hint["message"],
+        "percent": hint["percent"],
+    }
 
 def get_text_generator() -> TextGenerator:
     """TextGenerator 싱글톤 인스턴스 반환"""
@@ -311,6 +345,7 @@ async def generate_contents(
     strength: Optional[float] = None,
     text_tone: Optional[str] = None,
     text_max_length: Optional[int] = None,
+    progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> GeneratedContent:
     """
     콘텐츠 생성
@@ -384,13 +419,15 @@ async def generate_contents(
             # user_input으로부터 프롬프트를 자동 생성함
             if reference_image is not None and effective_strength is None:
                 effective_strength = 0.6
-            img_result = generate_and_save_image(
+            img_result = await run_in_threadpool(
+                generate_and_save_image,
                 user_input=input_text,
                 style=style or "ultra_realistic",
                 aspect_ratio=aspect_ratio or "1:1",
                 industry=industry or "general",
                 reference_image=reference_image,
                 strength=effective_strength,
+                progress_callback=progress_callback,
             )
 
             if img_result["success"]:
@@ -555,6 +592,25 @@ async def handle_chat_message_stream(
             yield payload
         return
 
+    if generation_type == "image":
+        start_model_preload(device="cuda")
+        if not is_model_ready():
+            yield {
+                "type": "progress",
+                "stage": "preloading",
+                "message": "이미지 생성 모델을 로드 중입니다. 잠시만 기다려주세요.",
+                "session_id": session_key,
+            }
+            if not await wait_for_model_ready():
+                error_detail = get_model_load_error()
+                if error_detail:
+                    logger.error(f"Image model preload failed: {error_detail}")
+                yield {
+                    "type": "error",
+                    "message": "이미지 생성 모델 로드에 실패했습니다. 잠시 후 다시 시도해주세요.",
+                }
+                return
+
     # 4. Generation/Modification 분기
     # Refinement (텍스트 정제 + 수정 대상 ID 찾기)
     chat_history = conv_manager.get_full_messages(db, session_key)
@@ -570,6 +626,17 @@ async def handle_chat_message_stream(
     generation_input = refinement_result.get("refined_input") or message
     target_generation_id = refinement_result.get("target_generation_id")  # Refinement에서 찾음
 
+    progress_queue: Optional[asyncio.Queue] = None
+    progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
+    if generation_type == "image":
+        loop = asyncio.get_running_loop()
+        progress_queue = asyncio.Queue()
+
+        def progress_callback(event: Dict[str, Any]) -> None:
+            payload = _build_generation_progress_payload(event)
+            if payload:
+                loop.call_soon_threadsafe(progress_queue.put_nowait, payload)
+
     try:
         if intent == "modification":
             yield {
@@ -579,17 +646,33 @@ async def handle_chat_message_stream(
                 "generation_type": generation_type,
             }
 
-            result = await handle_chat_revise(
-                db=db,
-                session_id=session_key,
-                target_generation_id=target_generation_id,
-                generation_input=generation_input,
-                style=style,  # Intent에서 결정된 스타일 전달
-                aspect_ratio=aspect_ratio,  # Intent에서 결정된 비율 전달
-                strength=strength,  # Intent에서 결정된 강도 전달
-                text_tone=text_tone,
-                text_max_length=text_max_length,
+            task = asyncio.create_task(
+                handle_chat_revise(
+                    db=db,
+                    session_id=session_key,
+                    target_generation_id=target_generation_id,
+                    generation_input=generation_input,
+                    style=style,  # Intent에서 결정된 스타일 전달
+                    aspect_ratio=aspect_ratio,  # Intent에서 결정된 비율 전달
+                    strength=strength,  # Intent에서 결정된 강도 전달
+                    text_tone=text_tone,
+                    text_max_length=text_max_length,
+                    progress_callback=progress_callback,
+                )
             )
+            if progress_queue is not None:
+                while True:
+                    if task.done() and progress_queue.empty():
+                        break
+                    try:
+                        payload = await asyncio.wait_for(progress_queue.get(), timeout=0.2)
+                    except asyncio.TimeoutError:
+                        continue
+                    yield payload
+            result = await task
+            if progress_queue is not None:
+                while not progress_queue.empty():
+                    yield progress_queue.get_nowait()
             output = result.get("output", {})
 
             yield {
@@ -608,18 +691,34 @@ async def handle_chat_message_stream(
             "generation_type": generation_type,
         }
 
-        result = await _execute_generation_pipeline(
-            db=db,
-            generation_input=generation_input,
-            generation_type=generation_type,
-            aspect_ratio=aspect_ratio,
-            style=style,
-            industry=industry,
-            strength=strength,
-            text_tone=text_tone,
-            text_max_length=text_max_length,
-            ingest=ingest,
+        task = asyncio.create_task(
+            _execute_generation_pipeline(
+                db=db,
+                generation_input=generation_input,
+                generation_type=generation_type,
+                aspect_ratio=aspect_ratio,
+                style=style,
+                industry=industry,
+                strength=strength,
+                text_tone=text_tone,
+                text_max_length=text_max_length,
+                ingest=ingest,
+                progress_callback=progress_callback,
+            )
         )
+        if progress_queue is not None:
+            while True:
+                if task.done() and progress_queue.empty():
+                    break
+                try:
+                    payload = await asyncio.wait_for(progress_queue.get(), timeout=0.2)
+                except asyncio.TimeoutError:
+                    continue
+                yield payload
+        result = await task
+        if progress_queue is not None:
+            while not progress_queue.empty():
+                yield progress_queue.get_nowait()
         output = result.get("output", {})
 
         yield {
@@ -645,6 +744,7 @@ async def _execute_generation_pipeline(
     text_tone: Optional[str] = None,
     text_max_length: Optional[int] = None,
     ingest: Optional[IngestResult] = None,
+    progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> Dict:
     """
     생성 파이프라인 실행
@@ -676,6 +776,7 @@ async def _execute_generation_pipeline(
         strength=strength,
         text_tone=text_tone,
         text_max_length=text_max_length,
+        progress_callback=progress_callback,
     )
 
     # 결과 저장
@@ -702,6 +803,7 @@ async def handle_chat_revise(
     strength: Optional[float] = None,  # Intent에서 전달받음
     text_tone: Optional[str] = None,
     text_max_length: Optional[int] = None,
+    progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
 ):
     """
     광고 수정 요청 처리 서비스
@@ -744,6 +846,7 @@ async def handle_chat_revise(
         strength=updated_params["strength"],
         text_tone=text_tone,
         text_max_length=text_max_length,
+        progress_callback=progress_callback,
     )
 
     # 결과 저장

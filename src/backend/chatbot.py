@@ -178,7 +178,6 @@ class ConversationManager:
         generations = process_db.get_generation_history_by_session(
             db, session_id, limit=None
         )
-        generations_reversed = list(reversed(generations))
 
         return [
             {
@@ -194,7 +193,7 @@ class ConversationManager:
                 "output_image": image_payload(gen.output_image),
                 "timestamp": gen.created_at.isoformat(),
             }
-            for gen in generations_reversed
+            for gen in generations
         ]
 
 
