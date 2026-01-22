@@ -127,8 +127,17 @@ class CPUTextEncoderWrapper(torch.nn.Module):
         self.dtype = next(text_encoder.parameters()).dtype
 
     def __getattr__(self, name):
-        # Delegate attribute access (e.g., config, device) to the original encoder
-        return getattr(self.text_encoder, name)
+        # [Fix RecursionError]
+        # self.text_encoder is a submodule, so it's in _modules, not __dict__.
+        # Accessing self.text_encoder triggers __getattr__, creating a loop.
+        # We must access it via _modules directly.
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            pass
+
+        encoder = self._modules['text_encoder']
+        return getattr(encoder, name)
 
     def __call__(self, *args, **kwargs):
         # 1. Move inputs to CPU
@@ -180,15 +189,16 @@ def get_t2i_pipeline(device: str = "cuda") -> ZImagePipeline:
         transformer=transformer
     )
 
-    # 파이프라인을 명시적으로 GPU로 이동
-    pipe.enable_attention_slicing()
-    pipe.to(device)
+    # [OOM Fix] DO NOT call pipe.to(device) which moves Text Encoder to GPU.
+    # Manually enable slicing just in case
+    if hasattr(pipe, "enable_attention_slicing"):
+        pipe.enable_attention_slicing()
 
-    # [OOM Fix] FORCE Text Encoder back to CPU and Wrap it
-    pipe.text_encoder.to("cpu")
-    pipe.text_encoder = CPUTextEncoderWrapper(pipe.text_encoder, device)
+    # Wrap Text Encoder (forcing CPU execution for safety)
+    if not isinstance(pipe.text_encoder, CPUTextEncoderWrapper):
+        pipe.text_encoder = CPUTextEncoderWrapper(pipe.text_encoder, device)
 
-    print("[SharedCache] T2I pipeline created (CPU-Offloaded TextEncoder)")
+    print(f"[SharedCache] T2I pipeline created (TextEncoder on CPU, Transformer on {device})")
     return pipe
 
 
@@ -209,15 +219,15 @@ def get_i2i_pipeline(device: str = "cuda") -> ZImageImg2ImgPipeline:
         transformer=transformer
     )
 
-    # 파이프라인을 명시적으로 GPU로 이동
-    pipe.enable_attention_slicing()
-    pipe.to(device)
+    # [OOM Fix] DO NOT call pipe.to(device)
+    if hasattr(pipe, "enable_attention_slicing"):
+        pipe.enable_attention_slicing()
     
-    # [OOM Fix] FORCE Text Encoder back to CPU and Wrap it
-    pipe.text_encoder.to("cpu")
-    pipe.text_encoder = CPUTextEncoderWrapper(pipe.text_encoder, device)
+    # Wrap Text Encoder
+    if not isinstance(pipe.text_encoder, CPUTextEncoderWrapper):
+        pipe.text_encoder = CPUTextEncoderWrapper(pipe.text_encoder, device)
 
-    print("[SharedCache] I2I pipeline created (CPU-Offloaded TextEncoder)")
+    print(f"[SharedCache] I2I pipeline created (TextEncoder on CPU, Transformer on {device})")
     return pipe
 
 
