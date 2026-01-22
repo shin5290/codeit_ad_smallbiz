@@ -49,13 +49,6 @@ def load_shared_components(device: str = "cuda") -> Tuple:
     with _CACHE_LOCK:
         # 이미 로드되었으면 반환
         if _GLOBAL_TRANSFORMER is not None:
-            if _GLOBAL_TEXT_ENCODER is not None:
-                try:
-                    encoder_device = next(_GLOBAL_TEXT_ENCODER.parameters()).device
-                    if encoder_device.type != "cpu":
-                        _GLOBAL_TEXT_ENCODER.to("cpu")
-                except StopIteration:
-                    pass
             print("[SharedCache] ✅ Using cached components")
             return (
                 _GLOBAL_TRANSFORMER,
@@ -90,8 +83,7 @@ def load_shared_components(device: str = "cuda") -> Tuple:
         # GPU로 이동
         _GLOBAL_TRANSFORMER.to(device)
         _GLOBAL_VAE.to(device)
-        # Text Encoder: Keep on CPU (Do not move to device)
-        # _GLOBAL_TEXT_ENCODER.to(device)
+        _GLOBAL_TEXT_ENCODER.to(device)
 
         # FlashAttention 최적화
         try:
@@ -122,79 +114,6 @@ def load_shared_components(device: str = "cuda") -> Tuple:
         )
 
 
-class CPUTextEncoderWrapper(torch.nn.Module):
-    """
-    [OOM Prevention]
-    Wraps the Text Encoder to FORCE execution on CPU.
-    Automatically moves inputs to CPU and outputs back to GPU.
-    """
-    def __init__(self, text_encoder, target_device):
-        super().__init__()
-        self.text_encoder = text_encoder
-        self.target_device = torch.device(target_device)
-        self.dtype = next(text_encoder.parameters()).dtype
-
-    def __getattr__(self, name):
-        # [Fix RecursionError]
-        # self.text_encoder is a submodule, so it's in _modules, not __dict__.
-        # Accessing self.text_encoder triggers __getattr__, creating a loop.
-        # We must access it via _modules directly.
-        try:
-            return super().__getattr__(name)
-        except AttributeError:
-            pass
-
-        encoder = self._modules['text_encoder']
-        return getattr(encoder, name)
-
-    def _move_hidden_states(self, output):
-        hidden_states = getattr(output, "hidden_states", None)
-        if hidden_states is None:
-            return
-
-        if isinstance(hidden_states, (list, tuple)) and len(hidden_states) >= 2:
-            hs_list = list(hidden_states)
-            if isinstance(hs_list[-2], torch.Tensor):
-                hs_list[-2] = hs_list[-2].to(self.target_device)
-            output.hidden_states = type(hidden_states)(hs_list)
-            return
-
-        if isinstance(hidden_states, torch.Tensor):
-            output.hidden_states = hidden_states.to(self.target_device)
-
-    def forward(self, *args, **kwargs):
-        # 1. Move inputs to CPU
-        new_args = [
-            arg.to("cpu") if isinstance(arg, torch.Tensor) else arg 
-            for arg in args
-        ]
-        new_kwargs = {
-            k: v.to("cpu") if isinstance(v, torch.Tensor) else v 
-            for k, v in kwargs.items()
-        }
-
-        # 2. Run on CPU
-        with torch.no_grad():
-            output = self.text_encoder(*new_args, **new_kwargs)
-
-        # 3. Move output back to GPU
-        if hasattr(output, "last_hidden_state"):
-            output.last_hidden_state = output.last_hidden_state.to(self.target_device)
-        if hasattr(output, "pooler_output"):
-            output.pooler_output = output.pooler_output.to(self.target_device)
-        self._move_hidden_states(output)
-        
-        # If it returns a tuple/list (some older diffusers)
-        if isinstance(output, tuple):
-            output = tuple(
-                x.to(self.target_device) if isinstance(x, torch.Tensor) else x
-                for x in output
-            )
-
-        return output
-
-
-
 def get_t2i_pipeline(device: str = "cuda") -> ZImagePipeline:
     """
     공유 컴포넌트를 사용하는 T2I 파이프라인 생성
@@ -212,16 +131,11 @@ def get_t2i_pipeline(device: str = "cuda") -> ZImagePipeline:
         transformer=transformer
     )
 
-    # [OOM Fix] DO NOT call pipe.to(device) which moves Text Encoder to GPU.
-    # Manually enable slicing just in case
-    if hasattr(pipe, "enable_attention_slicing"):
-        pipe.enable_attention_slicing()
+    # 파이프라인을 명시적으로 GPU로 이동
+    pipe.enable_attention_slicing()
+    pipe.to(device)
 
-    # Wrap Text Encoder (forcing CPU execution for safety)
-    if not isinstance(pipe.text_encoder, CPUTextEncoderWrapper):
-        pipe.text_encoder = CPUTextEncoderWrapper(pipe.text_encoder, device)
-
-    print(f"[SharedCache] T2I pipeline created (TextEncoder on CPU, Transformer on {device})")
+    print("[SharedCache] T2I pipeline created (using shared components)")
     return pipe
 
 
@@ -242,15 +156,11 @@ def get_i2i_pipeline(device: str = "cuda") -> ZImageImg2ImgPipeline:
         transformer=transformer
     )
 
-    # [OOM Fix] DO NOT call pipe.to(device)
-    if hasattr(pipe, "enable_attention_slicing"):
-        pipe.enable_attention_slicing()
+    # 파이프라인을 명시적으로 GPU로 이동
+    pipe.enable_attention_slicing()
+    pipe.to(device)
     
-    # Wrap Text Encoder
-    if not isinstance(pipe.text_encoder, CPUTextEncoderWrapper):
-        pipe.text_encoder = CPUTextEncoderWrapper(pipe.text_encoder, device)
-
-    print(f"[SharedCache] I2I pipeline created (TextEncoder on CPU, Transformer on {device})")
+    print("[SharedCache] I2I pipeline created (using shared components)")
     return pipe
 
 
