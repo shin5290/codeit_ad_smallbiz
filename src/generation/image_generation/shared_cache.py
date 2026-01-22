@@ -83,7 +83,8 @@ def load_shared_components(device: str = "cuda") -> Tuple:
         # GPU로 이동
         _GLOBAL_TRANSFORMER.to(device)
         _GLOBAL_VAE.to(device)
-        _GLOBAL_TEXT_ENCODER.to(device)
+        # Text Encoder: Keep on CPU (Do not move to device)
+        # _GLOBAL_TEXT_ENCODER.to(device)
 
         # FlashAttention 최적화
         try:
