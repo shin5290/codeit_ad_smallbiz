@@ -73,18 +73,11 @@ def load_shared_components(device: str = "cuda") -> Tuple:
             local_files_only=True,
             low_cpu_mem_usage=True
         )
-        from accelerate import cpu_offload_with_hook
-
-        temp_pipe.text_encoder, te_hook = cpu_offload_with_hook(
-            temp_pipe.text_encoder, device
-        )
-        _GLOBAL_TEXT_ENCODER = temp_pipe.text_encoder   # 반드시 유지
-        _GLOBAL_TEXT_ENCODER_OFFLOAD_HOOK = te_hook
-
+        
         # 컴포넌트 추출
         _GLOBAL_TRANSFORMER = temp_pipe.transformer
         _GLOBAL_VAE = temp_pipe.vae
-        #_GLOBAL_TEXT_ENCODER = temp_pipe.text_encoder
+        _GLOBAL_TEXT_ENCODER = temp_pipe.text_encoder
         _GLOBAL_TOKENIZER = temp_pipe.tokenizer
 
         # GPU로 이동
@@ -142,6 +135,10 @@ def get_t2i_pipeline(device: str = "cuda") -> ZImagePipeline:
     pipe.enable_attention_slicing()
     pipe.to(device)
 
+    from accelerate import cpu_offload_with_hook
+    pipe.text_encoder, te_hook = cpu_offload_with_hook(pipe.text_encoder, device)
+    pipe._text_encoder_offload_hook = te_hook
+
     print("[SharedCache] T2I pipeline created (using shared components)")
     return pipe
 
@@ -166,6 +163,10 @@ def get_i2i_pipeline(device: str = "cuda") -> ZImageImg2ImgPipeline:
     # 파이프라인을 명시적으로 GPU로 이동
     pipe.enable_attention_slicing()
     pipe.to(device)
+
+    from accelerate import cpu_offload_with_hook
+    pipe.text_encoder, te_hook = cpu_offload_with_hook(pipe.text_encoder, device)
+    pipe._text_encoder_offload_hook = te_hook
 
     print("[SharedCache] I2I pipeline created (using shared components)")
     return pipe
