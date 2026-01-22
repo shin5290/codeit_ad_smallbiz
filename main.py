@@ -54,7 +54,7 @@ app.include_router(admin.router) # 관리자 기능
 
 @app.get("/")
 async def read_index():
-    file_path = os.path.join(current_dir, "src", "frontend", "test.html")
+    file_path = os.path.join(current_dir, "src", "frontend", "main.html")
     return FileResponse(file_path, headers={"Cache-Control": "no-store"})
 
 

@@ -65,6 +65,7 @@
             display: flex;
             flex-direction: column;
             height: 100%;
+            position: relative;
         }
 
         /* 채팅 영역 */
@@ -91,30 +92,59 @@
         }
 
         .msg {
-            margin-bottom: 15px;
+            margin-bottom: 0;
             padding: 14px 18px;
             border-radius: 16px;
             font-size: 15px;
             line-height: 1.6;
-            max-width: 75%;
-            width: fit-content;
+            display: inline-block;
+            width: auto;
+            max-width: 100%;
             min-width: 40px;
             position: relative;
             word-wrap: break-word;
+            box-sizing: border-box;
+            overflow: hidden;
+            text-align: left;
         }
 
-        .user {
+        .msg-wrap {
+            display: flex;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .msg-stack {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0px;
+            max-width: 75%;
+        }
+
+        .msg-wrap.user {
+            justify-content: flex-end;
+        }
+
+        .msg-wrap.assistant {
+            justify-content: flex-start;
+        }
+
+        .msg-content {
+            display: inline-block;
+            max-width: 100%;
+        }
+
+        .msg.user {
             background: linear-gradient(135deg, #667eea 0%, #4F46E5 100%);
             color: white;
-            margin-left: auto;
             border-bottom-right-radius: 4px;
             box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
         }
 
-        .assistant {
+        .msg.assistant {
             background: white;
             color: #333;
-            margin-right: auto;
             border-bottom-left-radius: 4px;
             border: 1px solid #e9ecef;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -147,6 +177,28 @@
         }
 
         input[type="text"]:focus {
+            border-color: #4F46E5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 14px 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            outline: none;
+            font-size: 15px;
+            transition: all 0.2s;
+            resize: none;
+            min-height: 48px;
+            max-height: 140px;
+            line-height: 1.4;
+            overflow-y: auto;
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+
+        .chat-input:focus {
             border-color: #4F46E5;
             box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
         }
@@ -317,16 +369,135 @@
         /* 메시지 내 이미지 스타일 */
         .msg img {
             max-width: 300px;
+            width: auto;
             max-height: 300px;
             margin-top: 10px;
             border-radius: 8px;
             cursor: pointer;
             transition: opacity 0.2s;
             object-fit: contain;
+            height: auto;
         }
 
         .msg img:hover {
             opacity: 0.9;
+        }
+
+        .image-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-top: 10px;
+            max-width: 100%;
+            width: fit-content;
+        }
+
+        .image-wrapper img {
+            display: block;
+            margin: 0;
+        }
+
+        .msg-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 3px;
+            margin-top: 8px;
+        }
+
+        .msg-action-btn {
+            position: relative;
+            border: none;
+            border-radius: 12px;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            font-size: 0;
+            color: #4F46E5;
+            background: #eef2ff;
+            border: 1px solid #e0e7ff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .msg-action-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .msg-action-btn::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 12px);
+            transform: translateX(-50%) translateY(4px);
+            background: #111827;
+            color: #ffffff;
+            padding: 6px 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            z-index: 5;
+        }
+
+        .msg-action-btn::before {
+            content: "";
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 4px);
+            transform: translateX(-50%);
+            border-width: 6px 6px 0 6px;
+            border-style: solid;
+            border-color: #111827 transparent transparent transparent;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            z-index: 5;
+        }
+
+        .msg-action-btn:hover {
+            background: #e0e7ff;
+            box-shadow: 0 6px 14px rgba(79, 70, 229, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .msg-action-btn:hover::after,
+        .msg-action-btn:hover::before,
+        .msg-action-btn:focus-visible::after,
+        .msg-action-btn:focus-visible::before {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .msg-action-btn:focus-visible {
+            outline: 2px solid rgba(79, 70, 229, 0.6);
+            outline-offset: 2px;
+        }
+
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 24px;
+            transform: translateX(-50%) translateY(10px);
+            background: rgba(20, 24, 34, 0.92);
+            color: #ffffff;
+            padding: 10px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 600;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            z-index: 2002;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
         }
 
         .msg p {
@@ -345,6 +516,69 @@
             padding: 2px 4px;
             border-radius: 4px;
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        }
+
+        .image-guide {
+            position: absolute;
+            top: -52px;
+            left: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+            padding: 8px 28px 8px 12px;
+            border-radius: 16px;
+            background: #eef2ff;
+            border: 1px solid #e0e7ff;
+            color: #4F46E5;
+            font-size: 13px;
+            font-weight: 600;
+            width: max-content;
+            max-width: 260px;
+            white-space: normal;
+            z-index: 3;
+            box-shadow: 0 8px 16px rgba(79, 70, 229, 0.18);
+        }
+
+        .image-guide::before {
+            content: "";
+            position: absolute;
+            left: 18px;
+            bottom: -9px;
+            border-width: 9px 9px 0 9px;
+            border-style: solid;
+            border-color: #e0e7ff transparent transparent transparent;
+        }
+
+        .image-guide::after {
+            content: "";
+            position: absolute;
+            left: 19px;
+            bottom: -8px;
+            border-width: 8px 8px 0 8px;
+            border-style: solid;
+            border-color: #eef2ff transparent transparent transparent;
+        }
+
+        .image-guide-dismiss {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            border: 1px solid #e0e7ff;
+            background: #ffffff;
+            color: #4F46E5;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .image-guide-dismiss:hover {
+            background: #e0e7ff;
         }
         .msg pre {
             background: #f1f3f5;
@@ -412,8 +646,13 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            font-size: 18px;
+            color: #4F46E5;
             transition: all 0.2s;
+        }
+
+        .image-upload-btn svg {
+            width: 20px;
+            height: 20px;
         }
 
         .image-upload-btn:hover:not(.disabled) {
@@ -435,7 +674,7 @@
             width: 100%;
         }
 
-        .input-row input[type="text"] {
+        .input-row .chat-input {
             flex: 1;
         }
 
@@ -515,6 +754,54 @@
             border: 4px solid #e3e6ea;
             border-top-color: #6c7ae0;
             animation: chatSpin 0.9s linear infinite;
+        }
+
+        .scroll-to-bottom {
+            position: absolute;
+            right: 18px;
+            bottom: calc(var(--input-area-height, 0px) + 16px);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: #ffffff;
+            border: 1px solid #e2e5ea;
+            color: #3d4250;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 6px 16px rgba(31, 41, 55, 0.12);
+            z-index: 5;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+        }
+
+        .scroll-to-bottom:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px rgba(31, 41, 55, 0.16);
+        }
+
+        .scroll-to-bottom .scroll-arrow {
+            font-size: 14px;
+        }
+
+        .scroll-to-bottom .scroll-badge {
+            position: absolute;
+            right: 0;
+            bottom: calc(100% + 6px);
+            background: #4F46E5;
+            color: white;
+            padding: 4px 9px;
+            font-size: 12px;
+            border-radius: 999px;
+            white-space: nowrap;
+            box-shadow: 0 6px 14px rgba(79, 70, 229, 0.25);
+        }
+
+        @media (max-width: 720px) {
+            .scroll-to-bottom {
+                right: 12px;
+                bottom: calc(var(--input-area-height, 0px) + 12px);
+            }
         }
 
         @keyframes chatSpin {
@@ -624,18 +911,30 @@
                     <!-- 입력/버튼 한 줄 -->
                     <div class="input-row input-inner">
                         <label for="imageUpload" id="imageUploadLabel" class="image-upload-btn"
-                            title="이미지 업로드">📷</label>
+                            title="이미지 업로드" aria-label="이미지 업로드">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                                <circle cx="12" cy="13" r="4"></circle>
+                            </svg>
+                        </label>
                         <input type="file" id="imageUpload" accept="image/*" hidden onchange="handleImageUpload(event)">
 
-                        <input type="text" id="userMsg" name="message" autocomplete="off"
-                            placeholder="메시지를 입력하세요... " oninput="updateSendButton()"
-                            onkeypress="if(event.keyCode==13) sendChat()">
+                        <textarea id="userMsg" name="message" class="chat-input" autocomplete="off"
+                            placeholder="메시지를 입력하세요... (Shift+Enter 줄바꿈)" rows="1"
+                            oninput="handleInputChange(event)" onkeydown="handleInputKeyDown(event)"></textarea>
 
                         <button id="sendBtn" class="btn-primary btn-round" style="width: 80px; padding: 14px;"
                             onclick="sendChat()" disabled>전송</button>
                     </div>
                 </div>
             </div>
+            <button id="scrollToBottomBtn" class="scroll-to-bottom hidden" onclick="scrollToLatest()"
+                aria-label="최신 메시지로 이동">
+                <span class="scroll-label">최신 메시지</span>
+                <span class="scroll-arrow">↓</span>
+                <span id="scrollToBottomBadge" class="scroll-badge hidden">새 메시지 ↓</span>
+            </button>
         </div>
     </div>
 
@@ -684,10 +983,14 @@
         <img id="modal-image" src="" alt="Full size image">
     </div>
 
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
     <script>
         const API_BASE = window.location.origin;
+        const SCROLL_BOTTOM_THRESHOLD = 80;
+        const IMAGE_GUIDE_STORAGE_KEY = "hide_image_zoom_guide";
         let currentSessionId = null;
         let isSignup = false;
         let isLoggedIn = false;
@@ -696,13 +999,15 @@
         let oldestMessageId = null;
         let nextCursor = null;
         let isLoadingHistory = false;
+        let hasUnreadMessages = false;
+        let toastTimer = null;
 
         // ====== 안전 JSON 파서 ======
         async function safeJson(res) {
             try { return await res.json(); } catch { return {}; }
         }
 
-        function shouldAutoScroll(box, threshold = 80) {
+        function shouldAutoScroll(box, threshold = SCROLL_BOTTOM_THRESHOLD) {
             if (!box) return false;
             const distance = box.scrollHeight - box.scrollTop - box.clientHeight;
             return distance <= threshold;
@@ -710,6 +1015,49 @@
 
         function scrollToBottom(box) {
             if (box) box.scrollTop = box.scrollHeight;
+        }
+
+        function updateScrollButtonState() {
+            const box = document.getElementById('chatBox');
+            const button = document.getElementById('scrollToBottomBtn');
+            const badge = document.getElementById('scrollToBottomBadge');
+            if (!box || !button) return;
+            const isNearBottom = shouldAutoScroll(box);
+            button.classList.toggle('hidden', isNearBottom);
+            if (isNearBottom) {
+                hasUnreadMessages = false;
+            }
+            if (badge) {
+                badge.classList.toggle('hidden', isNearBottom || !hasUnreadMessages);
+            }
+        }
+
+        function updateScrollButtonOffset() {
+            const container = document.querySelector('.chat-container');
+            const inputArea = document.querySelector('.input-area');
+            if (!container || !inputArea) return;
+            const height = inputArea.getBoundingClientRect().height;
+            container.style.setProperty('--input-area-height', `${height}px`);
+        }
+
+        function markUnreadMessage() {
+            hasUnreadMessages = true;
+            updateScrollButtonState();
+        }
+
+        function scrollToLatest() {
+            const box = document.getElementById('chatBox');
+            if (!box) return;
+            hasUnreadMessages = false;
+            box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+            updateScrollButtonState();
+        }
+
+        function handleChatScroll() {
+            const box = document.getElementById('chatBox');
+            if (!box) return;
+            if (box.scrollTop === 0) loadOlderHistory();
+            updateScrollButtonState();
         }
 
         // ====== 채팅 렌더 유틸 ======
@@ -744,22 +1092,280 @@
             return await safeJson(res);
         }
 
+        function normalizeImageUrls(imageUrls) {
+            if (Array.isArray(imageUrls)) return imageUrls.filter(Boolean);
+            if (imageUrls) return [imageUrls];
+            return [];
+        }
+
+        function getMessageContentContainer(container) {
+            if (!container) return null;
+            let content = container.querySelector('.msg-content');
+            if (!content) {
+                content = document.createElement('div');
+                content.className = 'msg-content';
+                if (container.firstChild) {
+                    container.insertBefore(content, container.firstChild);
+                } else {
+                    container.appendChild(content);
+                }
+            }
+            return content;
+        }
+
+        function setMessageRawText(container, text) {
+            if (!container) return;
+            container.dataset.rawText = text || "";
+        }
+
+        function setMessageImageUrls(container, imageUrls) {
+            if (!container) return;
+            container.dataset.imageUrls = JSON.stringify(imageUrls || []);
+        }
+
+        function getMessageImageUrls(container) {
+            if (!container) return [];
+            const raw = container.dataset.imageUrls;
+            if (!raw) return [];
+            try {
+                const parsed = JSON.parse(raw);
+                return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+            } catch {
+                return [];
+            }
+        }
+
+        function getMessageRole(container) {
+            if (!container) return null;
+            if (container.classList.contains('assistant')) return 'assistant';
+            if (container.classList.contains('user')) return 'user';
+            return null;
+        }
+
+        function getMessageWrapper(container) {
+            if (!container) return null;
+            return container.closest('.msg-wrap');
+        }
+
+        function getMessageStack(container) {
+            if (!container) return null;
+            const stack = container.closest('.msg-stack');
+            if (stack) return stack;
+            const wrapper = getMessageWrapper(container);
+            return wrapper ? wrapper.querySelector('.msg-stack') : null;
+        }
+
+        function clearMessageProgress(container) {
+            if (!container) return;
+            container.querySelectorAll('.assistant-progress').forEach((node) => node.remove());
+        }
+
+        function clearMessageImages(container) {
+            if (!container) return;
+            container.querySelectorAll('.image-wrapper').forEach((node) => node.remove());
+            Array.from(container.children).forEach((child) => {
+                if (child.tagName === 'IMG') child.remove();
+            });
+        }
+
+        function clearMessageActions(container) {
+            if (!container) return;
+            const wrapper = getMessageWrapper(container) || container;
+            const stack = getMessageStack(container) || wrapper;
+            stack.querySelectorAll('.msg-actions').forEach((node) => node.remove());
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            if (!toast) return;
+            toast.textContent = message;
+            toast.classList.add('show');
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
+        async function copyToClipboard(text) {
+            if (!text) return;
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.focus();
+                    textarea.select();
+                    const succeeded = document.execCommand('copy');
+                    textarea.remove();
+                    if (!succeeded) throw new Error('copy failed');
+                }
+                showToast('복사 완료');
+            } catch (err) {
+                console.error(err);
+                showToast('복사 실패');
+            }
+        }
+
+        function getImageFilename(url, index = 0) {
+            const fallback = `image_${Date.now()}_${index + 1}.png`;
+            if (!url) return fallback;
+            if (url.startsWith('data:')) return fallback;
+            try {
+                const parsed = new URL(url, window.location.origin);
+                const name = parsed.pathname.split('/').pop();
+                if (!name) return fallback;
+                if (name.includes('.')) return name;
+                return `${name}.png`;
+            } catch {
+                return fallback;
+            }
+        }
+
+        function downloadImage(url, filename) {
+            if (!url) return;
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = filename || 'image.png';
+            anchor.rel = 'noopener';
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+        }
+
+        function appendTextActions(container) {
+            if (!container || getMessageRole(container) !== 'assistant') return;
+            const rawText = (container.dataset.rawText || "").trim();
+            const imageUrls = getMessageImageUrls(container);
+            const hasImage = imageUrls.length > 0;
+            const wrapper = getMessageWrapper(container) || container;
+            const stack = getMessageStack(container) || wrapper;
+
+            clearMessageActions(container);
+            if (!rawText && !hasImage) return;
+
+            const actions = document.createElement('div');
+            actions.className = 'msg-actions';
+
+            if (rawText) {
+                const copyBtn = document.createElement('button');
+                copyBtn.type = 'button';
+                copyBtn.className = 'msg-action-btn';
+                copyBtn.setAttribute('data-tooltip', '복사');
+                copyBtn.setAttribute('aria-label', '광고문구 복사');
+                copyBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                `;
+                copyBtn.addEventListener('click', () => {
+                    const latestText = (container.dataset.rawText || "").trim();
+                    if (!latestText) return;
+                    copyToClipboard(latestText);
+                });
+                actions.appendChild(copyBtn);
+            }
+
+            if (hasImage) {
+                const downloadBtn = document.createElement('button');
+                downloadBtn.type = 'button';
+                downloadBtn.className = 'msg-action-btn';
+                downloadBtn.setAttribute('data-tooltip', '다운로드');
+                downloadBtn.setAttribute('aria-label', '이미지 다운로드');
+                downloadBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                `;
+                downloadBtn.addEventListener('click', () => {
+                    const urls = getMessageImageUrls(container);
+                    if (!urls.length) return;
+                    downloadImage(urls[0], getImageFilename(urls[0], 0));
+                });
+                actions.appendChild(downloadBtn);
+            }
+
+            stack.appendChild(actions);
+        }
+
+        function appendMessageImages(container, imageUrls) {
+            const urls = normalizeImageUrls(imageUrls);
+            clearMessageImages(container);
+            setMessageImageUrls(container, urls);
+            urls.forEach((url) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'image-wrapper';
+
+                const img = document.createElement('img');
+                img.src = url;
+                img.alt = '첨부 이미지';
+                img.onclick = () => openImageModal(url);
+
+                wrapper.appendChild(img);
+                container.appendChild(wrapper);
+            });
+            return urls;
+        }
+
+        function shouldShowImageGuide() {
+            return !localStorage.getItem(IMAGE_GUIDE_STORAGE_KEY);
+        }
+
+        function dismissImageGuide(guide, { persist = false } = {}) {
+            if (!guide) return;
+            if (persist) localStorage.setItem(IMAGE_GUIDE_STORAGE_KEY, "1");
+            guide.classList.add('hidden');
+            setTimeout(() => guide.remove(), 150);
+        }
+
+        function showImageGuide(container) {
+            if (!container || !shouldShowImageGuide()) return;
+            if (container.querySelector('.image-guide')) return;
+            const guide = document.createElement('div');
+            guide.className = 'image-guide';
+
+            const text = document.createElement('span');
+            text.className = 'image-guide-text';
+            text.textContent = '💡 이미지를 클릭하면 크게 볼 수 있어요!';
+
+            const dismissBtn = document.createElement('button');
+            dismissBtn.type = 'button';
+            dismissBtn.className = 'image-guide-dismiss';
+            dismissBtn.textContent = '×';
+            dismissBtn.setAttribute('aria-label', '다시 보지 않기');
+            dismissBtn.title = '다시 보지 않기';
+            dismissBtn.addEventListener('click', () => dismissImageGuide(guide, { persist: true }));
+
+            guide.appendChild(text);
+            guide.appendChild(dismissBtn);
+            container.appendChild(guide);
+        }
+
         function createMessageElement(role, text, imageUrls, messageId) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `msg-wrap ${role}`;
+
+            const stack = document.createElement('div');
+            stack.className = 'msg-stack';
+
             const div = document.createElement('div');
             div.className = `msg ${role}`;
             if (messageId) div.dataset.messageId = String(messageId);
 
-            if (text) div.innerHTML = renderMessageContent(text);
-
-            if (Array.isArray(imageUrls)) {
-                imageUrls.forEach((url) => {
-                    div.innerHTML += `<img src="${url}" onclick="openImageModal('${url}')">`;
-                });
-            } else if (imageUrls) {
-                div.innerHTML += `<img src="${imageUrls}" onclick="openImageModal('${imageUrls}')">`;
-            }
-
-            return div;
+            renderMessageInto(div, text);
+            appendMessageImages(div, imageUrls);
+            stack.appendChild(div);
+            wrapper.appendChild(stack);
+            appendTextActions(div);
+            return wrapper;
         }
 
         function renderMessages(items, { prepend = false } = {}) {
@@ -767,6 +1373,7 @@
             if (!content) return;
 
             const fragment = document.createDocumentFragment();
+            let lastGuideTarget = null;
             (items || []).forEach((m) => {
                 const role = (m.role === "assistant") ? "assistant" : "user";
                 const imageUrls = m.image ? [m.image].map((img) => {
@@ -777,13 +1384,22 @@
                     return `${API_BASE}${p}`;
                 }).filter(Boolean) : [];
 
-                fragment.appendChild(createMessageElement(role, m.content, imageUrls, m.id));
+                const wrapper = createMessageElement(role, m.content, imageUrls, m.id);
+                if (!prepend && role === 'assistant' && imageUrls.length) {
+                    const msg = wrapper.querySelector('.msg');
+                    lastGuideTarget = msg || lastGuideTarget;
+                }
+                fragment.appendChild(wrapper);
             });
 
             if (prepend) {
                 content.insertBefore(fragment, content.firstChild);
             } else {
                 content.appendChild(fragment);
+            }
+
+            if (!prepend && lastGuideTarget) {
+                showImageGuide(lastGuideTarget);
             }
         }
 
@@ -799,6 +1415,7 @@
                 if (greetId) streamAssistantText(greetId, "안녕하세요! 어떤 광고 아이디어가 필요하신가요?");
                 nextCursor = null;
                 oldestMessageId = null;
+                updateScrollButtonState();
                 return;
             }
 
@@ -808,6 +1425,7 @@
 
             const box = document.getElementById('chatBox');
             if (box) box.scrollTop = box.scrollHeight;
+            updateScrollButtonState();
         }
 
         async function loadOlderHistory() {
@@ -834,6 +1452,7 @@
             }
 
             isLoadingHistory = false;
+            updateScrollButtonState();
         }
 
 
@@ -904,12 +1523,13 @@
         window.addEventListener("DOMContentLoaded", () => {
             // 기존 로그인 복구
             initAuth();
+            updateScrollButtonOffset();
+            window.addEventListener('resize', updateScrollButtonOffset);
 
             const box = document.getElementById('chatBox');
             if (box) {
-                box.addEventListener('scroll', () => {
-                    if (box.scrollTop === 0) loadOlderHistory();
-                });
+                box.addEventListener('scroll', handleChatScroll);
+                updateScrollButtonState();
             }
         });
 
@@ -1175,10 +1795,13 @@
 
             if (!selectedImageFile) {
                 strip.classList.add('hidden');
+                setImageUploadEnabled(true);
+                updateScrollButtonOffset();
                 return;
             }
 
             strip.classList.remove('hidden');
+            setImageUploadEnabled(false);
 
             const item = document.createElement('div');
             item.className = 'preview-item';
@@ -1198,12 +1821,68 @@
             item.appendChild(img);
             item.appendChild(removeBtn);
             strip.appendChild(item);
+            updateScrollButtonOffset();
         }
 
         function removePreview() {
             selectedImageFile = null;
             renderPreviews();
             updateSendButton();
+        }
+
+        function setImageUploadEnabled(isEnabled) {
+            const label = document.getElementById('imageUploadLabel');
+            const input = document.getElementById('imageUpload');
+            if (!label || !input) return;
+            label.classList.toggle('disabled', !isEnabled);
+            input.disabled = !isEnabled;
+            if (!isEnabled) {
+                label.setAttribute('aria-disabled', 'true');
+            } else {
+                label.removeAttribute('aria-disabled');
+            }
+        }
+
+        function resizeChatInput(input) {
+            if (!input) return;
+            const style = window.getComputedStyle(input);
+            const maxHeight = parseFloat(style.maxHeight) || 140;
+            const minHeight = parseFloat(style.minHeight) || 0;
+            const padding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+            const border = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+            const isBorderBox = style.boxSizing === 'border-box';
+
+            if (input.value.trim().length === 0) {
+                input.style.height = '';
+                updateScrollButtonOffset();
+                return;
+            }
+
+            input.style.height = 'auto';
+            let nextHeight = input.scrollHeight;
+
+            if (isBorderBox) {
+                nextHeight += border;
+            } else {
+                nextHeight -= padding;
+            }
+
+            nextHeight = Math.max(minHeight, Math.min(nextHeight, maxHeight));
+            input.style.height = `${nextHeight}px`;
+            updateScrollButtonOffset();
+        }
+
+        function handleInputChange(event) {
+            updateSendButton();
+            resizeChatInput(event.target);
+        }
+
+        function handleInputKeyDown(event) {
+            if (event.key !== 'Enter') return;
+            if (event.isComposing) return;
+            if (event.shiftKey) return;
+            event.preventDefault();
+            sendChat();
         }
 
         function updateSendButton() {
@@ -1225,13 +1904,25 @@
             const box = document.getElementById('chatBox');
             if (!content || !box) return null;
             const shouldScroll = shouldAutoScroll(box);
+            const wrapper = document.createElement('div');
+            const stack = document.createElement('div');
             const div = document.createElement('div');
             const id = `a_${Date.now()}_${Math.random().toString(16).slice(2)}`;
             div.id = id;
             div.className = `msg assistant`;
-            div.innerHTML = renderMessageContent(text);
-            content.appendChild(div);
-            if (shouldScroll) scrollToBottom(box);
+            renderMessageInto(div, text);
+            wrapper.className = 'msg-wrap assistant';
+            stack.className = 'msg-stack';
+            stack.appendChild(div);
+            wrapper.appendChild(stack);
+            appendTextActions(div);
+            content.appendChild(wrapper);
+            if (shouldScroll) {
+                scrollToBottom(box);
+                updateScrollButtonState();
+            } else {
+                markUnreadMessage();
+            }
             return id;
         }
 
@@ -1252,14 +1943,17 @@
             clearStreamTimer(id);
             stopProgress(id);
             renderMessageInto(div, text, { showCursor });
-            if (Array.isArray(imageUrls)) {
-                imageUrls.forEach((url) => {
-                    div.innerHTML += `<img src="${url}" onclick="openImageModal('${url}')">`;
-                });
-            } else if (imageUrls) {
-                div.innerHTML += `<img src="${imageUrls}" onclick="openImageModal('${imageUrls}')">`;
+            const images = appendMessageImages(div, imageUrls);
+            appendTextActions(div);
+            if (images.length) {
+                showImageGuide(div);
             }
-            if (shouldScroll) scrollToBottom(box);
+            if (shouldScroll) {
+                scrollToBottom(box);
+                updateScrollButtonState();
+            } else {
+                markUnreadMessage();
+            }
         }
 
         async function streamAssistantText(id, text, { speed = 28, chunkSize = 1 } = {}) {
@@ -1267,6 +1961,7 @@
             const box = document.getElementById('chatBox');
             if (!div || !box) return;
             stopProgress(id);
+            clearMessageActions(div);
             if (!text) {
                 updateAssistantPlaceholder(id, "");
                 return;
@@ -1293,10 +1988,16 @@
                     renderMessageInto(div, text.slice(0, index), {
                         showCursor: index < text.length,
                     });
-                    if (shouldScroll) scrollToBottom(box);
+                    if (shouldScroll) {
+                        scrollToBottom(box);
+                        updateScrollButtonState();
+                    } else {
+                        markUnreadMessage();
+                    }
                     if (index >= text.length) {
                         clearInterval(timer);
                         timers.delete(id);
+                        appendTextActions(div);
                         resolve();
                     }
                 }, speed);
@@ -1314,12 +2015,16 @@
         }
 
         function renderMessageInto(container, text, { showCursor = false } = {}) {
-            container.innerHTML = renderMessageContent(text);
+            if (!container) return;
+            clearMessageProgress(container);
+            setMessageRawText(container, text);
+            const content = getMessageContentContainer(container);
+            content.innerHTML = renderMessageContent(text);
             if (!showCursor) return;
             const cursor = document.createElement('span');
             cursor.className = 'typing-cursor';
             const walker = document.createTreeWalker(
-                container,
+                content,
                 NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
                 {
                     acceptNode: (node) => {
@@ -1342,23 +2047,23 @@
             }
 
             if (!lastNode) {
-                container.appendChild(cursor);
+                content.appendChild(cursor);
                 return;
             }
 
             if (lastNode.nodeType === Node.TEXT_NODE) {
-                const parent = lastNode.parentNode || container;
+                const parent = lastNode.parentNode || content;
                 parent.insertBefore(cursor, lastNode.nextSibling);
                 return;
             }
 
             if (lastNode.nodeType === Node.ELEMENT_NODE && lastNode.tagName === "BR") {
-                const parent = lastNode.parentNode || container;
+                const parent = lastNode.parentNode || content;
                 parent.insertBefore(cursor, lastNode);
                 return;
             }
 
-            container.appendChild(cursor);
+            content.appendChild(cursor);
         }
 
         // ====== (추가) HTML 이스케이프 ======
@@ -1597,6 +2302,7 @@
                 appendMsg('user', msg, previewUrls);
 
                 input.value = '';
+                resizeChatInput(input);
                 updateSendButton();
 
                 const form = new FormData();
@@ -1869,9 +2575,18 @@
             if (!content || !box) return;
 
             const shouldScroll = shouldAutoScroll(box);
-            const div = createMessageElement(role, text, imageUrls, messageId);
-            content.appendChild(div);
-            if (shouldScroll) scrollToBottom(box);
+            const wrapper = createMessageElement(role, text, imageUrls, messageId);
+            content.appendChild(wrapper);
+            if (shouldScroll) {
+                scrollToBottom(box);
+                updateScrollButtonState();
+            } else {
+                if (role === 'assistant') {
+                    markUnreadMessage();
+                } else {
+                    updateScrollButtonState();
+                }
+            }
         }
 
 
