@@ -114,55 +114,6 @@ def load_shared_components(device: str = "cuda") -> Tuple:
         )
 
 
-class CPUTextEncoderWrapper(torch.nn.Module):
-    """
-    [OOM Prevention]
-    Wraps the Text Encoder to FORCE execution on CPU.
-    Automatically moves inputs to CPU and outputs back to GPU.
-    """
-    def __init__(self, text_encoder, target_device):
-        super().__init__()
-        self.text_encoder = text_encoder
-        self.target_device = target_device
-        self.dtype = next(text_encoder.parameters()).dtype
-
-    def __getattr__(self, name):
-        # Delegate attribute access (e.g., config, device) to the original encoder
-        return getattr(self.text_encoder, name)
-
-    def __call__(self, *args, **kwargs):
-        # 1. Move inputs to CPU
-        new_args = [
-            arg.to("cpu") if isinstance(arg, torch.Tensor) else arg 
-            for arg in args
-        ]
-        new_kwargs = {
-            k: v.to("cpu") if isinstance(v, torch.Tensor) else v 
-            for k, v in kwargs.items()
-        }
-
-        # 2. Run on CPU
-        with torch.no_grad():
-            output = self.text_encoder(*new_args, **new_kwargs)
-
-        # 3. Move output (BaseModelOutputWithPooling) back to GPU
-        # Check if output is a tuple or ModelOutput
-        if hasattr(output, "last_hidden_state"):
-            output.last_hidden_state = output.last_hidden_state.to(self.target_device)
-        if hasattr(output, "pooler_output"):
-            output.pooler_output = output.pooler_output.to(self.target_device)
-        
-        # If it returns a tuple/list (some older diffusers)
-        if isinstance(output, tuple):
-             output = tuple(
-                 x.to(self.target_device) if isinstance(x, torch.Tensor) else x 
-                 for x in output
-             )
-
-        return output
-
-
-
 def get_t2i_pipeline(device: str = "cuda") -> ZImagePipeline:
     """
     공유 컴포넌트를 사용하는 T2I 파이프라인 생성
@@ -184,11 +135,7 @@ def get_t2i_pipeline(device: str = "cuda") -> ZImagePipeline:
     pipe.enable_attention_slicing()
     pipe.to(device)
 
-    # [OOM Fix] FORCE Text Encoder back to CPU and Wrap it
-    pipe.text_encoder.to("cpu")
-    pipe.text_encoder = CPUTextEncoderWrapper(pipe.text_encoder, device)
-
-    print("[SharedCache] T2I pipeline created (CPU-Offloaded TextEncoder)")
+    print("[SharedCache] T2I pipeline created (using shared components)")
     return pipe
 
 
@@ -213,11 +160,7 @@ def get_i2i_pipeline(device: str = "cuda") -> ZImageImg2ImgPipeline:
     pipe.enable_attention_slicing()
     pipe.to(device)
     
-    # [OOM Fix] FORCE Text Encoder back to CPU and Wrap it
-    pipe.text_encoder.to("cpu")
-    pipe.text_encoder = CPUTextEncoderWrapper(pipe.text_encoder, device)
-
-    print("[SharedCache] I2I pipeline created (CPU-Offloaded TextEncoder)")
+    print("[SharedCache] I2I pipeline created (using shared components)")
     return pipe
 
 
