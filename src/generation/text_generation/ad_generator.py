@@ -3,7 +3,9 @@
 백엔드(진수경)가 호출할 메인 함수
 
 작성자: 배현석
-버전: 1.0
+기능 추가: 신승목
+버전: 1.0 -> 1.1
+버전 변경 내용: logging 추가
 """
 
 import sys
@@ -15,6 +17,9 @@ sys.path.insert(0, str(project_root))
 
 from src.generation.text_generation.text_generator import TextGenerator
 from src.generation.text_generation.prompt_manager import PromptTemplateManager
+from src.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def generate_advertisement(
@@ -65,16 +70,16 @@ def generate_advertisement(
         }
     """
 
-    print("=" * 80)
-    print("🎬 광고 생성 파이프라인 시작")
-    print("=" * 80)
-    print(f"📥 사용자 입력: {user_input}")
-    print(f"📐 설정: tone={tone}, max_length={max_length}, style={style}\n")
+    logger.info("=" * 80)
+    logger.info("🎬 광고 생성 파이프라인 시작")
+    logger.info("=" * 80)
+    logger.info(f"📥 사용자 입력: {user_input}")
+    logger.info(f"📐 설정: tone={tone}, max_length={max_length}, style={style}\n")
 
     try:
         # 1. 광고 문구 생성 (TextGenerator)
-        print("1️⃣ 광고 문구 생성")
-        print("-" * 80)
+        logger.info("1️⃣ 광고 문구 생성")
+        logger.info("-" * 80)
 
         text_gen = TextGenerator()
         ad_copy = text_gen.generate_ad_copy(
@@ -83,11 +88,11 @@ def generate_advertisement(
             max_length=max_length
         )
 
-        print(f"✅ 광고 문구: '{ad_copy}' ({len(ad_copy)}자)\n")
+        logger.info(f"✅ 광고 문구: '{ad_copy}' ({len(ad_copy)}자)\n")
 
         # 2. 이미지 프롬프트 생성 (PromptTemplateManager)
-        print("2️⃣ 이미지 프롬프트 생성")
-        print("-" * 80)
+        logger.info("2️⃣ 이미지 프롬프트 생성")
+        logger.info("-" * 80)
 
         prompt_manager = PromptTemplateManager()
         image_prompts = prompt_manager.generate_image_prompt(
@@ -95,9 +100,9 @@ def generate_advertisement(
             style=style
         )
 
-        print(f"✅ Positive: {len(image_prompts['positive'])} chars")
-        print(f"✅ Negative: {len(image_prompts['negative'])} chars")
-        print(f"✅ Industry: {image_prompts['industry']}\n")
+        logger.info(f"✅ Positive: {len(image_prompts['positive'])} chars")
+        logger.info(f"✅ Negative: {len(image_prompts['negative'])} chars")
+        logger.info(f"✅ Industry: {image_prompts['industry']}\n")
 
         # 3. 결과 통합
         result = {
@@ -109,19 +114,19 @@ def generate_advertisement(
             "status": "success"
         }
 
-        print("=" * 80)
-        print("🎉 광고 생성 완료!")
-        print("=" * 80)
-        print(f"📝 광고 문구: {ad_copy}")
-        print(f"📸 Positive: {image_prompts['positive'][:60]}...")
-        print(f"🚫 Negative: {image_prompts['negative'][:60]}...")
-        print(f"🏢 업종: {image_prompts['industry']}")
-        print("=" * 80 + "\n")
+        logger.info("=" * 80)
+        logger.info("🎉 광고 생성 완료!")
+        logger.info("=" * 80)
+        logger.info(f"📝 광고 문구: {ad_copy}")
+        logger.info(f"📸 Positive: {image_prompts['positive'][:60]}...")
+        logger.info(f"🚫 Negative: {image_prompts['negative'][:60]}...")
+        logger.info(f"🏢 업종: {image_prompts['industry']}")
+        logger.info("=" * 80 + "\n")
 
         return result
 
     except Exception as e:
-        print(f"❌ 광고 생성 실패: {e}")
+        logger.error(f"❌ 광고 생성 실패: {e}")
         import traceback
         traceback.print_exc()
 

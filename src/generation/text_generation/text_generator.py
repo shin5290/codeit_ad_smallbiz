@@ -1,15 +1,19 @@
 """
-광고 문구 생성 모듈 (v2.0.0)
+광고 문구 생성 모듈 (v2.1.0)
 industries.yaml 기반 업종별 최적화 프롬프트 지원
 
 작성자: 배현석
-버전: 2.0.0 (industries.yaml 연동)
+logging 추가: 신승목
+버전: 2.1.0 (industries.yaml 연동, logging 추가)
+
 """
 import os
 from typing import Optional, Dict
 
 from dotenv import load_dotenv
 from openai import OpenAI
+
+from src.utils.logging import get_logger
 
 # PromptTemplateManager import (선택적, 모듈 의존성 분리 목적)
 try:
@@ -45,13 +49,15 @@ class TextGenerator:
         self.client = OpenAI(api_key=api_key)
         self.model = "gpt-4o-mini"
 
+        self.logger = get_logger(__name__)
+
         # PromptTemplateManager 초기화 (선택적)
         self.use_industry_config = use_industry_config and PROMPT_MANAGER_AVAILABLE
         if self.use_industry_config:
             try:
                 self.prompt_manager = PromptTemplateManager()
             except Exception as e:
-                print(f"⚠️ PromptTemplateManager 초기화 실패: {e}")
+                self.logger.error(f"⚠️ PromptTemplateManager 초기화 실패: {e}")
                 self.prompt_manager = None
                 self.use_industry_config = False
         else:
@@ -80,25 +86,25 @@ class TextGenerator:
             str: 생성된 광고 문구
                 예: "따뜻한 겨울, 새로운 맛"
         """
-        print("📝 광고 문구 생성 중...")
-        print(f"   입력: {user_input}")
+        self.logger.info("📝 광고 문구 생성 중...")
+        self.logger.info(f"   입력: {user_input}")
 
         # 업종 감지 및 톤 자동 설정 (v2.0.0)
         detected_industry = None
         if self.use_industry_config and self.prompt_manager:
             detected_industry = industry or self.prompt_manager.detect_industry(user_input)
-            print(f"   감지된 업종: {detected_industry}")
+            self.logger.info(f"   감지된 업종: {detected_industry}")
 
             # tone이 "auto"이면 업종에 맞는 톤 자동 선택
             if tone == "auto":
                 tone = self.prompt_manager.get_recommended_tone(detected_industry)
-                print(f"   추천 톤 적용: {tone}")
+                self.logger.info(f"   추천 톤 적용: {tone}")
 
         # tone이 여전히 "auto"이면 기본값 사용
         if tone == "auto":
             tone = "warm"
 
-        print(f"   톤: {tone}, 최대 {max_length}자")
+        self.logger.info(f"   톤: {tone}, 최대 {max_length}자")
 
         try:
             # v2.0.0: 업종별 최적화 프롬프트 사용
@@ -133,11 +139,11 @@ class TextGenerator:
             # 후처리
             ad_copy = self._postprocess(ad_copy, max_length)
 
-            print(f"✅ 생성 완료: {ad_copy}")
+            self.logger.info(f"✅ 생성 완료: {ad_copy}")
             return ad_copy
 
         except Exception as e:
-            print(f"❌ 오류 발생: {e}")
+            self.logger.error(f"❌ 오류 발생: {e}")
             return self._get_fallback_copy()
 
     def generate_ad_copy_with_info(
