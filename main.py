@@ -72,8 +72,13 @@ app.include_router(chat.router) # 챗봇 및 대화 관리
 
 # 이미지 서빙
 @app.get("/images/{file_hash}")
-def get_image(file_hash: str, db: Session = Depends(process_db.get_db)):
+def get_image(
+    file_hash: str,
+    request: Request,
+    size: str | None = None,
+    db: Session = Depends(process_db.get_db),
+):
     """
     “파일 경로”를 “URL”로 바꿔주는 이미지 서빙
     """
-    return get_image_file_response(db, file_hash)
+    return get_image_file_response(db, file_hash, request=request, size=size)

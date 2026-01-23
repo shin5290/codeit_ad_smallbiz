@@ -2,6 +2,10 @@
         const API_BASE = window.location.origin;
         const SCROLL_BOTTOM_THRESHOLD = 80;
         const IMAGE_GUIDE_STORAGE_KEY = "hide_image_zoom_guide";
+        const IMAGE_SIZE = {
+            thumb: "thumb",
+            full: "full",
+        };
         let currentSessionId = null;
         let isSignup = false;
         let isLoggedIn = false;
@@ -103,10 +107,65 @@
             return await safeJson(res);
         }
 
+        function resolveImageValue(image) {
+            if (!image) return null;
+            if (typeof image === 'string') return image;
+            if (image.image_hash) return image.image_hash;
+            if (image.file_hash) return image.file_hash;
+            if (image.file_directory) return image.file_directory;
+            return null;
+        }
+
+        function buildSizedImageUrl(imageValue, size) {
+            if (!imageValue) return null;
+            if (imageValue.startsWith('data:image/')) return imageValue;
+            if (!imageValue.includes('/') && !imageValue.includes(':')) {
+                return `${API_BASE}/images/${encodeURIComponent(imageValue)}?size=${size}`;
+            }
+            if (imageValue.startsWith('http')) {
+                try {
+                    const url = new URL(imageValue);
+                    if (url.pathname.startsWith('/images/')) {
+                        url.searchParams.set('size', size);
+                    }
+                    return url.toString();
+                } catch {
+                    return imageValue;
+                }
+            }
+            if (imageValue.startsWith('/images/')) {
+                const url = new URL(`${API_BASE}${imageValue}`);
+                url.searchParams.set('size', size);
+                return url.toString();
+            }
+            if (imageValue.startsWith('/')) {
+                return `${API_BASE}${imageValue}`;
+            }
+            return `${API_BASE}/images/${encodeURIComponent(imageValue)}?size=${size}`;
+        }
+
         function normalizeImageUrls(imageUrls) {
-            if (Array.isArray(imageUrls)) return imageUrls.filter(Boolean);
-            if (imageUrls) return [imageUrls];
-            return [];
+            const entries = Array.isArray(imageUrls)
+                ? imageUrls
+                : imageUrls
+                    ? [imageUrls]
+                    : [];
+            return entries.map((item) => {
+                if (!item) return null;
+                if (typeof item === 'object' && (item.thumbUrl || item.fullUrl)) {
+                    const fullUrl = item.fullUrl || item.thumbUrl;
+                    const thumbUrl = item.thumbUrl || item.fullUrl;
+                    return { fullUrl, thumbUrl };
+                }
+                const resolved = resolveImageValue(item);
+                if (!resolved) return null;
+                const fullUrl = buildSizedImageUrl(resolved, IMAGE_SIZE.full);
+                const thumbUrl = buildSizedImageUrl(resolved, IMAGE_SIZE.thumb);
+                return {
+                    fullUrl: fullUrl || thumbUrl,
+                    thumbUrl: thumbUrl || fullUrl,
+                };
+            }).filter(Boolean);
         }
 
         function getMessageContentContainer(container) {
@@ -308,22 +367,28 @@
         }
 
         function appendMessageImages(container, imageUrls) {
-            const urls = normalizeImageUrls(imageUrls);
+            const entries = normalizeImageUrls(imageUrls);
             clearMessageImages(container);
-            setMessageImageUrls(container, urls);
-            urls.forEach((url) => {
+            const fullUrls = [];
+            entries.forEach((entry) => {
+                const fullUrl = entry.fullUrl || entry.thumbUrl;
+                const thumbUrl = entry.thumbUrl || entry.fullUrl;
+                if (!fullUrl && !thumbUrl) return;
                 const wrapper = document.createElement('div');
                 wrapper.className = 'image-wrapper';
 
                 const img = document.createElement('img');
-                img.src = url;
+                img.src = thumbUrl || fullUrl;
                 img.alt = '첨부 이미지';
-                img.onclick = () => openImageModal(url);
+                img.loading = 'lazy';
+                img.onclick = () => openImageModal(fullUrl || thumbUrl);
 
                 wrapper.appendChild(img);
                 container.appendChild(wrapper);
+                fullUrls.push(fullUrl || thumbUrl);
             });
-            return urls;
+            setMessageImageUrls(container, fullUrls);
+            return fullUrls;
         }
 
         function shouldShowImageGuide() {
@@ -387,13 +452,7 @@
             let lastGuideTarget = null;
             (items || []).forEach((m) => {
                 const role = (m.role === "assistant") ? "assistant" : "user";
-                const imageUrls = m.image ? [m.image].map((img) => {
-                    const p = img.file_directory;
-                    if (!p) return null;
-                    if (p.startsWith("data:image/")) return p;
-                    if (p.startsWith("http")) return p;
-                    return `${API_BASE}${p}`;
-                }).filter(Boolean) : [];
+                const imageUrls = m.image ? [m.image] : [];
 
                 const wrapper = createMessageElement(role, m.content, imageUrls, m.id);
                 if (!prepend && role === 'assistant' && imageUrls.length) {
@@ -1379,18 +1438,6 @@
                 if (!sessionId) return;
                 currentSessionId = sessionId;
                 localStorage.setItem("session_id", sessionId);
-            };
-
-            const normalizeImageUrls = (imageValue) => {
-                if (!imageValue) return [];
-                const images = Array.isArray(imageValue) ? imageValue : [imageValue];
-                return images.map((img) => {
-                    if (!img) return null;
-                    if (img.startsWith("data:image/")) return img;
-                    if (img.startsWith("http")) return img;
-                    if (img.startsWith("/")) return `${API_BASE}${img}`;
-                    return `${API_BASE}/images/${img}`;
-                }).filter(Boolean);
             };
 
             const handleStreamProgress = (payload) => {

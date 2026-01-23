@@ -32,6 +32,15 @@
         const userModalClose = document.getElementById('user-modal-close');
 
         const TEXT_PREVIEW_LIMIT = 120;
+        const IMAGE_SIZE = {
+            thumb: 'thumb',
+            full: 'full',
+        };
+
+        function buildImageUrl(fileHash, size = IMAGE_SIZE.full) {
+            if (!fileHash) return null;
+            return `${API_BASE}/images/${encodeURIComponent(fileHash)}?size=${size}`;
+        }
 
         function escapeHtml(str) {
             return String(str ?? "")
@@ -180,8 +189,10 @@
                 : '';
             return `
                 <div class="text-cell">
-                    <span class="text-preview">${escapeHtml(preview)}</span>
-                    ${button}
+                    <span class="text-preview-row">
+                        <span class="text-preview">${escapeHtml(preview)}</span>
+                        ${button}
+                    </span>
                 </div>
             `;
         }
@@ -196,16 +207,19 @@
             return `
                 <div class="text-cell">
                     <span class="text-label">${escapeHtml(label)}</span>
-                    <span class="text-preview">${escapeHtml(preview)}</span>
-                    ${button}
+                    <span class="text-preview-row">
+                        <span class="text-preview">${escapeHtml(preview)}</span>
+                        ${button}
+                    </span>
                 </div>
             `;
         }
 
         function buildImageCell(image) {
             if (!image || !image.file_hash) return '-';
-            const url = `${API_BASE}/images/${image.file_hash}`;
-            return `<img class="thumb" src="${url}" alt="preview" onclick="openImageModal('${url}')">`;
+            const thumbUrl = buildImageUrl(image.file_hash, IMAGE_SIZE.thumb);
+            const fullUrl = buildImageUrl(image.file_hash, IMAGE_SIZE.full);
+            return `<img class="thumb" src="${thumbUrl}" loading="lazy" alt="preview" onclick="openImageModal('${fullUrl}')">`;
         }
 
         function buildInputCell(item) {
@@ -247,11 +261,11 @@
         function buildMetaCell(item) {
             const metaItems = [
                 {
-                    label: '타입',
+                    label: '생성타입',
                     value: item.content_type,
                     format: (value) =>
                         isMetaValuePresent(value)
-                            ? `<span class="badge">${escapeHtml(String(value))}</span>`
+                            ? `<span class="badge badge-tight">${escapeHtml(String(value))}</span>`
                             : '-',
                 },
                 { label: 'generation_method', value: item.generation_method },
@@ -315,17 +329,16 @@
 
             items.forEach((item) => {
                 const row = document.createElement('tr');
-                const userCell = item.login_id
-                    ? `
+                const loginLabel = item.login_id ? escapeHtml(item.login_id) : 'guest';
+                const userCell = `
                         <a href="#" class="user-link"
-                            data-login-id="${encodeURIComponent(item.login_id)}"
+                            data-login-id="${encodeURIComponent(item.login_id || '')}"
                             data-name="${encodeURIComponent(item.name || '')}"
                             data-user-id="${encodeURIComponent(item.user_id ?? '')}"
                             data-session-id="${encodeURIComponent(item.session_id || '')}">
-                            ${escapeHtml(item.login_id)}
+                            ${loginLabel}
                         </a>
-                    `
-                    : 'guest';
+                    `;
                 const inputCell = buildInputCell(item);
                 const outputCell = buildOutputCell(item);
                 const metaCell = buildMetaCell(item);
