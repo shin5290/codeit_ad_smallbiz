@@ -41,13 +41,15 @@ class SaveImageNode(BaseNode):
         self,
         storage_dir: Optional[Path] = None,
         quality: int = 95,
-        format: str = "JPEG"
+        format: str = "JPEG",
+        is_origin: bool = False
     ):
         """
         Args:
             storage_dir: 저장 디렉토리 (None이면 기본값 사용)
             quality: JPEG 품질 (1-100)
             format: 이미지 포맷 (JPEG, PNG 등)
+            is_origin: True면 subdir/origin/ 폴더에 저장 (원본 이미지용)
         """
         super().__init__("SaveImageNode")
 
@@ -59,6 +61,7 @@ class SaveImageNode(BaseNode):
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self.quality = quality
         self.format = format
+        self.is_origin = is_origin
 
     def process(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -94,7 +97,13 @@ class SaveImageNode(BaseNode):
 
         # 3. 서브디렉토리 생성 (처음 2글자로 분산)
         subdir = filename[:2]
-        save_dir = self.storage_dir / subdir
+
+        # 원본 이미지는 subdir/origin/ 폴더에 저장
+        if self.is_origin:
+            save_dir = self.storage_dir / subdir / "origin"
+        else:
+            save_dir = self.storage_dir / subdir
+
         save_dir.mkdir(parents=True, exist_ok=True)
 
         # 4. 파일 확장자 결정
