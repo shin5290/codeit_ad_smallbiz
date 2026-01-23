@@ -5,10 +5,7 @@ Unified Logging Module
 사용법:
     from src.utils.logging import setup_logging, get_logger
 
-    # 앱 시작 시 1회 호출
-    setup_logging()
-
-    # 모듈별 로거 사용
+    setup_logging()  # 앱 시작 시 1회 호출
     logger = get_logger(__name__)
     logger.info("서버 시작")
 """
@@ -17,7 +14,8 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime, timedelta
+import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict
 from logging.handlers import RotatingFileHandler
@@ -52,8 +50,8 @@ LEVEL_SHORT_MAP: Dict[str, int] = {
 LEVEL_TO_SHORT: Dict[int, str] = {v: k for k, v in LEVEL_SHORT_MAP.items()}
 
 # 제한 설정
-MAX_TOTAL_SIZE_BYTES = 100 * 1024 * 1024  # 전체 용량 100MB
-RETENTION_DAYS = 14                       # 보관 기간 2주
+MAX_TOTAL_SIZE_BYTES = 100 * 1024 * 1024  # (옵션) 전체 용량 100MB
+RETENTION_DAYS = 14                       # 날짜 폴더 보관 기간 2주
 
 
 # =====================================================
@@ -73,7 +71,6 @@ class CompactFormatter(logging.Formatter):
 class ColoredFormatter(CompactFormatter):
     """터미널 색상을 지원하는 포매터 (Bold 적용)"""
 
-    # (수정 사항 1) ANSI 코드에 '1;'을 추가하여 Bold(진한 글씨) 적용
     COLORS = {
         logging.DEBUG: "\033[1;36m",    # Bold Cyan
         logging.INFO: "\033[1;32m",     # Bold Green
@@ -86,16 +83,8 @@ class ColoredFormatter(CompactFormatter):
     def format(self, record: logging.LogRecord) -> str:
         color = self.COLORS.get(record.levelno, "")
         formatted = super().format(record)
-
         if color:
-            # 레벨과 메시지 전체를 강조하고 싶다면 아래 주석을 해제하고 교체
             return f"{color}{formatted}{self.RESET}"
-            # 레벨 부분에만 색상/Bold 적용
-            # parts = formatted.split(" - ", 2)
-            # if len(parts) >= 2:
-            #     parts[1] = f"{color}{parts[1]}{self.RESET}"
-            #     formatted = " - ".join(parts)
-
         return formatted
 
 
@@ -103,16 +92,13 @@ class ColoredFormatter(CompactFormatter):
 # 설정 함수
 # =====================================================
 def _get_log_dir() -> Path:
-    """로그 디렉토리 경로 반환 (플랫폼 독립적)"""
+    """로그 디렉토리 경로 반환 (기본: /mnt/logs)"""
+    # 1) 환경변수 우선
     if log_dir := os.environ.get("LOG_DIR"):
         return Path(log_dir)
 
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / "src").is_dir():
-            return parent / "logs"
-
-    return Path.cwd() / "logs"
+    # 2) 고정 기본값
+    return Path("/mnt/logs")
 
 
 def _get_log_level() -> int:
@@ -123,19 +109,50 @@ def _get_log_level() -> int:
     return getattr(logging, level_str, logging.INFO)
 
 
-def _prune_old_logs(log_dir: Path):
-    """
-    로그 정리 함수
-    1. 2주 지난 파일 삭제
-    2. 전체 용량 100MB 초과 시 오래된 순 삭제
-    """
+def _is_date_dirname(name: str) -> bool:
+    """YYYY-MM-DD 형태인지 확인"""
+    try:
+        datetime.strptime(name, "%Y-%m-%d")
+        return True
+    except ValueError:
+        return False
+
+
+def _prune_old_date_folders(base_log_dir: Path):
+    """14일 지난 날짜 폴더(YYYY-MM-DD)를 통째로 삭제"""
+    if not base_log_dir.exists():
+        return
+
+    cutoff_date = (datetime.now().date()).toordinal() - RETENTION_DAYS
+
+    for child in base_log_dir.iterdir():
+        if not child.is_dir():
+            continue
+        if not _is_date_dirname(child.name):
+            continue
+
+        try:
+            folder_date = datetime.strptime(child.name, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+
+        # 오늘 기준 N일 이전(엄격히 "14일 지난")이면 삭제
+        if folder_date.toordinal() <= cutoff_date:
+            try:
+                shutil.rmtree(child)
+            except OSError:
+                # 권한/사용중 등으로 실패해도 로깅 흐름은 막지 않음
+                pass
+
+
+def _prune_old_logs_in_dir(log_dir: Path):
+    """(옵션) 같은 날짜 폴더 내에서 파일 단위로 용량/기간 정리"""
     if not log_dir.exists():
         return
 
-    # 로그 파일 목록 (.log로 끝나거나 회전된 파일들)
     files = [f for f in log_dir.iterdir() if f.is_file() and "log" in f.name]
 
-    # 1. 기간 제한 (2주)
+    # 파일 단위 보관기간: 동일하게 14일 기준으로 정리하고 싶으면 유지
     cutoff_time = time.time() - (RETENTION_DAYS * 24 * 60 * 60)
     files_to_keep = []
 
@@ -144,18 +161,16 @@ def _prune_old_logs(log_dir: Path):
             try:
                 os.remove(f)
             except OSError:
-                pass  # 삭제 실패 시 무시
+                pass
         else:
             files_to_keep.append(f)
 
-    # 2. 전체 용량 제한 (100MB)
-    # 수정 시간 오름차순 정렬 (오래된 파일이 앞)
+    # 전체 용량 제한 (100MB)
     files_to_keep.sort(key=lambda x: x.stat().st_mtime)
     current_size = sum(f.stat().st_size for f in files_to_keep)
 
-    # 용량이 초과되면 오래된 파일부터 삭제
     while current_size > MAX_TOTAL_SIZE_BYTES and files_to_keep:
-        target = files_to_keep.pop(0) # 가장 오래된 파일
+        target = files_to_keep.pop(0)
         try:
             size = target.stat().st_size
             os.remove(target)
@@ -168,20 +183,26 @@ def setup_logging(
     log_dir: Optional[str] = None,
     level: Optional[str] = None,
     max_bytes: int = 10 * 1024 * 1024,  # 파일 하나당 10MB
-    backup_count: int = 100,       # 테스트 환경 고려, 사실상 무제한
+    backup_count: int = 100,            # 테스트 환경 고려, 사실상 무제한
     use_color: bool = True,
 ) -> None:
-    """
-    애플리케이션 로깅 설정
-    """
+    """애플리케이션 로깅 설정"""
     global RUN_ID, RUN_LOG_FILE
 
-    # 로그 디렉토리 설정
-    log_path = Path(log_dir) if log_dir else _get_log_dir()
+    # 로그 디렉토리 설정 (base)
+    base_log_path = Path(log_dir) if log_dir else _get_log_dir()
+    base_log_path.mkdir(parents=True, exist_ok=True)
+
+    # ✅ 14일 지난 날짜 폴더 통째로 삭제
+    _prune_old_date_folders(base_log_path)
+
+    # ✅ 오늘 날짜 폴더 생성
+    date_folder = datetime.now().strftime("%Y-%m-%d")
+    log_path = base_log_path / date_folder
     log_path.mkdir(parents=True, exist_ok=True)
 
-    # 시작 시 오래된 로그 정리 수행
-    _prune_old_logs(log_path)
+    # (옵션) 오늘 폴더 내 파일 단위 정리도 원하면 유지
+    _prune_old_logs_in_dir(log_path)
 
     # 로그 레벨 결정
     if level:
@@ -207,26 +228,18 @@ def setup_logging(
             )
         )
     elif use_color and sys.stdout.isatty():
-        console_handler.setFormatter(
-            ColoredFormatter(DEFAULT_FORMAT, datefmt=DEFAULT_DATEFMT)
-        )
+        console_handler.setFormatter(ColoredFormatter(DEFAULT_FORMAT, datefmt=DEFAULT_DATEFMT))
     else:
-        console_handler.setFormatter(
-            CompactFormatter(DEFAULT_FORMAT, datefmt=DEFAULT_DATEFMT)
-        )
+        console_handler.setFormatter(CompactFormatter(DEFAULT_FORMAT, datefmt=DEFAULT_DATEFMT))
 
     # ---------- File Handler (Rotating) ----------
-    # 테스트 환경을 고려하여 backupCount를 크게 설정하여 개수 제한을 풀고,
-    # 전체 용량은 _prune_old_logs로 관리 전체 100MB로 맞춤,
     file_handler = RotatingFileHandler(
         RUN_LOG_FILE,
         maxBytes=max_bytes,
         backupCount=backup_count,
-        encoding="utf-8"
+        encoding="utf-8",
     )
-    file_handler.setFormatter(
-        CompactFormatter(DEFAULT_FORMAT, datefmt=DEFAULT_DATEFMT)
-    )
+    file_handler.setFormatter(CompactFormatter(DEFAULT_FORMAT, datefmt=DEFAULT_DATEFMT))
 
     # ---------- Root Logger 설정 ----------
     root_logger = logging.getLogger()
