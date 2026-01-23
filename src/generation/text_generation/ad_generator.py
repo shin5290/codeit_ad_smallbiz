@@ -150,11 +150,11 @@ def test_without_api():
     (JupyterHub에서 실제 테스트 전 로컬 검증용)
     """
 
-    print("=" * 80)
-    print("🧪 API 호출 없이 구조 테스트")
-    print("=" * 80)
-    print("⚠️  실제 GPT API는 호출하지 않습니다.")
-    print("⚠️  구조와 로직만 검증합니다.\n")
+    logger.info("=" * 80)
+    logger.info("🧪 API 호출 없이 구조 테스트")
+    logger.info("=" * 80)
+    logger.info("⚠️  실제 GPT API는 호출하지 않습니다.")
+    logger.info("⚠️  구조와 로직만 검증합니다.\n")
 
     # 더미 데이터로 테스트
     test_cases = [
@@ -171,14 +171,14 @@ def test_without_api():
     ]
 
     for i, test in enumerate(test_cases, 1):
-        print(f"\n{'='*80}")
-        print(f"테스트 케이스 {i}")
-        print(f"{'='*80}\n")
+        logger.info(f"\n{'='*80}")
+        logger.info(f"테스트 케이스 {i}")
+        logger.info(f"{'='*80}\n")
 
         # 구조만 확인
-        print(f"입력: {test['user_input']}")
-        print(f"톤: {test['tone']}")
-        print(f"최대 길이: {test['max_length']}")
+        logger.info(f"입력: {test['user_input']}")
+        logger.info(f"톤: {test['tone']}")
+        logger.info(f"최대 길이: {test['max_length']}")
 
         expected_output = {
             "ad_copy": "[API 호출 시 생성될 광고 문구]",
@@ -188,16 +188,16 @@ def test_without_api():
             "status": "success"
         }
 
-        print(f"\n✅ 예상 출력 구조:")
+        logger.info("\n✅ 예상 출력 구조:")
         for key, value in expected_output.items():
-            print(f"   {key}: {value}")
+            logger.info(f"   {key}: {value}")
 
-        print(f"\n{'⏸️  '*20}\n")
+        logger.info(f"\n{'⏸️  '*20}\n")
 
-    print("=" * 80)
-    print("✅ 구조 테스트 완료!")
-    print("✅ JupyterHub에서 generate_advertisement() 함수를 호출하여 실제 테스트하세요.")
-    print("=" * 80)
+    logger.info("=" * 80)
+    logger.info("✅ 구조 테스트 완료!")
+    logger.info("✅ JupyterHub에서 generate_advertisement() 함수를 호출하여 실제 테스트하세요.")
+    logger.info("=" * 80)
 
 
 # ============================================
@@ -208,10 +208,10 @@ if __name__ == "__main__":
     # API 호출 없이 구조만 테스트
     test_without_api()
 
-    print("\n" + "=" * 80)
-    print("📌 실제 사용 예제 (JupyterHub에서 실행)")
-    print("=" * 80)
-    print("""
+    logger.info("\n" + "=" * 80)
+    logger.info("📌 실제 사용 예제 (JupyterHub에서 실행)")
+    logger.info("=" * 80)
+    logger.info("""
 from src.generation.text_generation.ad_generator import generate_advertisement
 
 # 광고 생성
@@ -222,9 +222,9 @@ result = generate_advertisement(
 )
 
 # 결과 확인
-print(result['ad_copy'])           # 광고 문구
-print(result['positive_prompt'])   # Positive 프롬프트
-print(result['negative_prompt'])   # Negative 프롬프트
-print(result['industry'])          # 업종
+logger.info(result['ad_copy'])           # 광고 문구
+logger.info(result['positive_prompt'])   # Positive 프롬프트
+logger.info(result['negative_prompt'])   # Negative 프롬프트
+logger.info(result['industry'])          # 업종
 """)
-    print("=" * 80)
+    logger.info("=" * 80)

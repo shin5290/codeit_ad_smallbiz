@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from src.generation.image_generation.prompt.config_loader import industry_config
+from src.utils.logging import get_logger
 
 # UTF-8 인코딩 강제 설정 (터미널 환경에서만 적용, Jupyter 환경 제외)
 if sys.platform == 'win32':
@@ -44,6 +45,8 @@ class PromptTemplateManager:
         self.client = OpenAI(api_key=api_key)
         self.model = "gpt-5-mini"
 
+        self.logger = get_logger(__name__)
+
     def generate_detailed_prompt(self, user_input: str, style: str = "realistic") -> dict:
         """
         한글 사용자 입력 → Z-Image Turbo용 상세 영어 프롬프트 생성
@@ -65,15 +68,15 @@ class PromptTemplateManager:
                 "industry": "detected industry"
             }
         """
-        print(f"\n{'='*80}")
-        print(f"🎨 Z-Image Turbo 프롬프트 생성 중...")
-        print(f"   입력: {user_input}")
-        print(f"{'='*80}")
+        self.logger.info(f"\n{'='*80}")
+        self.logger.info("🎨 Z-Image Turbo 프롬프트 생성 중...")
+        self.logger.info(f"   입력: {user_input}")
+        self.logger.info(f"{'='*80}")
 
         try:
             # 1. 업종 자동 감지
             industry = self._detect_industry(user_input)
-            print(f"   감지된 업종: {industry}")
+            self.logger.info(f"   감지된 업종: {industry}")
 
             # 2. GPT 시스템 프롬프트 (ZIT 최적화)
             system_prompt = self._get_system_prompt_for_zit()
@@ -159,12 +162,12 @@ OR if no text overlay:
             detected_style = prompt_data.get("style", style)
             text_overlay = prompt_data.get("text_overlay", None)
 
-            print(f"\n✅ 프롬프트 생성 완료!")
-            print(f"   Style: {detected_style}")
-            print(f"   Positive: {len(positive)} chars (~{len(positive.split())} words)")
+            self.logger.info("\n✅ 프롬프트 생성 완료!")
+            self.logger.info(f"   Style: {detected_style}")
+            self.logger.info(f"   Positive: {len(positive)} chars (~{len(positive.split())} words)")
             if text_overlay:
-                print(f"   Text Overlay: {text_overlay}")
-            print(f"{'='*80}\n")
+                self.logger.info(f"   Text Overlay: {text_overlay}")
+            self.logger.info(f"{'='*80}\n")
 
             return {
                 "positive": positive,
@@ -175,12 +178,12 @@ OR if no text overlay:
             }
 
         except Exception as e:
-            print(f"❌ 프롬프트 생성 오류: {e}")
+            self.logger.error(f"❌ 프롬프트 생성 오류: {e}")
             import traceback
             traceback.print_exc()
 
             # Fallback: 기본 프롬프트 생성
-            print("⚠️  Fallback: 기본 프롬프트 사용")
+            self.logger.error("⚠️  Fallback: 기본 프롬프트 사용")
             return self._fallback_prompt_generation(user_input, style)
 
     def _get_system_prompt_for_zit(self) -> str:
@@ -297,7 +300,7 @@ Blend photography with artistic:
             return "\n".join(keywords)
 
         except Exception as e:
-            print(f"⚠️ 참고 키워드 로드 실패: {e}")
+            self.logger.error(f"⚠️ 참고 키워드 로드 실패: {e}")
             return "No reference keywords available."
 
     def _fallback_prompt_generation(self, user_input: str, style: str) -> dict:
@@ -340,6 +343,7 @@ def clean_input(text):
     """
     입력 텍스트 정제 - surrogate 문자 제거
     """
+    logger = get_logger(__name__)
     if not text:
         return ""
 
@@ -348,5 +352,5 @@ def clean_input(text):
         cleaned = ''.join(char for char in cleaned if char.isprintable() or char in '\n\t ')
         return cleaned.strip()
     except Exception as e:
-        print(f"⚠️  입력 정제 중 오류: {e}")
+        logger.error(f"⚠️  입력 정제 중 오류: {e}")
         return ''.join(char for char in text if ord(char) < 128).strip()
