@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 
 from .base import BaseNode
 from ..tools.text_layout_tools import (
-    TEXT_OVERLAY_TOOL,
+    get_text_overlay_tool,  # 동적 tool 생성 함수
     get_analysis_prompt,
     validate_layout_spec,
     get_default_layout
@@ -196,7 +196,7 @@ class GPTLayoutAnalyzerNode(BaseNode):
                     ]
                 }
             ],
-            tools=[TEXT_OVERLAY_TOOL],
+            tools=[get_text_overlay_tool()],  # 동적으로 폰트 목록 포함
             tool_choice={"type": "function", "function": {"name": "apply_text_overlay"}}
         )
 
