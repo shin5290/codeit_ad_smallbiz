@@ -252,6 +252,36 @@ def _resolve_target_generation(
         )
     return latest
 
+
+def _resolve_industry_for_revision(
+    *,
+    db: Session,
+    session_id: str,
+    target_generation: Optional[models.GenerationHistory],
+    override_industry: Optional[str],
+) -> Optional[str]:
+    def _normalize(value: Optional[str]) -> Optional[str]:
+        if not isinstance(value, str):
+            return value
+        value = value.strip()
+        return value or None
+
+    normalized = _normalize(override_industry)
+    if normalized:
+        return normalized
+
+    if target_generation:
+        normalized = _normalize(target_generation.industry)
+        if normalized:
+            return normalized
+
+    for gen in process_db.get_generation_history_by_session(db, session_id, limit=20):
+        normalized = _normalize(gen.industry)
+        if normalized:
+            return normalized
+
+    return None
+
 @dataclass
 class IngestResult:
     session_id: str
@@ -320,7 +350,7 @@ class GeneratedContent:
     output_text: Optional[str] = None
     output_image: Optional[dict] = None
     prompt: Optional[str] = None  # 이미지 생성용 프롬프트
-    generation_method: Optional[str] = None  # control_type (canny, depth, openpose)
+    generation_method: Optional[str] = None  # t2i or i2i
     style: Optional[str] = None
     industry: Optional[str] = None
     seed: Optional[int] = None
@@ -384,6 +414,9 @@ async def generate_contents(
     gen_seed = None
     reference_image = None
     effective_strength = strength
+    resolved_industry = industry.strip() if isinstance(industry, str) else industry
+    if resolved_industry == "":
+        resolved_industry = None
 
     # input_image 로드
     if input_image:
@@ -433,11 +466,23 @@ async def generate_contents(
                 user_input=input_text,
                 style=style or "ultra_realistic",
                 aspect_ratio=aspect_ratio or "1:1",
-                industry=industry or "general",
+                industry=resolved_industry,
                 reference_image=reference_image,
                 strength=effective_strength,
                 progress_callback=progress_callback,
             )
+
+            gen_method = img_result.get("generation_method")
+            if not gen_method:
+                gen_method = "i2i" if reference_image is not None else "t2i"
+
+            if not resolved_industry:
+                detected_industry = img_result.get("industry")
+                if isinstance(detected_industry, str):
+                    detected_industry = detected_industry.strip() or None
+                if detected_industry == "unknown":
+                    detected_industry = None
+                resolved_industry = detected_industry
 
             if img_result["success"]:
                 output_image = {
@@ -446,7 +491,6 @@ async def generate_contents(
                 }
                 gen_prompt = img_result.get("prompt")
                 gen_seed = img_result.get("seed")
-                gen_method = img_result.get("control_type")  # I2I인 경우
 
                 logger.info("generate_contents: 이미지 생성 성공")
             else:
@@ -466,7 +510,7 @@ async def generate_contents(
         prompt=gen_prompt,
         generation_method=gen_method,
         style=style,
-        industry=industry,
+        industry=resolved_industry,
         strength=effective_strength if generation_type == "image" else None,
         seed=gen_seed,
         aspect_ratio=aspect_ratio,
@@ -663,6 +707,7 @@ async def handle_chat_message_stream(
                     generation_input=generation_input,
                     style=style,  # Intent에서 결정된 스타일 전달
                     aspect_ratio=aspect_ratio,  # Intent에서 결정된 비율 전달
+                    industry=industry,
                     strength=strength,  # Intent에서 결정된 강도 전달
                     text_tone=text_tone,
                     text_max_length=text_max_length,
@@ -809,6 +854,7 @@ async def handle_chat_revise(
     generation_input: Optional[str] = None,
     style: Optional[str] = None,  # Intent에서 전달받음
     aspect_ratio: Optional[str] = None,  # Intent에서 전달받음
+    industry: Optional[str] = None,
     strength: Optional[float] = None,  # Intent에서 전달받음
     text_tone: Optional[str] = None,
     text_max_length: Optional[int] = None,
@@ -829,6 +875,12 @@ async def handle_chat_revise(
     if not latest_generation:
         raise HTTPException(404, "수정할 광고를 찾을 수 없습니다.")
 
+    resolved_industry = _resolve_industry_for_revision(
+        db=db,
+        session_id=session_id,
+        target_generation=latest_generation,
+        override_industry=industry,
+    )
 
     # 수정 파라미터 구성 (Intent 결과 우선, 없으면 기존값 유지)
     reference_payload = (
@@ -840,6 +892,7 @@ async def handle_chat_revise(
         "generation_type": latest_generation.content_type,
         "style": style or latest_generation.style,  # Intent 결과 or 기존 스타일
         "aspect_ratio": aspect_ratio or latest_generation.aspect_ratio,  # Intent 결과 or 기존 비율
+        "industry": resolved_industry,
         "reference_image": reference_payload,
         "strength": strength,  # Intent 결과 우선
     }
@@ -852,6 +905,7 @@ async def handle_chat_revise(
         generation_type=updated_params["generation_type"],
         style=updated_params["style"],
         aspect_ratio=updated_params["aspect_ratio"],
+        industry=updated_params["industry"],
         strength=updated_params["strength"],
         text_tone=text_tone,
         text_max_length=text_max_length,

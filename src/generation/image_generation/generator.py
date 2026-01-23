@@ -98,9 +98,11 @@ def generate_and_save_image(
                 "width": int,
                 "height": int,
                 "style": str,
+                "industry": str or None,
                 "seed": int or None,
                 "generation_time": float,
                 "prompt": str,
+                "generation_method": str,
                 "error": str or None
             }
 
@@ -119,6 +121,7 @@ def generate_and_save_image(
     _ = controlnet_conditioning_scale
 
     try:
+        generation_method = "i2i" if reference_image is not None else "t2i"
         # 저장 디렉토리 설정
         if storage_dir is None:
             storage_dir = DEFAULT_STORAGE_DIR
@@ -203,9 +206,11 @@ def generate_and_save_image(
             "width": result["width"],
             "height": result["height"],
             "style": result.get("detected_style", style),
+            "industry": result.get("industry"),
             "seed": result.get("seed"),
             "generation_time": generation_time,
             "prompt": result["prompt"],
+            "generation_method": generation_method,
             "error": None
         }
 
@@ -221,9 +226,11 @@ def generate_and_save_image(
             "width": None,
             "height": None,
             "style": style,
+            "industry": None,
             "seed": seed,
             "generation_time": generation_time,
             "prompt": None,
+            "generation_method": "i2i" if reference_image is not None else "t2i",
             "error": error_msg
         }
 

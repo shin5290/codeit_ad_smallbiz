@@ -788,6 +788,44 @@
         }
 
         @media (max-width: 720px) {
+            .header-inner {
+                padding: 10px 12px;
+            }
+
+            .logo {
+                font-size: 1.1rem;
+            }
+
+            .auth-buttons button {
+                padding: 7px 10px;
+                font-size: 0.85rem;
+            }
+
+            .chat-inner {
+                padding: 16px 12px;
+            }
+
+            .input-inner-wrap {
+                padding: 10px 12px 14px;
+            }
+
+            .input-row {
+                gap: 8px;
+            }
+
+            .msg {
+                padding: 12px 14px;
+            }
+
+            .msg-stack {
+                max-width: 92%;
+            }
+
+            .msg img {
+                max-width: 100%;
+                max-height: 60vh;
+            }
+
             .scroll-to-bottom {
                 right: 12px;
                 bottom: calc(var(--input-area-height, 0px) + 12px);
