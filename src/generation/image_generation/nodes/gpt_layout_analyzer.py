@@ -131,6 +131,13 @@ class GPTLayoutAnalyzerNode(BaseNode):
             validate_layout_spec(layout_spec)
             print(f"[{self.node_name}] ✅ Layout analysis complete")
             print(f"   Layers: {len(layout_spec['layers'])}")
+
+            # 폰트 선택 디버깅
+            for i, layer in enumerate(layout_spec['layers']):
+                font_family = layer['font']['family']
+                font_size = layer['font']['size']
+                text = layer['text']
+                print(f"   Layer {i+1}: '{text}' → {font_family} ({font_size}px)")
         except ValueError as e:
             print(f"⚠️ Layout validation failed: {e}")
             print(f"⚠️ Using fallback layout")

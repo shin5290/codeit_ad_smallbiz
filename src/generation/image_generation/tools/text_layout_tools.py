@@ -292,28 +292,43 @@ Analyze the provided advertising image and determine the optimal layout for over
 
 **CRITICAL: Use DIFFERENT fonts for regular vs. emphasized layers!**
 
-#### Available Fonts (dynamically loaded):
+#### Available Fonts:
 {font_list}
 
-#### Selection Strategy by Layer Role:
+#### Font Personality Guide (MATCH FONT TO IMAGE MOOD!):
 
-**For REGULAR/BASE layers** (삼겹살엔 역시, 신메뉴 출시 등):
-- **NanumGothic**: Casual, friendly (cafes, restaurants, retail) - Clean, neutral
-- **NotoSansKR**: Modern, minimalist (apps, services, fashion) - Contemporary
-- **NanumBarunGothic**: Soft, approachable (family-oriented, health/wellness)
+**🎨 Cute/Playful/Character** (desserts, mascots, children):
+- **BMJUA_ttf**: Round, cute, bouncy - Pokemon, character products
+- **BMDOHYEON_ttf**: Bold, fun, energetic - snacks, playful brands
+- **Cafe24Ssurround**: Rounded, friendly - cafes, bakeries
+- **NanumPenScript-Regular**: Handwritten - personal, warm
 
-**For EMPHASIS layers** (소주, 20% 할인, 제품명 등):
-- **NanumGothicBold**: Strong impact, attention-grabbing
-- **NanumMyeongjo**: Traditional elegance (premium products, Korean traditional)
-- **NotoSerifKR**: Artistic sophistication (magazines, galleries)
-- **Custom fonts** (if available in /mnt/fonts): Use for brand-specific emphasis
+**💼 Modern/Clean/Professional** (tech, fashion, corporate):
+- **Pretendard-Bold**: Modern, sharp - tech/startups
+- **SUIT-Bold**: Contemporary - business, fashion
+- **SpoqaHanSansNeo-Bold**: Clean sans - apps, services
+- **NotoSansKR-Medium**: Neutral, versatile
 
-#### Smart Font Pairing Examples:
-1. Casual cafe ad: Regular=NanumGothic, Emphasis=NanumGothicBold (same family, different weight)
-2. Traditional product: Regular=NotoSansKR, Emphasis=NanumMyeongjo (contrast: modern + classic)
-3. Modern tech: Regular=NotoSansKR, Emphasis=NotoSerifKR (subtle serif emphasis)
+**💥 Bold/Impact/Promotional** (sales, events):
+- **BlackHanSans-Regular**: Ultra-bold - SALE, events
+- **GmarketSansTTFBold**: Strong impact - promotions
+- **SCDream9**: Very bold - strong emphasis
+- **KBO Dia Gothic_bold**: Sports, dynamic
 
-**RULE**: Never use the same font for both regular and emphasis layers - create visual hierarchy!
+**✨ Elegant/Traditional/Premium**:
+- **NanumMyeongjo**: Traditional serif - heritage
+- **NotoSerifKR**: Classic serif - editorial
+- **SCDream7**: Elegant - premium
+
+**Font Pairing Examples**:
+- Pokemon/character bread: Base=**BMJUA_ttf**, Emphasis=**BMDOHYEON_ttf**
+- Modern cafe: Base=**Pretendard-Bold**, Emphasis=**Cafe24Ssurround**
+- Sale event: Base=**NanumGothic**, Emphasis=**BlackHanSans-Regular**
+
+**CRITICAL RULES**:
+1. **Analyze image first** - cute? modern? traditional?
+2. **Choose matching fonts** - not just defaults!
+3. **Different fonts per layer** - create hierarchy!
 
 ### 4. FONT SIZE HIERARCHY
 - **Product Name / Main Text**: 80-140px (needs to be LARGE and immediately visible, DOMINANT presence)
@@ -338,16 +353,30 @@ Analyze the provided advertising image and determine the optimal layout for over
 - Ensure adequate letter spacing for readability
 - Korean reads top-to-bottom or left-to-right → position accordingly
 
-### 7. KEYWORD EMPHASIS (SPLIT LAYERS FOR STYLING)
-- **Identify keywords to emphasize**: product names, brand names, numbers, key actions
-- **Split into separate layers** if different styling is needed:
-  - Example: "삼겹살엔 역시 소주" → Layer 1: "삼겹살엔 역시 " (regular) + Layer 2: "소주" (emphasized)
-  - Position layers adjacent to each other (calculate x offset based on text width)
-- **Emphasis techniques**:
-  - Larger font size (1.5-2x the base layer)
-  - Different font family (e.g., NanumMyeongjo for elegance, NanumGothicBold for impact)
-  - Different color (brand color, contrasting color, gradient effect via background_box)
-  - Stronger effects (thicker stroke, brighter color)
+### 7. KEYWORD EMPHASIS (MANDATORY LAYER SPLITTING!)
+
+**⚠️ CRITICAL: ALWAYS split text into multiple layers for visual hierarchy!**
+
+**Step 1: Analyze image mood/style**
+- Cute/playful → Use custom decorative fonts from font list
+- Modern/clean → Use sans-serif fonts
+- Traditional/elegant → Use serif fonts
+- Food/bakery → Use rounded, friendly fonts
+
+**Step 2: Split text into layers**
+- Create AT LEAST 2 layers if text contains 2+ words
+- Identify main keyword (제품명, 브랜드명, 핵심단어)
+
+**Step 3: Font pairing based on image**
+- Layer 1 (supporting text): Choose from available fonts matching image mood
+- Layer 2 (emphasis): Choose DIFFERENT font from Layer 1, stronger/bolder variant
+
+**Font Selection Priority**:
+1. Check available font list above - prefer custom fonts for unique styling
+2. Match font personality to image content (cute → rounded fonts, professional → clean sans-serif)
+3. Use DIFFERENT fonts for different layers
+
+**RULE: Single-layer text is BORING. Always create visual hierarchy!**
 
 ## OUTPUT REQUIREMENTS
 You MUST call the `apply_text_overlay` function with a complete layout specification.

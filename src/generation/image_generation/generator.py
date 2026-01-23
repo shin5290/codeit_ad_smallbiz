@@ -160,16 +160,20 @@ def generate_and_save_image(
                 "num_inference_steps": num_inference_steps,
             }
         else:
-            # T2I 워크플로우: Prompt → T2I → (Text Overlay) → Save
+            # T2I 워크플로우: Prompt → T2I → Save(원본) → (Text Overlay) → Save(최종)
             workflow = ImageGenerationWorkflow(name=f"ZIT_Generate_{style}")
             workflow.add_node(PromptProcessorNode(default_style=style))
             workflow.add_node(Text2ImageNode(auto_unload=False))
+
+            # 원본 이미지 저장 (subdir/origin/)
+            workflow.add_node(SaveImageNode(storage_dir=storage_dir, is_origin=True))
 
             # 텍스트 오버레이 노드 (조건부 실행: text_data 있을 때만)
             workflow.add_node(GPTLayoutAnalyzerNode())
             workflow.add_node(TextOverlayNode())
 
-            workflow.add_node(SaveImageNode(storage_dir=storage_dir))
+            # 최종 이미지 저장 (subdir/)
+            workflow.add_node(SaveImageNode(storage_dir=storage_dir, is_origin=False))
 
             # 입력 데이터
             inputs = {
