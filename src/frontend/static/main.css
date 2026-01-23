@@ -1,0 +1,869 @@
+
+        body {
+            font-family: 'IBM Plex Sans KR', 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+            background: #f8f9fa;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            font-size: 15px;
+        }
+
+        /* 헤더 스타일: 우상단 버튼 배치 */
+        header {
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            position: relative;
+            z-index: 10;
+        }
+
+        .header-inner {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 10px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-weight: bold;
+            color: #4F46E5;
+            font-size: 1.25rem;
+        }
+
+        .auth-buttons button {
+            width: auto;
+            padding: 8px 15px;
+            margin-left: 5px;
+            font-size: 0.95rem;
+            border-radius: 6px;
+        }
+
+        /* 메인 컨테이너 */
+        .main-container {
+            flex: 1;
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-start;
+            overflow: hidden;
+        }
+
+        .chat-container {
+            width: 100%;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+        }
+
+        /* 채팅 영역 */
+        .chat-box {
+            flex: 1;
+            overflow-y: auto;
+            background: #fafbfc;
+            border-bottom: 1px solid #eee;
+            position: relative;
+        }
+
+        .chat-inner {
+            width: 100%;
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 20px 16px;
+            box-sizing: border-box;
+        }
+
+        .input-inner-wrap {
+            width: 100%;
+            padding: 12px 16px 16px;
+            box-sizing: border-box;
+        }
+
+        .msg {
+            margin-bottom: 0;
+            padding: 14px 18px;
+            border-radius: 16px;
+            font-size: 15px;
+            line-height: 1.6;
+            display: inline-block;
+            width: auto;
+            max-width: 100%;
+            min-width: 40px;
+            position: relative;
+            word-wrap: break-word;
+            box-sizing: border-box;
+            overflow: hidden;
+            text-align: left;
+        }
+
+        .msg-wrap {
+            display: flex;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .msg-stack {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0px;
+            max-width: 75%;
+        }
+
+        .msg-wrap.user {
+            justify-content: flex-end;
+        }
+
+        .msg-wrap.assistant {
+            justify-content: flex-start;
+        }
+
+        .msg-content {
+            display: inline-block;
+            max-width: 100%;
+        }
+
+        .msg.user {
+            background: linear-gradient(135deg, #667eea 0%, #4F46E5 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+        }
+
+        .msg.assistant {
+            background: white;
+            color: #333;
+            border-bottom-left-radius: 4px;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 입력 영역 */
+        .input-area {
+            background: white;
+            border-top: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .input-inner {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            width: 100%;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 14px 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            outline: none;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: #4F46E5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 14px 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            outline: none;
+            font-size: 15px;
+            transition: all 0.2s;
+            resize: none;
+            min-height: 48px;
+            max-height: 140px;
+            line-height: 1.4;
+            overflow-y: auto;
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+
+        .chat-input:focus {
+            border-color: #4F46E5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        /* 공통 버튼 */
+        button {
+            cursor: pointer;
+            border: none;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #4F46E5 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #495057;
+            border: 1px solid #e9ecef;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+
+        .btn-round {
+            border-radius: 10px;
+        }
+
+        /* 로그인 모달(팝업) 스타일 */
+        #auth-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            width: 400px;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+            color: #999;
+            transition: color 0.2s;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        .modal-content h2 {
+            margin: 0 0 30px 0;
+            font-size: 24px;
+            color: #333;
+            text-align: center;
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 15px;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        .modal-content input:focus {
+            border-color: #4F46E5;
+            outline: none;
+        }
+
+        .modal-content button {
+            margin-top: 10px;
+            padding: 14px;
+            font-size: 15px;
+            border-radius: 8px;
+        }
+
+        .auth-toggle {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .auth-toggle-text {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .auth-toggle-link {
+            color: #4F46E5;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .auth-toggle-link:hover {
+            text-decoration: underline;
+        }
+
+        /* 회원정보 수정 모달 */
+        #profile-edit-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .profile-edit-row {
+            margin-bottom: 12px;
+        }
+
+        .profile-edit-row label {
+            display: block;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .profile-edit-row.required label::after {
+            content: ' *';
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* 메시지 내 이미지 스타일 */
+        .msg img {
+            max-width: 300px;
+            width: auto;
+            max-height: 300px;
+            margin-top: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            object-fit: contain;
+            height: auto;
+        }
+
+        .msg img:hover {
+            opacity: 0.9;
+        }
+
+        .image-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-top: 10px;
+            max-width: 100%;
+            width: fit-content;
+        }
+
+        .image-wrapper img {
+            display: block;
+            margin: 0;
+        }
+
+        .msg-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 3px;
+            margin-top: 8px;
+        }
+
+        .msg-action-btn {
+            position: relative;
+            border: none;
+            border-radius: 12px;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            font-size: 0;
+            color: #4F46E5;
+            background: #eef2ff;
+            border: 1px solid #e0e7ff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .msg-action-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .msg-action-btn::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 12px);
+            transform: translateX(-50%) translateY(4px);
+            background: #111827;
+            color: #ffffff;
+            padding: 6px 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            z-index: 5;
+        }
+
+        .msg-action-btn::before {
+            content: "";
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 4px);
+            transform: translateX(-50%);
+            border-width: 6px 6px 0 6px;
+            border-style: solid;
+            border-color: #111827 transparent transparent transparent;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            z-index: 5;
+        }
+
+        .msg-action-btn:hover {
+            background: #e0e7ff;
+            box-shadow: 0 6px 14px rgba(79, 70, 229, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .msg-action-btn:hover::after,
+        .msg-action-btn:hover::before,
+        .msg-action-btn:focus-visible::after,
+        .msg-action-btn:focus-visible::before {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .msg-action-btn:focus-visible {
+            outline: 2px solid rgba(79, 70, 229, 0.6);
+            outline-offset: 2px;
+        }
+
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 24px;
+            transform: translateX(-50%) translateY(10px);
+            background: rgba(20, 24, 34, 0.92);
+            color: #ffffff;
+            padding: 10px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 600;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            z-index: 2002;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .msg p {
+            margin: 0 0 8px;
+        }
+        .msg p:last-child {
+            margin-bottom: 0;
+        }
+        .msg ul,
+        .msg ol {
+            margin: 6px 0 6px 18px;
+            padding: 0;
+        }
+        .msg code {
+            background: #f1f3f5;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        }
+
+        .image-guide {
+            position: absolute;
+            top: -52px;
+            left: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+            padding: 8px 28px 8px 12px;
+            border-radius: 16px;
+            background: #eef2ff;
+            border: 1px solid #e0e7ff;
+            color: #4F46E5;
+            font-size: 13px;
+            font-weight: 600;
+            width: max-content;
+            max-width: 260px;
+            white-space: normal;
+            z-index: 3;
+            box-shadow: 0 8px 16px rgba(79, 70, 229, 0.18);
+        }
+
+        .image-guide::before {
+            content: "";
+            position: absolute;
+            left: 18px;
+            bottom: -9px;
+            border-width: 9px 9px 0 9px;
+            border-style: solid;
+            border-color: #e0e7ff transparent transparent transparent;
+        }
+
+        .image-guide::after {
+            content: "";
+            position: absolute;
+            left: 19px;
+            bottom: -8px;
+            border-width: 8px 8px 0 8px;
+            border-style: solid;
+            border-color: #eef2ff transparent transparent transparent;
+        }
+
+        .image-guide-dismiss {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            border: 1px solid #e0e7ff;
+            background: #ffffff;
+            color: #4F46E5;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .image-guide-dismiss:hover {
+            background: #e0e7ff;
+        }
+        .msg pre {
+            background: #f1f3f5;
+            padding: 10px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        .msg pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .user-info {
+            font-size: 0.95rem;
+            color: #666;
+            margin-right: 15px;
+        }
+
+        /* 이미지 모달 라이트박스 */
+        #image-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            cursor: pointer;
+        }
+
+        #image-modal img {
+            max-width: 95%;
+            max-height: 95%;
+            object-fit: contain;
+            border-radius: 0;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        #image-modal .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 40px;
+            color: white;
+            cursor: pointer;
+            z-index: 2001;
+            transition: color 0.2s;
+        }
+
+        #image-modal .close-modal:hover {
+            color: #ccc;
+        }
+
+        /*이미지 업로드 버튼*/
+        .image-upload-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #f1f3f5;
+            border: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #4F46E5;
+            transition: all 0.2s;
+        }
+
+        .image-upload-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .image-upload-btn:hover:not(.disabled) {
+            background: #e9ecef;
+            transform: scale(1.05);
+        }
+
+        .image-upload-btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background: #f8f9fa;
+        }
+
+        /* 입력 한 줄 */
+        .input-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            width: 100%;
+        }
+
+        .input-row .chat-input {
+            flex: 1;
+        }
+
+        /* 미리보기 스트립 */
+        .preview-strip {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 6px 2px;
+            overflow-x: auto;
+        }
+
+        /* 썸네일 카드 */
+        .preview-item {
+            position: relative;
+            width: 64px;
+            height: 64px;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid #e9ecef;
+            background: #fff;
+            flex: 0 0 auto;
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            margin: 0;
+        }
+
+        /* 썸네일 X 버튼 */
+        .preview-remove {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            border: 2px solid white;
+            background: rgba(0, 0, 0, 0.75);
+            color: white;
+            font-size: 14px;
+            line-height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        /* disabled 전송 버튼 */
+        #sendBtn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* 채팅 로딩 */
+        .chat-loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: #777;
+            font-size: 0.95rem;
+        }
+
+        .chat-spinner {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 4px solid #e3e6ea;
+            border-top-color: #6c7ae0;
+            animation: chatSpin 0.9s linear infinite;
+        }
+
+        .scroll-to-bottom {
+            position: absolute;
+            right: 18px;
+            bottom: calc(var(--input-area-height, 0px) + 16px);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: #ffffff;
+            border: 1px solid #e2e5ea;
+            color: #3d4250;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 6px 16px rgba(31, 41, 55, 0.12);
+            z-index: 5;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+        }
+
+        .scroll-to-bottom:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px rgba(31, 41, 55, 0.16);
+        }
+
+        .scroll-to-bottom .scroll-arrow {
+            font-size: 14px;
+        }
+
+        .scroll-to-bottom .scroll-badge {
+            position: absolute;
+            right: 0;
+            bottom: calc(100% + 6px);
+            background: #4F46E5;
+            color: white;
+            padding: 4px 9px;
+            font-size: 12px;
+            border-radius: 999px;
+            white-space: nowrap;
+            box-shadow: 0 6px 14px rgba(79, 70, 229, 0.25);
+        }
+
+        @media (max-width: 720px) {
+            .scroll-to-bottom {
+                right: 12px;
+                bottom: calc(var(--input-area-height, 0px) + 12px);
+            }
+        }
+
+        @keyframes chatSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .assistant-progress {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 260px;
+            max-width: 100%;
+            align-items: flex-start;
+        }
+
+        .assistant-progress .progress-header {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .assistant-progress .progress-spinner {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 3px solid #e3e6ea;
+            border-top-color: #6c7ae0;
+            animation: chatSpin 0.9s linear infinite;
+        }
+
+        .assistant-progress .progress-message {
+            font-weight: 600;
+            color: #4b5563;
+        }
+
+        .assistant-progress .progress-bar {
+            width: 100%;
+            height: 8px;
+            border-radius: 999px;
+            background: #eef1f5;
+            overflow: hidden;
+        }
+
+        .assistant-progress .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4f46e5, #6c7ae0);
+            transition: width 0.35s ease;
+        }
+
+        .assistant-progress .progress-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            color: #8a93a3;
+        }
+
+        .typing-cursor {
+            display: inline-block;
+            width: 6px;
+            background: #9aa3b2;
+            margin-left: 2px;
+            animation: cursorBlink 1s steps(1) infinite;
+            height: 1em;
+            vertical-align: -1px;
+        }
+
+        @keyframes cursorBlink {
+            50% {
+                opacity: 0;
+            }
+        }
+    

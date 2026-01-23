@@ -108,6 +108,7 @@ class AdminGenerationItem(BaseModel):
     name: Optional[str] = None
     content_type: str
     input_text: Optional[str] = None
+    refined_input_text: Optional[str] = None
     output_text: Optional[str] = None
     prompt: Optional[str] = None
     input_image: Optional[AdminImageRef] = None
