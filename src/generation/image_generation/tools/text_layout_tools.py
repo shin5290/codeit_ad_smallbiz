@@ -8,15 +8,44 @@ GPT-4V가 이미지를 분석하고 텍스트 레이아웃을 결정하기 위�
 from typing import Dict, List, Any
 
 # ==============================================================================
+# 동적 폰트 목록 가져오기
+# ==============================================================================
+
+def get_font_enum() -> List[str]:
+    """
+    사용 가능한 폰트 목록을 동적으로 가져옴
+    /mnt/fonts의 커스텀 폰트 포함
+    """
+    try:
+        from .font_loader import get_available_fonts
+        return get_available_fonts()
+    except Exception as e:
+        # Fallback: 기본 폰트만 반환
+        print(f"⚠️ Failed to load font list: {e}")
+        return [
+            "NanumGothic",
+            "NanumGothicBold",
+            "NanumMyeongjo",
+            "NotoSansKR",
+            "NotoSerifKR"
+        ]
+
+# ==============================================================================
 # OpenAI Function Calling Tool Definition
 # ==============================================================================
 
-TEXT_OVERLAY_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "apply_text_overlay",
-        "description": "이미지에 텍스트를 오버레이하기 위한 레이아웃 명세. 각 텍스트 레이어의 위치, 폰트, 색상, 효과를 지정합니다.",
-        "parameters": {
+def get_text_overlay_tool() -> Dict[str, Any]:
+    """
+    동적 폰트 목록을 포함한 TEXT_OVERLAY_TOOL 생성
+    """
+    available_fonts = get_font_enum()
+
+    return {
+        "type": "function",
+        "function": {
+            "name": "apply_text_overlay",
+            "description": "이미지에 텍스트를 오버레이하기 위한 레이아웃 명세. 각 텍스트 레이어의 위치, 폰트, 색상, 효과를 지정합니다.",
+            "parameters": {
             "type": "object",
             "properties": {
                 "layers": {
@@ -61,14 +90,8 @@ TEXT_OVERLAY_TOOL = {
                                 "properties": {
                                     "family": {
                                         "type": "string",
-                                        "enum": [
-                                            "NanumGothic",      # 고딕체 (기본, 중성적)
-                                            "NanumGothicBold",  # 고딕체 볼드 (강조)
-                                            "NanumMyeongjo",    # 명조체 (고급스러운, 전통적)
-                                            "NotoSansKR",       # 산세리프 (현대적, 깔끔)
-                                            "NotoSerifKR"       # 세리프 (우아한, 고전적)
-                                        ],
-                                        "description": "폰트 패밀리. 이미지 분위기에 맞춰 선택 (캐주얼→고딕, 고급→명조/세리프)"
+                                        "enum": available_fonts,
+                                        "description": "폰트 패밀리. 이미지 분위기와 레이어 역할에 맞춰 선택 (일반 레이어와 강조 레이어에 다른 폰트 사용)"
                                     },
                                     "size": {
                                         "type": "integer",
@@ -210,6 +233,9 @@ TEXT_OVERLAY_TOOL = {
     }
 }
 
+# Backward compatibility: 기본 TEXT_OVERLAY_TOOL (레거시 코드용)
+TEXT_OVERLAY_TOOL = get_text_overlay_tool()
+
 
 # ==============================================================================
 # GPT-4V Analysis Prompt Template
@@ -230,6 +256,10 @@ def get_analysis_prompt(text_data: Dict[str, str], image_context: str = "") -> s
 
     # 텍스트 데이터를 읽기 쉽게 포맷팅
     text_items = "\n".join([f"- {key}: \"{value}\"" for key, value in text_data.items()])
+
+    # 사용 가능한 폰트 목록 가져오기
+    available_fonts = get_font_enum()
+    font_list = "\n".join([f"- {font}" for font in available_fonts])
 
     prompt = f"""You are an expert graphic designer specializing in advertising image composition.
 
@@ -258,19 +288,32 @@ Analyze the provided advertising image and determine the optimal layout for over
 - **CRITICAL**: When in doubt, use WHITE text with thick BLACK stroke (works on 90% of images)
 - **Brand harmony**: Colors should complement the overall image mood
 
-### 3. FONT SELECTION
-- **NanumGothic / NanumGothicBold**:
-  - Use for: Casual, friendly, everyday products (cafes, restaurants, retail)
-  - Style: Clean, neutral, highly readable
-- **NanumMyeongjo**:
-  - Use for: Traditional, elegant, premium products (luxury goods, traditional Korean)
-  - Style: Serif, sophisticated, classic
-- **NotoSansKR**:
-  - Use for: Modern, tech-savvy, minimalist products (apps, services, fashion)
-  - Style: Sans-serif, contemporary, clean
-- **NotoSerifKR**:
-  - Use for: Artistic, editorial, high-end products (magazines, galleries, premium services)
-  - Style: Serif, refined, elegant
+### 3. FONT SELECTION (SMART LAYER-BASED STRATEGY)
+
+**CRITICAL: Use DIFFERENT fonts for regular vs. emphasized layers!**
+
+#### Available Fonts (dynamically loaded):
+{font_list}
+
+#### Selection Strategy by Layer Role:
+
+**For REGULAR/BASE layers** (삼겹살엔 역시, 신메뉴 출시 등):
+- **NanumGothic**: Casual, friendly (cafes, restaurants, retail) - Clean, neutral
+- **NotoSansKR**: Modern, minimalist (apps, services, fashion) - Contemporary
+- **NanumBarunGothic**: Soft, approachable (family-oriented, health/wellness)
+
+**For EMPHASIS layers** (소주, 20% 할인, 제품명 등):
+- **NanumGothicBold**: Strong impact, attention-grabbing
+- **NanumMyeongjo**: Traditional elegance (premium products, Korean traditional)
+- **NotoSerifKR**: Artistic sophistication (magazines, galleries)
+- **Custom fonts** (if available in /mnt/fonts): Use for brand-specific emphasis
+
+#### Smart Font Pairing Examples:
+1. Casual cafe ad: Regular=NanumGothic, Emphasis=NanumGothicBold (same family, different weight)
+2. Traditional product: Regular=NotoSansKR, Emphasis=NanumMyeongjo (contrast: modern + classic)
+3. Modern tech: Regular=NotoSansKR, Emphasis=NotoSerifKR (subtle serif emphasis)
+
+**RULE**: Never use the same font for both regular and emphasis layers - create visual hierarchy!
 
 ### 4. FONT SIZE HIERARCHY
 - **Product Name / Main Text**: 80-140px (needs to be LARGE and immediately visible, DOMINANT presence)

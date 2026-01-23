@@ -53,10 +53,10 @@ class FontLoader:
         self._scan_fonts()
 
     def _scan_fonts(self):
-        """시스템 폰트 및 커스텀 폰트 스캔"""
+        """시스템 폰트 및 커스텀 폰트 스캔 (커스텀 폰트 우선)"""
         print("[FontLoader] Scanning fonts...")
 
-        # 1. 시스템 폰트 확인 (FONT_PATHS 기준)
+        # 1. 시스템 폰트 먼저 로드 (fallback)
         for family, path_str in FONT_PATHS.items():
             path = Path(path_str)
             if path.exists():
@@ -64,9 +64,9 @@ class FontLoader:
             else:
                 print(f"⚠️ Font not found: {family} at {path}")
 
-        # 2. 커스텀 폰트 디렉토리 (/mnt/fonts)
+        # 2. 커스텀 폰트로 덮어쓰기 (/mnt/fonts 우선)
         if CUSTOM_FONT_DIR.exists():
-            print(f"[FontLoader] Scanning custom fonts: {CUSTOM_FONT_DIR}")
+            print(f"[FontLoader] Scanning custom fonts: {CUSTOM_FONT_DIR} (overrides system fonts)")
             self._scan_custom_fonts()
 
         # 로그 출력
@@ -75,14 +75,20 @@ class FontLoader:
             print(f"  ✅ {family}")
 
     def _scan_custom_fonts(self):
-        """커스텀 폰트 디렉토리 스캔 (TTF/OTF/TTC)"""
+        """커스텀 폰트 디렉토리 스캔 (TTF/OTF/TTC), 시스템 폰트 덮어쓰기"""
         for ext in ["*.ttf", "*.otf", "*.ttc"]:
             for font_file in CUSTOM_FONT_DIR.glob(ext):
                 # 파일명을 family 이름으로 사용 (확장자 제거)
                 family_name = font_file.stem
-                if family_name not in self._font_cache:
-                    self._font_cache[family_name] = font_file
+
+                # 덮어쓰기 여부 로그
+                if family_name in self._font_cache:
+                    print(f"  🔄 Override: {family_name} (custom overrides system)")
+                else:
                     print(f"  ✅ Custom: {family_name}")
+
+                # 무조건 커스텀 폰트로 덮어쓰기
+                self._font_cache[family_name] = font_file
 
     def get_font_path(self, family: str) -> Optional[Path]:
         """
