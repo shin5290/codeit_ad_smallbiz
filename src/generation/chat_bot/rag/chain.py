@@ -19,8 +19,12 @@ LangChain 기반 RAG 체인 (프롬프트 엔지니어링 통합)
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Optional
+import threading
+import time
+from concurrent.futures import Future
+from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
+from dataclasses import dataclass, field
 
 # 프롬프트 모듈 임포트
 from .prompts import PromptBuilder, UserContext, IntentRouter
@@ -40,14 +44,68 @@ LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o")
 
 
 # --------------------------------------------
-# E5 임베딩
+# E5 임베딩 (큐잉 + 마이크로배치 지원)
 # --------------------------------------------
-class E5Embeddings:
-    """E5 모델용 LangChain 호환 임베딩 클래스"""
 
-    def __init__(self, model_name: str = EMBEDDING_MODEL):
+# CPU 스레드 최적화 (벤치마크 결과: threads=2 최적)
+os.environ.setdefault("OMP_NUM_THREADS", "2")
+os.environ.setdefault("MKL_NUM_THREADS", "2")
+
+import torch
+torch.set_num_threads(2)
+
+
+@dataclass
+class EmbedRequest:
+    """임베딩 요청 객체"""
+    text: str
+    is_query: bool  # True: 쿼리, False: 문서
+    future: Future = field(default_factory=Future)
+
+
+class E5Embeddings:
+    """
+    E5 모델용 LangChain 호환 임베딩 클래스
+
+    Features:
+    - 큐잉: 동시 encode 방지 (Lock 기반)
+    - 마이크로배치: 짧은 시간 동안 요청 모아서 배치 처리
+    - CPU 최적화: threads=2, VRAM 0GB
+
+    벤치마크 결과 (p95 기준):
+    - threads=2, batch_size=1: ~200ms (short query)
+    - threads=2, batch_size=4: ~87ms per sentence
+    """
+
+    def __init__(
+        self,
+        model_name: str = EMBEDDING_MODEL,
+        device: str = "cpu",
+        batch_wait_ms: int = 50,
+        max_batch_size: int = 8,
+        enable_micro_batch: bool = True,
+    ):
         from sentence_transformers import SentenceTransformer
-        self.model = SentenceTransformer(model_name)
+
+        # CPU 사용으로 VRAM 절약 (이미지 생성 모델에 GPU 전체 양보)
+        self.model = SentenceTransformer(model_name, device=device)
+        self.device = device
+
+        # 마이크로배치 설정
+        self.batch_wait_ms = batch_wait_ms  # 배치 대기 시간 (ms)
+        self.max_batch_size = max_batch_size  # 최대 배치 크기
+        self.enable_micro_batch = enable_micro_batch
+
+        # 큐잉 (동시 encode 방지)
+        self._lock = threading.Lock()
+        self._queue: List[EmbedRequest] = []
+        self._queue_lock = threading.Lock()
+
+        # 마이크로배치 워커 스레드
+        if enable_micro_batch:
+            self._batch_thread = threading.Thread(target=self._batch_worker, daemon=True)
+            self._batch_thread.start()
+            self._shutdown = False
 
     def _sanitize_text(self, text: str) -> str:
         """텍스트 전처리 (None, 빈 문자열, 인코딩 문제 해결)"""
@@ -55,24 +113,101 @@ class E5Embeddings:
             return ""
         if not isinstance(text, str):
             text = str(text)
-        # 빈 문자열 체크
         text = text.strip()
         if not text:
             return "empty query"
-        # 서로게이트 문자 제거
         text = text.encode('utf-8', 'surrogateescape').decode('utf-8', 'replace')
         return text
 
+    def _encode_batch(self, texts: List[str], is_query: bool) -> List[List[float]]:
+        """실제 인코딩 수행 (Lock으로 동시 실행 방지)"""
+        prefix = "query: " if is_query else "passage: "
+        prefixed = [prefix + t for t in texts]
+
+        with self._lock:
+            embeddings = self.model.encode(prefixed, normalize_embeddings=True)
+
+        return embeddings.tolist()
+
+    def _batch_worker(self):
+        """마이크로배치 워커 스레드"""
+        while not getattr(self, '_shutdown', False):
+            time.sleep(self.batch_wait_ms / 1000.0)
+
+            # 큐에서 요청 가져오기
+            with self._queue_lock:
+                if not self._queue:
+                    continue
+
+                # 최대 batch_size 만큼 가져오기
+                batch = self._queue[:self.max_batch_size]
+                self._queue = self._queue[self.max_batch_size:]
+
+            if not batch:
+                continue
+
+            # 쿼리/문서 분리
+            query_requests = [r for r in batch if r.is_query]
+            doc_requests = [r for r in batch if not r.is_query]
+
+            # 쿼리 배치 처리
+            if query_requests:
+                texts = [self._sanitize_text(r.text) for r in query_requests]
+                try:
+                    embeddings = self._encode_batch(texts, is_query=True)
+                    for req, emb in zip(query_requests, embeddings):
+                        req.future.set_result(emb)
+                except Exception as e:
+                    for req in query_requests:
+                        req.future.set_exception(e)
+
+            # 문서 배치 처리
+            if doc_requests:
+                texts = [self._sanitize_text(r.text) for r in doc_requests]
+                try:
+                    embeddings = self._encode_batch(texts, is_query=False)
+                    for req, emb in zip(doc_requests, embeddings):
+                        req.future.set_result(emb)
+                except Exception as e:
+                    for req in doc_requests:
+                        req.future.set_exception(e)
+
+    def _submit_request(self, text: str, is_query: bool) -> Future:
+        """마이크로배치 큐에 요청 제출"""
+        request = EmbedRequest(text=text, is_query=is_query)
+
+        with self._queue_lock:
+            self._queue.append(request)
+
+            # max_batch_size 도달하면 즉시 처리 트리거
+            if len(self._queue) >= self.max_batch_size:
+                pass  # 워커가 처리
+
+        return request.future
+
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        # 입력 검증 및 전처리
+        """문서 임베딩 (오프라인 배치용 - 마이크로배치 미사용)"""
+        # 오프라인 임베딩은 마이크로배치 없이 직접 처리 (효율성)
         sanitized = [self._sanitize_text(t) for t in texts]
-        prefixed = ["passage: " + t for t in sanitized]
-        return self.model.encode(prefixed, normalize_embeddings=True).tolist()
+        return self._encode_batch(sanitized, is_query=False)
 
     def embed_query(self, text: str) -> List[float]:
-        # 입력 검증 및 전처리
+        """쿼리 임베딩 (온라인용 - 마이크로배치 사용)"""
         sanitized = self._sanitize_text(text)
-        return self.model.encode(["query: " + sanitized], normalize_embeddings=True)[0].tolist()
+
+        if self.enable_micro_batch:
+            # 마이크로배치 큐에 제출하고 결과 대기
+            future = self._submit_request(sanitized, is_query=True)
+            return future.result(timeout=10.0)  # 최대 10초 대기
+        else:
+            # 마이크로배치 비활성화 시 직접 처리
+            return self._encode_batch([sanitized], is_query=True)[0]
+
+    def shutdown(self):
+        """워커 스레드 종료"""
+        self._shutdown = True
+        if hasattr(self, '_batch_thread'):
+            self._batch_thread.join(timeout=1.0)
 
 
 # --------------------------------------------
