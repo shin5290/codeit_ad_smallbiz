@@ -8,10 +8,9 @@
 
 from typing import Optional, List, Dict
 from abc import ABC, abstractmethod
+import logging
 
-from src.utils.logging import get_logger
-
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # =====================================================

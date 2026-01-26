@@ -1153,6 +1153,11 @@
             "요청을 확인중입니다.",
             "생성 옵션을 정리중입니다.",
         ];
+        const analysisStepsConsulting = [
+            "상담 내용을 파악중입니다.",
+            "관련 사례를 찾고 있습니다.",
+            "답변을 구성하고 있습니다.",
+        ];
         const analysisStepsImage = [
             "메시지를 분석중입니다.",
             "광고 생성 타입을 확정중입니다.",
@@ -1181,7 +1186,8 @@
             { percent: 82, message: "최종 문구를 생성중입니다." },
         ];
 
-        function getAnalysisSteps(generationType) {
+        function getAnalysisSteps(generationType, intent) {
+            if (intent === "consulting") return analysisStepsConsulting;
             if (generationType === "text") return analysisStepsText;
             if (generationType === "image") return analysisStepsImage;
             return analysisStepsGeneric;
@@ -1228,10 +1234,10 @@
             progressState.delete(id);
         }
 
-        function startAnalysisIndicator(id, { generationType, message } = {}) {
+        function startAnalysisIndicator(id, { generationType, message, intent } = {}) {
             if (!id) return;
             stopProgress(id);
-            const steps = getAnalysisSteps(generationType);
+            const steps = getAnalysisSteps(generationType, intent);
             const initialMessage = message || steps[0] || "분석 중입니다.";
             let initialIndex = steps.indexOf(initialMessage);
             if (initialIndex < 0) initialIndex = -1;
@@ -1261,10 +1267,10 @@
             progressState.set(id, state);
         }
 
-        function updateAnalysisIndicator(id, generationType) {
+        function updateAnalysisIndicator(id, generationType, intent) {
             const state = progressState.get(id);
             if (!state || state.mode !== "analysis") return;
-            const newSteps = getAnalysisSteps(generationType);
+            const newSteps = getAnalysisSteps(generationType, intent);
             if (!newSteps.length) return;
             const currentMessage = state.currentMessage;
             let newIndex = newSteps.indexOf(currentMessage);
@@ -1454,9 +1460,9 @@
                                 showBar: false,
                             });
                         }
-                        updateAnalysisIndicator(loadingId, generationType);
+                        updateAnalysisIndicator(loadingId, generationType, streamMeta.intent);
                     } else {
-                        startAnalysisIndicator(loadingId, { generationType, message: payload.message });
+                        startAnalysisIndicator(loadingId, { generationType, message: payload.message, intent: streamMeta.intent });
                     }
                     return;
                 }
@@ -1522,7 +1528,7 @@
                 if (payload.type === "meta") {
                     if (payload.intent) streamMeta.intent = payload.intent;
                     if (payload.generation_type) streamMeta.generationType = payload.generation_type;
-                    updateAnalysisIndicator(loadingId, streamMeta.generationType);
+                    updateAnalysisIndicator(loadingId, streamMeta.generationType, streamMeta.intent);
                     clearGenerationFallback();
                     if (streamMeta.intent && streamMeta.intent !== "consulting") {
                         streamMeta.generationFallbackTimer = setTimeout(() => {
