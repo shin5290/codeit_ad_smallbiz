@@ -1,11 +1,148 @@
+import asyncio
+import json
+import os
+import re
 from datetime import date, datetime, timedelta
+from pathlib import Path
+from typing import AsyncIterator
+
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from src.backend import process_db, schemas
 from src.backend import services
+from src.utils.logging import get_current_log_file, get_log_root, get_run_id
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+LOG_STREAM_MAX_CONNECTIONS = int(os.getenv("LOG_STREAM_MAX_CONNECTIONS", "5"))
+LOG_STREAM_TIMEOUT_SECONDS = int(os.getenv("LOG_STREAM_TIMEOUT_SECONDS", "600"))
+LOG_STREAM_POLL_INTERVAL = float(os.getenv("LOG_STREAM_POLL_INTERVAL", "0.5"))
+LOG_TAIL_DEFAULT_LINES = int(os.getenv("LOG_TAIL_DEFAULT_LINES", "400"))
+LOG_TAIL_MAX_LINES = int(os.getenv("LOG_TAIL_MAX_LINES", "1000"))
+LOG_STREAM_SEMAPHORE = asyncio.Semaphore(LOG_STREAM_MAX_CONNECTIONS)
+
+_LOG_LEVEL_MAP = {
+    "debug": "D",
+    "info": "I",
+    "warn": "W",
+    "warning": "W",
+    "error": "E",
+    "critical": "C",
+    "fatal": "C",
+}
+
+_SENSITIVE_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"(?i)(authorization\s*:\s*bearer\s+)([^\s,;]+)"), r"\1****"),
+    (re.compile(r'(?i)(authorization"\s*:\s*")([^"]+)(")'), r'\1****\3'),
+    (re.compile(r"(?i)(authorization\s*:\s*)([^\s,;]+)"), r"\1****"),
+    (re.compile(r"(?i)(access_token|refresh_token|id_token)\s*[=:]\s*([^\s&]+)"), r"\1=****"),
+    (re.compile(r"(?i)(cookie|set-cookie)\s*:\s*([^\n]+)"), r"\1: ****"),
+    (re.compile(r"(?i)(cookie)\s*=\s*([^;\n]+)"), r"\1=****"),
+]
+
+
+def _mask_sensitive(text: str) -> str:
+    masked = text
+    for pattern, repl in _SENSITIVE_PATTERNS:
+        masked = pattern.sub(repl, masked)
+    return masked
+
+
+def _normalize_level(level: str | None) -> str | None:
+    if not level:
+        return None
+    key = level.strip().lower()
+    if not key:
+        return None
+    return _LOG_LEVEL_MAP.get(key, key[:1].upper())
+
+
+def _filter_log_line(line: str, query: str | None, level: str | None) -> bool:
+    if query:
+        if query.lower() not in line.lower():
+            return False
+    normalized = _normalize_level(level)
+    if normalized:
+        token = f" - {normalized} - "
+        if token not in line:
+            return False
+    return True
+
+
+def _is_valid_log_date(value: str) -> bool:
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def _is_safe_log_filename(value: str) -> bool:
+    if not value.endswith(".log"):
+        return False
+    return Path(value).name == value
+
+
+def _is_within_root(target: Path, root: Path) -> bool:
+    try:
+        target.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _resolve_log_dir(date_str: str) -> Path:
+    if not _is_valid_log_date(date_str):
+        raise HTTPException(status_code=400, detail="날짜 형식이 올바르지 않습니다.")
+    log_root = get_log_root().resolve()
+    target = (log_root / date_str).resolve()
+    if not _is_within_root(target, log_root):
+        raise HTTPException(status_code=403, detail="허용되지 않은 경로입니다.")
+    if not target.exists() or not target.is_dir():
+        raise HTTPException(status_code=404, detail="로그 폴더를 찾을 수 없습니다.")
+    return target
+
+
+def _resolve_log_file(date_str: str, filename: str) -> Path:
+    if not _is_safe_log_filename(filename):
+        raise HTTPException(status_code=400, detail="파일명이 올바르지 않습니다.")
+    log_dir = _resolve_log_dir(date_str)
+    target = (log_dir / filename).resolve()
+    if not _is_within_root(target, log_dir):
+        raise HTTPException(status_code=403, detail="허용되지 않은 경로입니다.")
+    if not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail="로그 파일을 찾을 수 없습니다.")
+    return target
+
+
+def _tail_lines(path: Path, lines: int) -> list[str]:
+    if lines <= 0:
+        return []
+    buffer = bytearray()
+    newline_count = 0
+    with path.open("rb") as file_obj:
+        file_obj.seek(0, os.SEEK_END)
+        position = file_obj.tell()
+        while position > 0 and newline_count <= lines:
+            step = min(4096, position)
+            position -= step
+            file_obj.seek(position)
+            chunk = file_obj.read(step)
+            buffer[:0] = chunk
+            newline_count = buffer.count(b"\n")
+            if position == 0:
+                break
+    text = buffer.decode("utf-8", errors="replace")
+    return text.splitlines()[-lines:]
+
+
+async def _acquire_log_stream_slot():
+    try:
+        await asyncio.wait_for(LOG_STREAM_SEMAPHORE.acquire(), timeout=0.05)
+    except asyncio.TimeoutError as exc:
+        raise HTTPException(status_code=429, detail="로그 스트리밍 연결이 너무 많습니다.") from exc
 
 
 def require_admin(current_user=Depends(services.get_current_user)):
@@ -151,3 +288,300 @@ def list_generations(
         "page": page,
         "limit": limit,
     }
+
+
+@router.get("/sessions", response_model=schemas.AdminSessionPage)
+def list_sessions(
+    limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    query: str | None = Query(None),
+    user_id: int | None = Query(None),
+    from_date: date | None = Query(None, alias="from"),
+    to_date: date | None = Query(None, alias="to"),
+    db: Session = Depends(process_db.get_db),
+    current_user=Depends(require_admin),
+):
+    start_at = None
+    end_at = None
+    if from_date:
+        start_at = datetime.combine(from_date, datetime.min.time())
+    if to_date:
+        end_at = datetime.combine(to_date, datetime.min.time()) + timedelta(days=1)
+
+    rows, total = process_db.get_admin_session_page(
+        db,
+        limit=limit,
+        offset=offset,
+        query=query,
+        user_id=user_id,
+        start_at=start_at,
+        end_at=end_at,
+    )
+
+    items: list[schemas.AdminSessionItem] = []
+    for row in rows:
+        items.append(
+            schemas.AdminSessionItem(
+                session_id=row.session_id,
+                user_id=row.user_id,
+                login_id=row.login_id,
+                created_at=row.created_at,
+                last_message_at=row.last_message_at,
+                message_count=row.message_count or 0,
+            )
+        )
+
+    return {
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@router.get("/sessions/{session_id}", response_model=schemas.AdminSessionDetail)
+def get_session_detail(
+    session_id: str,
+    message_limit: int = Query(200, ge=1, le=500),
+    message_offset: int = Query(0, ge=0),
+    generation_limit: int = Query(5, ge=0, le=50),
+    mask: bool = Query(True),
+    db: Session = Depends(process_db.get_db),
+    current_user=Depends(require_admin),
+):
+    overview = process_db.get_admin_session_overview(db, session_id=session_id)
+    if not overview:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+
+    messages, message_total = process_db.get_admin_session_messages(
+        db,
+        session_id=session_id,
+        limit=message_limit,
+        offset=message_offset,
+    )
+
+    message_items: list[schemas.AdminSessionMessage] = []
+    for msg in messages:
+        content = msg.content
+        if mask:
+            content = _mask_sensitive(content)
+        message_items.append(
+            schemas.AdminSessionMessage(
+                id=msg.id,
+                role=msg.role,
+                content=content,
+                created_at=msg.created_at,
+                image=(
+                    schemas.AdminImageRef(file_hash=msg.image.file_hash)
+                    if msg.image
+                    else None
+                ),
+            )
+        )
+
+    generation_items: list[schemas.AdminGenerationSummary] = []
+    if generation_limit > 0:
+        generations = process_db.get_generation_history_by_session(
+            db,
+            session_id=session_id,
+            limit=generation_limit,
+        )
+        for gen in generations:
+            generation_items.append(
+                schemas.AdminGenerationSummary(
+                    id=gen.id,
+                    content_type=gen.content_type,
+                    output_text=gen.output_text,
+                    output_image=(
+                        schemas.AdminImageRef(file_hash=gen.output_image.file_hash)
+                        if gen.output_image
+                        else None
+                    ),
+                    created_at=gen.created_at,
+                    task_id=None,
+                )
+            )
+
+    log_hint = None
+    log_file = get_current_log_file()
+    if log_file:
+        log_root = get_log_root().resolve()
+        resolved = log_file.resolve()
+        if _is_within_root(resolved, log_root):
+            log_hint = schemas.AdminLogHint(
+                date=resolved.parent.name,
+                file=resolved.name,
+            )
+
+    return {
+        "session_id": overview.session_id,
+        "user_id": overview.user_id,
+        "login_id": overview.login_id,
+        "created_at": overview.created_at,
+        "last_message_at": overview.last_message_at,
+        "message_count": message_total,
+        "run_id": get_run_id(),
+        "log_hint": log_hint,
+        "messages": message_items,
+        "generations": generation_items,
+    }
+
+
+@router.get("/messages", response_model=schemas.AdminMessagePage)
+def search_messages(
+    limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    query: str | None = Query(None),
+    level: str | None = Query(None),
+    from_date: date | None = Query(None, alias="from"),
+    to_date: date | None = Query(None, alias="to"),
+    mask: bool = Query(True),
+    db: Session = Depends(process_db.get_db),
+    current_user=Depends(require_admin),
+):
+    start_at = None
+    end_at = None
+    if from_date:
+        start_at = datetime.combine(from_date, datetime.min.time())
+    if to_date:
+        end_at = datetime.combine(to_date, datetime.min.time()) + timedelta(days=1)
+
+    rows, total = process_db.search_admin_messages(
+        db,
+        query=query,
+        level=level,
+        start_at=start_at,
+        end_at=end_at,
+        limit=limit,
+        offset=offset,
+    )
+
+    items: list[schemas.AdminMessageItem] = []
+    for msg, user_id, login_id in rows:
+        content = msg.content
+        if mask:
+            content = _mask_sensitive(content)
+        items.append(
+            schemas.AdminMessageItem(
+                id=msg.id,
+                session_id=msg.session_id,
+                user_id=user_id,
+                login_id=login_id,
+                role=msg.role,
+                content=content,
+                created_at=msg.created_at,
+            )
+        )
+
+    return {
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@router.get("/logs/dates", response_model=schemas.AdminLogDatesResponse)
+def list_log_dates(
+    db: Session = Depends(process_db.get_db),
+    current_user=Depends(require_admin),
+):
+    log_root = get_log_root()
+    if not log_root.exists() or not log_root.is_dir():
+        return {"dates": []}
+
+    dates = [
+        entry.name
+        for entry in log_root.iterdir()
+        if entry.is_dir() and _is_valid_log_date(entry.name)
+    ]
+    dates.sort(reverse=True)
+    return {"dates": dates}
+
+
+@router.get("/logs/files", response_model=schemas.AdminLogFilesResponse)
+def list_log_files(
+    date: str = Query(...),
+    db: Session = Depends(process_db.get_db),
+    current_user=Depends(require_admin),
+):
+    log_dir = _resolve_log_dir(date)
+    files = []
+    for entry in log_dir.iterdir():
+        if not entry.is_file() or entry.suffix != ".log":
+            continue
+        stat = entry.stat()
+        files.append(
+            schemas.AdminLogFileItem(
+                name=entry.name,
+                size_bytes=stat.st_size,
+                modified_at=datetime.fromtimestamp(stat.st_mtime),
+            )
+        )
+    files.sort(key=lambda item: item.modified_at, reverse=True)
+    return {"files": files}
+
+
+@router.get("/logs/tail", response_model=schemas.AdminLogTailResponse)
+def tail_log_file(
+    date: str = Query(...),
+    file: str = Query(...),
+    lines: int = Query(LOG_TAIL_DEFAULT_LINES, ge=10, le=LOG_TAIL_MAX_LINES),
+    query: str | None = Query(None),
+    level: str | None = Query(None),
+    mask: bool = Query(True),
+    db: Session = Depends(process_db.get_db),
+    current_user=Depends(require_admin),
+):
+    target = _resolve_log_file(date, file)
+    raw_lines = _tail_lines(target, lines)
+    filtered: list[str] = []
+    for line in raw_lines:
+        if not _filter_log_line(line, query, level):
+            continue
+        filtered.append(_mask_sensitive(line) if mask else line)
+    return {"lines": filtered}
+
+
+@router.get("/logs/stream")
+async def stream_log_file(
+    date: str = Query(...),
+    file: str = Query(...),
+    query: str | None = Query(None),
+    level: str | None = Query(None),
+    mask: bool = Query(True),
+    db: Session = Depends(process_db.get_db),
+    current_user=Depends(require_admin),
+):
+    target = _resolve_log_file(date, file)
+    await _acquire_log_stream_slot()
+
+    async def event_stream() -> AsyncIterator[str]:
+        loop = asyncio.get_running_loop()
+        start_time = loop.time()
+        try:
+            with target.open("r", encoding="utf-8", errors="replace") as file_obj:
+                file_obj.seek(0, os.SEEK_END)
+                while True:
+                    elapsed = loop.time() - start_time
+                    if elapsed > LOG_STREAM_TIMEOUT_SECONDS:
+                        break
+                    line = file_obj.readline()
+                    if not line:
+                        await asyncio.sleep(LOG_STREAM_POLL_INTERVAL)
+                        continue
+                    line = line.rstrip("\n")
+                    if not _filter_log_line(line, query, level):
+                        continue
+                    if mask:
+                        line = _mask_sensitive(line)
+                    payload = {"line": line}
+                    yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+        finally:
+            LOG_STREAM_SEMAPHORE.release()
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

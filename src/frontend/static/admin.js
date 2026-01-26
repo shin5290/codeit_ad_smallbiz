@@ -3,14 +3,29 @@
         const VIEW_STORAGE_KEY = 'admin_view';
         const limit = 5;
         const userLimit = 15;
+        const sessionLimit = 20;
+        const messageSearchLimit = 20;
         let currentPage = 1;
         let totalPages = 1;
         let isReady = false;
-        let currentView = 'users';
+        let currentView = 'sessions';
         const DEFAULT_SEARCH_TYPE = 'login_id';
         const DEFAULT_USER_SEARCH_TYPE = 'login_id';
         let userCurrentPage = 1;
         let userTotalPages = 1;
+        let sessionCurrentPage = 1;
+        let sessionTotalPages = 1;
+        let selectedSessionId = null;
+        let sessionMessageOffset = 0;
+        const sessionMessageLimit = 200;
+        let sessionMessageTotal = 0;
+        let sessionLoadedCount = 0;
+        let messageSearchPage = 1;
+        let messageSearchTotalPages = 1;
+        let logEventSource = null;
+        let logIsStreaming = false;
+        let logPaused = false;
+        let logBuffer = [];
 
         const userTableBody = document.getElementById('userTableBody');
         const userCount = document.getElementById('userCount');
@@ -30,6 +45,36 @@
         const userModalTitle = document.getElementById('user-modal-title');
         const userModalList = document.getElementById('user-modal-list');
         const userModalClose = document.getElementById('user-modal-close');
+        const sessionTableBody = document.getElementById('sessionTableBody');
+        const sessionCount = document.getElementById('sessionCount');
+        const sessionPageInfo = document.getElementById('sessionPageInfo');
+        const sessionPageInput = document.getElementById('sessionPageInput');
+        const sessionDetailSubtitle = document.getElementById('sessionDetailSubtitle');
+        const sessionDetailEmpty = document.getElementById('sessionDetailEmpty');
+        const sessionDetailBody = document.getElementById('sessionDetailBody');
+        const sessionMeta = document.getElementById('sessionMeta');
+        const sessionTimeline = document.getElementById('sessionTimeline');
+        const sessionGenerations = document.getElementById('sessionGenerations');
+        const sessionLogJumpBtn = document.getElementById('sessionLogJumpBtn');
+        const sessionLoadMoreBtn = document.getElementById('sessionLoadMoreBtn');
+        const messageSearchTableBody = document.getElementById('messageSearchTableBody');
+        const messageSearchCount = document.getElementById('messageSearchCount');
+        const messagePageInfo = document.getElementById('messagePageInfo');
+        const messagePageInput = document.getElementById('messagePageInput');
+        const logStatus = document.getElementById('logStatus');
+        const logDateSelect = document.getElementById('logDateSelect');
+        const logFileSelect = document.getElementById('logFileSelect');
+        const logLinesInput = document.getElementById('logLinesInput');
+        const logKeywordInput = document.getElementById('logKeywordInput');
+        const logLevelSelect = document.getElementById('logLevelSelect');
+        const logMaskToggle = document.getElementById('logMaskToggle');
+        const logTailBtn = document.getElementById('logTailBtn');
+        const logStreamBtn = document.getElementById('logStreamBtn');
+        const logPauseBtn = document.getElementById('logPauseBtn');
+        const logAutoScrollToggle = document.getElementById('logAutoScrollToggle');
+        const logOutput = document.getElementById('logOutput');
+        const logClearBtn = document.getElementById('logClearBtn');
+        const logRefreshBtn = document.getElementById('logRefreshBtn');
 
         const TEXT_PREVIEW_LIMIT = 120;
         const IMAGE_SIZE = {
@@ -51,6 +96,10 @@
                 .replaceAll("'", "&#039;");
         }
 
+        function escapeRegExp(value) {
+            return String(value ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
         async function safeJson(res) {
             try {
                 return await res.json();
@@ -69,6 +118,13 @@
             loginError.textContent = "";
         }
 
+        const viewSections = {
+            sessions: document.getElementById('view-sessions'),
+            logs: document.getElementById('view-logs'),
+            users: document.getElementById('view-users'),
+            generations: document.getElementById('view-generations'),
+        };
+
         function setActiveView(view) {
             currentView = view;
             try {
@@ -80,8 +136,10 @@
             document.querySelectorAll('.nav button').forEach((btn) => {
                 btn.classList.toggle('active', btn.dataset.view === view);
             });
-            document.getElementById('view-users').classList.toggle('hidden', view !== 'users');
-            document.getElementById('view-generations').classList.toggle('hidden', view !== 'generations');
+            Object.entries(viewSections).forEach(([key, section]) => {
+                if (!section) return;
+                section.classList.toggle('hidden', key !== view);
+            });
         }
 
         function getSavedView() {
@@ -93,10 +151,11 @@
         }
 
         const initialView = getSavedView();
-        if (initialView === 'generations') {
-            setActiveView('generations');
+        const allowedViews = Object.keys(viewSections);
+        if (allowedViews.includes(initialView)) {
+            setActiveView(initialView);
         } else {
-            setActiveView('users');
+            setActiveView('sessions');
         }
 
         async function fetchUsers() {
@@ -170,6 +229,13 @@
 
         function hasText(value) {
             return String(value ?? '').trim().length > 0;
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '-';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return '-';
+            return date.toLocaleString();
         }
 
         function truncateText(text, limit = TEXT_PREVIEW_LIMIT) {
@@ -364,6 +430,510 @@
             isReady = true;
         }
 
+        async function fetchSessions() {
+            const params = new URLSearchParams();
+            params.set('limit', String(sessionLimit));
+            params.set('offset', String((sessionCurrentPage - 1) * sessionLimit));
+
+            const query = document.getElementById('sessionFilterQuery').value;
+            const userId = document.getElementById('sessionFilterUserId').value;
+            const fromDate = document.getElementById('sessionFilterFromDate').value;
+            const toDate = document.getElementById('sessionFilterToDate').value;
+            if (query) params.set('query', query);
+            if (userId) params.set('user_id', userId);
+            if (fromDate) params.set('from', fromDate);
+            if (toDate) params.set('to', toDate);
+
+            const res = await fetch(`${API_BASE}/admin/sessions?${params.toString()}`, {
+                credentials: 'include',
+            });
+            if (!res.ok) {
+                const data = await safeJson(res);
+                showLogin(data.detail || "관리자 권한이 필요합니다.");
+                return;
+            }
+
+            const data = await safeJson(res);
+            const items = data.items || [];
+            sessionTableBody.innerHTML = '';
+
+            items.forEach((item) => {
+                const row = document.createElement('tr');
+                row.classList.add('session-row');
+                row.dataset.sessionId = encodeURIComponent(item.session_id || '');
+                const loginLabel = item.login_id ? escapeHtml(item.login_id) : 'guest';
+                const statusBadge = item.user_id
+                    ? '<span class="badge badge-success">authed</span>'
+                    : '<span class="badge badge-neutral">guest</span>';
+                row.innerHTML = `
+                    <td><button type="button" class="link-button session-link" data-session-id="${encodeURIComponent(item.session_id || '')}">${escapeHtml(item.session_id)}</button></td>
+                    <td>${loginLabel}</td>
+                    <td>${item.user_id ?? '-'}</td>
+                    <td>${formatDateTime(item.created_at)}</td>
+                    <td>${formatDateTime(item.last_message_at)}</td>
+                    <td>${item.message_count ?? 0}</td>
+                    <td>${statusBadge}</td>
+                `;
+                sessionTableBody.appendChild(row);
+            });
+
+            const total = data.total || 0;
+            sessionTotalPages = Math.max(1, Math.ceil(total / sessionLimit));
+            if (sessionCurrentPage > sessionTotalPages) {
+                sessionCurrentPage = sessionTotalPages;
+                await fetchSessions();
+                return;
+            }
+            sessionCount.textContent = `총 ${total}건`;
+            sessionPageInfo.textContent = ` / ${sessionTotalPages}`;
+            sessionPageInput.value = String(sessionCurrentPage);
+            hideLogin();
+            isReady = true;
+            updateSessionSelectionHighlight();
+        }
+
+        function updateSessionSelectionHighlight() {
+            document.querySelectorAll('.session-row').forEach((row) => {
+                const rowId = decodeURIComponent(row.dataset.sessionId || '');
+                row.classList.toggle('is-selected', rowId === selectedSessionId);
+            });
+        }
+
+        function renderSessionMeta(detail) {
+            const logHint = detail.log_hint ? `${detail.log_hint.date}/${detail.log_hint.file}` : '-';
+            const rows = [
+                { label: 'session_id', value: detail.session_id },
+                { label: 'login_id', value: detail.login_id || 'guest' },
+                { label: 'user_id', value: detail.user_id ?? 'guest' },
+                { label: 'created_at', value: formatDateTime(detail.created_at) },
+                { label: 'last_message_at', value: formatDateTime(detail.last_message_at) },
+                { label: 'message_count', value: detail.message_count ?? 0 },
+                { label: 'run_id', value: detail.run_id || '-' },
+                { label: 'log_file', value: logHint },
+            ];
+            sessionMeta.innerHTML = rows
+                .map(({ label, value }) => `
+                    <div class="meta-row">
+                        <span class="meta-label">${escapeHtml(label)}</span>
+                        <span class="meta-value">${escapeHtml(String(value ?? '-'))}</span>
+                    </div>
+                `)
+                .join('');
+        }
+
+        function buildSessionMessageItem(message) {
+            const roleLabel = message.role === 'user' ? 'user' : 'assistant';
+            const thumbUrl = message.image?.file_hash ? buildImageUrl(message.image.file_hash, IMAGE_SIZE.thumb) : null;
+            const fullUrl = message.image?.file_hash ? buildImageUrl(message.image.file_hash, IMAGE_SIZE.full) : null;
+            const imageHtml = thumbUrl
+                ? `<img class="thumb timeline-thumb" src="${thumbUrl}" loading="lazy" alt="preview" onclick="openImageModal('${fullUrl}')">`
+                : '';
+            return `
+                <div class="timeline-item ${roleLabel}">
+                    <div class="timeline-meta">
+                        <span class="badge badge-tight">${escapeHtml(roleLabel)}</span>
+                        <span class="status-text">${formatDateTime(message.created_at)}</span>
+                    </div>
+                    <div class="timeline-content">${escapeHtml(message.content)}</div>
+                    ${imageHtml}
+                </div>
+            `;
+        }
+
+        function renderSessionMessages(messages, { append = false } = {}) {
+            const html = messages.map(buildSessionMessageItem).join('');
+            if (append) {
+                sessionTimeline.insertAdjacentHTML('afterbegin', html);
+            } else {
+                sessionTimeline.innerHTML = html || '<div class="empty-state">메시지가 없습니다.</div>';
+            }
+        }
+
+        function renderSessionGenerations(generations) {
+            if (!generations || !generations.length) {
+                sessionGenerations.innerHTML = '<div class="empty-state">생성 이력이 없습니다.</div>';
+                return;
+            }
+            const rows = generations.map((gen) => {
+                const content = buildTextPreview(gen.output_text, '생성 결과');
+                const imageHtml = gen.output_image ? buildImageCell(gen.output_image) : '-';
+                return `
+                    <div class="generation-card">
+                        <div class="meta-row">
+                            <span class="meta-label">type</span>
+                            <span class="meta-value">${escapeHtml(gen.content_type || '-')}</span>
+                        </div>
+                        <div class="meta-row">
+                            <span class="meta-label">created_at</span>
+                            <span class="meta-value">${formatDateTime(gen.created_at)}</span>
+                        </div>
+                        <div class="generation-content">
+                            ${content}
+                            ${imageHtml !== '-' ? imageHtml : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            sessionGenerations.innerHTML = rows;
+        }
+
+        function updateSessionDetailSubtitle() {
+            if (!selectedSessionId) {
+                sessionDetailSubtitle.textContent = '';
+                return;
+            }
+            sessionDetailSubtitle.textContent = `총 ${sessionMessageTotal}건 / 로드 ${sessionLoadedCount}건`;
+        }
+
+        function updateSessionLoadMoreState() {
+            const hasMore = sessionLoadedCount < sessionMessageTotal;
+            sessionLoadMoreBtn.disabled = !hasMore;
+        }
+
+        async function fetchSessionDetail(sessionId, { append = false, offset = 0 } = {}) {
+            const params = new URLSearchParams();
+            params.set('message_limit', String(sessionMessageLimit));
+            params.set('message_offset', String(offset));
+            const res = await fetch(`${API_BASE}/admin/sessions/${encodeURIComponent(sessionId)}?${params.toString()}`, {
+                credentials: 'include',
+            });
+            if (!res.ok) {
+                const data = await safeJson(res);
+                showLogin(data.detail || "관리자 권한이 필요합니다.");
+                return false;
+            }
+            const data = await safeJson(res);
+            sessionMessageTotal = data.message_count || 0;
+
+            if (!append) {
+                sessionTimeline.innerHTML = '';
+                sessionLoadedCount = 0;
+                sessionDetailBody.classList.remove('hidden');
+                sessionDetailEmpty.classList.add('hidden');
+            }
+
+            const messages = data.messages || [];
+            renderSessionMessages(messages, { append });
+            sessionLoadedCount += messages.length;
+
+            renderSessionMeta(data);
+            renderSessionGenerations(data.generations || []);
+            updateSessionDetailSubtitle();
+            updateSessionLoadMoreState();
+
+            if (data.log_hint) {
+                sessionLogJumpBtn.disabled = false;
+                sessionLogJumpBtn.dataset.date = data.log_hint.date;
+                sessionLogJumpBtn.dataset.file = data.log_hint.file;
+            } else {
+                sessionLogJumpBtn.disabled = true;
+                sessionLogJumpBtn.dataset.date = '';
+                sessionLogJumpBtn.dataset.file = '';
+            }
+
+            sessionMessageOffset = offset;
+            hideLogin();
+            isReady = true;
+            return true;
+        }
+
+        async function selectSession(sessionId) {
+            selectedSessionId = sessionId;
+            sessionMessageOffset = 0;
+            sessionLoadedCount = 0;
+            sessionLogJumpBtn.disabled = true;
+            sessionLogJumpBtn.dataset.date = '';
+            sessionLogJumpBtn.dataset.file = '';
+            updateSessionSelectionHighlight();
+            await fetchSessionDetail(sessionId, { append: false, offset: 0 });
+        }
+
+        async function loadMoreSessionMessages() {
+            if (!selectedSessionId) return;
+            const nextOffset = sessionMessageOffset + sessionMessageLimit;
+            const success = await fetchSessionDetail(selectedSessionId, { append: true, offset: nextOffset });
+            if (success) {
+                sessionMessageOffset = nextOffset;
+            }
+        }
+
+        async function fetchMessageSearch() {
+            const params = new URLSearchParams();
+            params.set('limit', String(messageSearchLimit));
+            params.set('offset', String((messageSearchPage - 1) * messageSearchLimit));
+
+            const keyword = document.getElementById('messageSearchKeyword').value;
+            const level = document.getElementById('messageSearchLevel').value;
+            const fromDate = document.getElementById('messageSearchFromDate').value;
+            const toDate = document.getElementById('messageSearchToDate').value;
+            if (keyword) params.set('query', keyword);
+            if (level) params.set('level', level);
+            if (fromDate) params.set('from', fromDate);
+            if (toDate) params.set('to', toDate);
+
+            const res = await fetch(`${API_BASE}/admin/messages?${params.toString()}`, {
+                credentials: 'include',
+            });
+            if (!res.ok) {
+                const data = await safeJson(res);
+                showLogin(data.detail || "관리자 권한이 필요합니다.");
+                return;
+            }
+
+            const data = await safeJson(res);
+            const items = data.items || [];
+            messageSearchTableBody.innerHTML = '';
+
+            items.forEach((item) => {
+                const row = document.createElement('tr');
+                const sessionButton = `
+                    <button type="button" class="link-button session-link" data-session-id="${encodeURIComponent(item.session_id || '')}">
+                        ${escapeHtml(item.session_id)}
+                    </button>
+                `;
+                const roleBadge = item.role === 'assistant'
+                    ? '<span class="badge badge-tight">assistant</span>'
+                    : '<span class="badge badge-tight badge-neutral">user</span>';
+                row.innerHTML = `
+                    <td>${sessionButton}</td>
+                    <td>${roleBadge}</td>
+                    <td>${buildTextPreview(item.content, '메시지')}</td>
+                    <td>${formatDateTime(item.created_at)}</td>
+                `;
+                messageSearchTableBody.appendChild(row);
+            });
+
+            const total = data.total || 0;
+            messageSearchTotalPages = Math.max(1, Math.ceil(total / messageSearchLimit));
+            if (messageSearchPage > messageSearchTotalPages) {
+                messageSearchPage = messageSearchTotalPages;
+                await fetchMessageSearch();
+                return;
+            }
+            messageSearchCount.textContent = `총 ${total}건`;
+            messagePageInfo.textContent = ` / ${messageSearchTotalPages}`;
+            messagePageInput.value = String(messageSearchPage);
+            hideLogin();
+            isReady = true;
+        }
+
+        function formatBytes(value) {
+            if (!Number.isFinite(value)) return '-';
+            if (value < 1024) return `${value} B`;
+            const units = ['KB', 'MB', 'GB'];
+            let size = value;
+            let index = -1;
+            while (size >= 1024 && index < units.length - 1) {
+                size /= 1024;
+                index += 1;
+            }
+            return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[index]}`;
+        }
+
+        function setLogStatus(message) {
+            logStatus.textContent = message || '';
+        }
+
+        function renderLogLines(lines, { append = false } = {}) {
+            if (!Array.isArray(lines)) return;
+            if (!append) {
+                logOutput.innerHTML = '';
+            }
+            if (!lines.length) return;
+
+            const keyword = logKeywordInput.value.trim();
+            const regex = keyword ? new RegExp(escapeRegExp(keyword), 'gi') : null;
+            const html = lines.map((line) => {
+                const escaped = escapeHtml(line);
+                const highlighted = regex ? escaped.replace(regex, '<mark>$&</mark>') : escaped;
+                return `<div class="log-line">${highlighted}</div>`;
+            }).join('');
+
+            if (append) {
+                logOutput.insertAdjacentHTML('beforeend', html);
+            } else {
+                logOutput.innerHTML = html;
+            }
+            if (logAutoScrollToggle.checked) {
+                logOutput.scrollTop = logOutput.scrollHeight;
+            }
+        }
+
+        function flushLogBuffer() {
+            if (!logBuffer.length) return;
+            renderLogLines(logBuffer, { append: true });
+            logBuffer = [];
+        }
+
+        function handleLogLine(line) {
+            if (logPaused) {
+                logBuffer.push(line);
+                return;
+            }
+            renderLogLines([line], { append: true });
+        }
+
+        async function fetchLogDates({ preselectDate = null, preselectFile = null } = {}) {
+            const res = await fetch(`${API_BASE}/admin/logs/dates`, { credentials: 'include' });
+            if (!res.ok) {
+                const data = await safeJson(res);
+                showLogin(data.detail || "관리자 권한이 필요합니다.");
+                return;
+            }
+            const data = await safeJson(res);
+            const dates = data.dates || [];
+            hideLogin();
+            isReady = true;
+            if (!dates.length) {
+                logDateSelect.innerHTML = '<option value="">날짜 없음</option>';
+                logFileSelect.innerHTML = '<option value="">파일 없음</option>';
+                return;
+            }
+            logDateSelect.innerHTML = dates.map((item) => `<option value="${item}">${item}</option>`).join('');
+            if (preselectDate && dates.includes(preselectDate)) {
+                logDateSelect.value = preselectDate;
+            }
+            await fetchLogFiles({ preselectFile });
+        }
+
+        async function fetchLogFiles({ preselectFile = null } = {}) {
+            const date = logDateSelect.value;
+            if (!date) {
+                logFileSelect.innerHTML = '<option value="">파일 없음</option>';
+                return;
+            }
+            const res = await fetch(`${API_BASE}/admin/logs/files?date=${encodeURIComponent(date)}`, {
+                credentials: 'include',
+            });
+            if (!res.ok) {
+                const data = await safeJson(res);
+                showLogin(data.detail || "관리자 권한이 필요합니다.");
+                return;
+            }
+            const data = await safeJson(res);
+            const files = data.files || [];
+            if (!files.length) {
+                logFileSelect.innerHTML = '<option value="">파일 없음</option>';
+                return;
+            }
+            logFileSelect.innerHTML = files.map((item) => {
+                const label = `${item.name} (${formatBytes(item.size_bytes)})`;
+                return `<option value="${item.name}">${label}</option>`;
+            }).join('');
+            if (preselectFile && files.some((item) => item.name === preselectFile)) {
+                logFileSelect.value = preselectFile;
+            }
+        }
+
+        async function fetchLogTail() {
+            stopLogStream();
+            const date = logDateSelect.value;
+            const file = logFileSelect.value;
+            if (!date || !file) {
+                setLogStatus('로그 파일을 선택하세요.');
+                return;
+            }
+            const params = new URLSearchParams();
+            params.set('date', date);
+            params.set('file', file);
+            const lines = Number(logLinesInput.value) || 400;
+            params.set('lines', String(lines));
+            const keyword = logKeywordInput.value.trim();
+            const level = logLevelSelect.value;
+            if (keyword) params.set('query', keyword);
+            if (level) params.set('level', level);
+            params.set('mask', logMaskToggle.checked ? 'true' : 'false');
+
+            const res = await fetch(`${API_BASE}/admin/logs/tail?${params.toString()}`, {
+                credentials: 'include',
+            });
+            if (!res.ok) {
+                const data = await safeJson(res);
+                showLogin(data.detail || "로그를 불러올 수 없습니다.");
+                return;
+            }
+            const data = await safeJson(res);
+            logBuffer = [];
+            renderLogLines(data.lines || [], { append: false });
+            setLogStatus(`미리보기 ${lines}줄`);
+            hideLogin();
+            isReady = true;
+        }
+
+        function startLogStream() {
+            if (logIsStreaming) return;
+            const date = logDateSelect.value;
+            const file = logFileSelect.value;
+            if (!date || !file) {
+                setLogStatus('로그 파일을 선택하세요.');
+                return;
+            }
+            const params = new URLSearchParams();
+            params.set('date', date);
+            params.set('file', file);
+            const keyword = logKeywordInput.value.trim();
+            const level = logLevelSelect.value;
+            if (keyword) params.set('query', keyword);
+            if (level) params.set('level', level);
+            params.set('mask', logMaskToggle.checked ? 'true' : 'false');
+
+            logEventSource = new EventSource(`${API_BASE}/admin/logs/stream?${params.toString()}`);
+            logEventSource.onmessage = (event) => {
+                try {
+                    const payload = JSON.parse(event.data || '{}');
+                    if (payload.line) {
+                        handleLogLine(payload.line);
+                    }
+                } catch (error) {
+                    console.error(error);
+                }
+            };
+            logEventSource.onerror = () => {
+                stopLogStream('스트리밍 연결이 종료되었습니다.');
+            };
+            logIsStreaming = true;
+            logPaused = false;
+            logBuffer = [];
+            logStreamBtn.textContent = 'Stop';
+            logPauseBtn.disabled = false;
+            logPauseBtn.textContent = 'Pause';
+            setLogStatus('실시간 스트리밍 중');
+            hideLogin();
+            isReady = true;
+        }
+
+        function stopLogStream(message) {
+            if (logEventSource) {
+                logEventSource.close();
+                logEventSource = null;
+            }
+            logIsStreaming = false;
+            logPaused = false;
+            logBuffer = [];
+            logStreamBtn.textContent = 'Start';
+            logPauseBtn.disabled = true;
+            logPauseBtn.textContent = 'Pause';
+            if (message) {
+                setLogStatus(message);
+            }
+        }
+
+        function toggleLogPause() {
+            if (!logIsStreaming) return;
+            logPaused = !logPaused;
+            logPauseBtn.textContent = logPaused ? 'Resume' : 'Pause';
+            if (!logPaused) {
+                flushLogBuffer();
+            }
+        }
+
+        async function initLogsView({ preselectDate = null, preselectFile = null } = {}) {
+            if (!logLinesInput.value) {
+                logLinesInput.value = '400';
+            }
+            await fetchLogDates({ preselectDate, preselectFile });
+        }
+
         async function deleteSelectedUsers() {
             const checked = Array.from(document.querySelectorAll('.user-check:checked'));
             const ids = checked.map((el) => Number(el.dataset.userId));
@@ -418,10 +988,18 @@
             }
 
             hideLogin();
+            resetSessionFilters({ shouldFetch: false });
+            resetMessageSearchFilters({ shouldFetch: false });
             resetUserFilters({ shouldFetch: false });
-            await fetchUsers();
-            if (currentView === 'generations') {
-                resetFilters({ shouldFetch: true });
+            resetFilters({ shouldFetch: false });
+            if (currentView === 'sessions') {
+                await fetchSessions();
+            } else if (currentView === 'logs') {
+                await initLogsView();
+            } else if (currentView === 'generations') {
+                await fetchGenerations();
+            } else {
+                await fetchUsers();
             }
         }
 
@@ -476,6 +1054,45 @@
             updateUserSearchFields();
             if (shouldFetch && isReady) {
                 fetchUsers();
+            }
+        }
+
+        function resetSessionFilters({ shouldFetch = true } = {}) {
+            document.getElementById('sessionFilterQuery').value = '';
+            document.getElementById('sessionFilterUserId').value = '';
+            document.getElementById('sessionFilterFromDate').value = '';
+            document.getElementById('sessionFilterToDate').value = '';
+            sessionCurrentPage = 1;
+            selectedSessionId = null;
+            sessionMessageOffset = 0;
+            sessionMessageTotal = 0;
+            sessionLoadedCount = 0;
+            sessionDetailSubtitle.textContent = '';
+            sessionMeta.innerHTML = '';
+            sessionTimeline.innerHTML = '';
+            sessionGenerations.innerHTML = '';
+            sessionDetailBody.classList.add('hidden');
+            sessionDetailEmpty.classList.remove('hidden');
+            sessionLogJumpBtn.disabled = true;
+            sessionLoadMoreBtn.disabled = true;
+            updateSessionSelectionHighlight();
+            if (shouldFetch && isReady) {
+                fetchSessions();
+            }
+        }
+
+        function resetMessageSearchFilters({ shouldFetch = true } = {}) {
+            document.getElementById('messageSearchKeyword').value = '';
+            document.getElementById('messageSearchLevel').value = '';
+            document.getElementById('messageSearchFromDate').value = '';
+            document.getElementById('messageSearchToDate').value = '';
+            messageSearchPage = 1;
+            messageSearchTableBody.innerHTML = '';
+            messageSearchCount.textContent = '';
+            messagePageInfo.textContent = '';
+            messagePageInput.value = '1';
+            if (shouldFetch && isReady) {
+                fetchMessageSearch();
             }
         }
 
@@ -537,7 +1154,21 @@
                 const nextView = btn.dataset.view;
                 const prevView = currentView;
                 setActiveView(nextView);
-                if (nextView === 'generations') {
+                if (prevView === 'logs' && nextView !== 'logs') {
+                    stopLogStream();
+                }
+                if (nextView === 'sessions') {
+                    if (prevView !== 'sessions') {
+                        resetSessionFilters({ shouldFetch: isReady });
+                        resetMessageSearchFilters({ shouldFetch: false });
+                    } else if (isReady) {
+                        fetchSessions();
+                    }
+                } else if (nextView === 'logs') {
+                    if (prevView !== 'logs' && isReady) {
+                        initLogsView();
+                    }
+                } else if (nextView === 'generations') {
                     if (prevView !== 'generations') {
                         resetFilters({ shouldFetch: isReady });
                     } else if (isReady) {
@@ -551,6 +1182,143 @@
                     }
                 }
             });
+        });
+
+        document.getElementById('searchSessionsBtn').addEventListener('click', () => {
+            sessionCurrentPage = 1;
+            fetchSessions();
+        });
+        document.getElementById('resetSessionsBtn').addEventListener('click', resetSessionFilters);
+        document.getElementById('sessionPrevPageBtn').addEventListener('click', () => {
+            if (sessionCurrentPage > 1) {
+                sessionCurrentPage -= 1;
+                fetchSessions();
+            }
+        });
+        document.getElementById('sessionNextPageBtn').addEventListener('click', () => {
+            if (sessionCurrentPage < sessionTotalPages) {
+                sessionCurrentPage += 1;
+                fetchSessions();
+            }
+        });
+        sessionPageInput.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            const value = Number(event.target.value);
+            if (!Number.isFinite(value)) return;
+            const nextPage = Math.min(Math.max(1, Math.floor(value)), sessionTotalPages);
+            if (nextPage !== sessionCurrentPage) {
+                sessionCurrentPage = nextPage;
+                fetchSessions();
+            }
+        });
+        sessionPageInput.addEventListener('blur', (event) => {
+            const value = Number(event.target.value);
+            if (!Number.isFinite(value)) {
+                event.target.value = String(sessionCurrentPage);
+                return;
+            }
+            const nextPage = Math.min(Math.max(1, Math.floor(value)), sessionTotalPages);
+            if (nextPage !== sessionCurrentPage) {
+                sessionCurrentPage = nextPage;
+                fetchSessions();
+            } else {
+                event.target.value = String(sessionCurrentPage);
+            }
+        });
+        sessionTableBody.addEventListener('click', (event) => {
+            const link = event.target.closest('.session-link');
+            if (!link) return;
+            const sessionId = decodeURIComponent(link.dataset.sessionId || '');
+            if (!sessionId) return;
+            selectSession(sessionId);
+        });
+        sessionLoadMoreBtn.addEventListener('click', loadMoreSessionMessages);
+        sessionLogJumpBtn.addEventListener('click', async () => {
+            const date = sessionLogJumpBtn.dataset.date;
+            const file = sessionLogJumpBtn.dataset.file;
+            if (!date || !file) return;
+            setActiveView('logs');
+            await initLogsView({ preselectDate: date, preselectFile: file });
+        });
+
+        document.getElementById('messageSearchBtn').addEventListener('click', () => {
+            messageSearchPage = 1;
+            fetchMessageSearch();
+        });
+        document.getElementById('messageResetBtn').addEventListener('click', resetMessageSearchFilters);
+        document.getElementById('messagePrevPageBtn').addEventListener('click', () => {
+            if (messageSearchPage > 1) {
+                messageSearchPage -= 1;
+                fetchMessageSearch();
+            }
+        });
+        document.getElementById('messageNextPageBtn').addEventListener('click', () => {
+            if (messageSearchPage < messageSearchTotalPages) {
+                messageSearchPage += 1;
+                fetchMessageSearch();
+            }
+        });
+        messagePageInput.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            const value = Number(event.target.value);
+            if (!Number.isFinite(value)) return;
+            const nextPage = Math.min(Math.max(1, Math.floor(value)), messageSearchTotalPages);
+            if (nextPage !== messageSearchPage) {
+                messageSearchPage = nextPage;
+                fetchMessageSearch();
+            }
+        });
+        messagePageInput.addEventListener('blur', (event) => {
+            const value = Number(event.target.value);
+            if (!Number.isFinite(value)) {
+                event.target.value = String(messageSearchPage);
+                return;
+            }
+            const nextPage = Math.min(Math.max(1, Math.floor(value)), messageSearchTotalPages);
+            if (nextPage !== messageSearchPage) {
+                messageSearchPage = nextPage;
+                fetchMessageSearch();
+            } else {
+                event.target.value = String(messageSearchPage);
+            }
+        });
+        messageSearchTableBody.addEventListener('click', (event) => {
+            const link = event.target.closest('.session-link');
+            if (!link) return;
+            const sessionId = decodeURIComponent(link.dataset.sessionId || '');
+            if (!sessionId) return;
+            setActiveView('sessions');
+            selectSession(sessionId);
+        });
+
+        logRefreshBtn.addEventListener('click', () => {
+            stopLogStream();
+            initLogsView({ preselectDate: logDateSelect.value, preselectFile: logFileSelect.value });
+        });
+        logDateSelect.addEventListener('change', () => {
+            stopLogStream();
+            fetchLogFiles();
+        });
+        logFileSelect.addEventListener('change', () => {
+            stopLogStream();
+        });
+        logTailBtn.addEventListener('click', fetchLogTail);
+        logStreamBtn.addEventListener('click', () => {
+            if (logIsStreaming) {
+                stopLogStream('스트리밍 중지');
+            } else {
+                startLogStream();
+            }
+        });
+        logPauseBtn.addEventListener('click', toggleLogPause);
+        logClearBtn.addEventListener('click', () => {
+            logOutput.innerHTML = '';
+            setLogStatus('');
+        });
+        logAutoScrollToggle.addEventListener('change', () => {
+            if (logAutoScrollToggle.checked) {
+                logOutput.scrollTop = logOutput.scrollHeight;
+            }
         });
 
         document.getElementById('selectAllUsers').addEventListener('change', (event) => {
@@ -674,13 +1442,20 @@
         userModalClose.addEventListener('click', closeUserModal);
 
         window.addEventListener('load', async () => {
+            resetSessionFilters({ shouldFetch: false });
+            resetMessageSearchFilters({ shouldFetch: false });
             resetUserFilters({ shouldFetch: false });
-            if (currentView === 'generations') {
-                resetFilters({ shouldFetch: false });
-            }
-            await fetchUsers();
-            if (currentView === 'generations' && isReady) {
-                fetchGenerations();
+            resetFilters({ shouldFetch: false });
+            sessionLoadMoreBtn.disabled = true;
+            sessionLogJumpBtn.disabled = true;
+            if (currentView === 'sessions') {
+                await fetchSessions();
+            } else if (currentView === 'logs') {
+                await initLogsView();
+            } else if (currentView === 'generations') {
+                await fetchGenerations();
+            } else {
+                await fetchUsers();
             }
         });
     

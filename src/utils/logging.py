@@ -94,11 +94,18 @@ class ColoredFormatter(CompactFormatter):
 def _get_log_dir() -> Path:
     """로그 디렉토리 경로 반환 (기본: /mnt/logs)"""
     # 1) 환경변수 우선
+    if log_root := os.environ.get("LOG_ROOT"):
+        return Path(log_root)
     if log_dir := os.environ.get("LOG_DIR"):
         return Path(log_dir)
 
     # 2) 고정 기본값
     return Path("/mnt/logs")
+
+
+def get_log_root() -> Path:
+    """로그 루트 경로 반환 (LOG_ROOT > LOG_DIR > 기본값)."""
+    return _get_log_dir()
 
 
 def _get_log_level() -> int:
