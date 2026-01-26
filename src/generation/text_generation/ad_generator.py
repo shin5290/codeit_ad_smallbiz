@@ -3,9 +3,7 @@
 백엔드(진수경)가 호출할 메인 함수
 
 작성자: 배현석
-기능 추가: 신승목
-버전: 1.0 -> 1.1
-버전 변경 내용: logging 추가
+버전: 1.0
 """
 
 import sys
@@ -17,9 +15,6 @@ sys.path.insert(0, str(project_root))
 
 from src.generation.text_generation.text_generator import TextGenerator
 from src.generation.text_generation.prompt_manager import PromptTemplateManager
-from src.utils.logging import get_logger
-
-logger = get_logger(__name__)
 
 
 def generate_advertisement(
@@ -70,16 +65,16 @@ def generate_advertisement(
         }
     """
 
-    logger.info("=" * 80)
-    logger.info("🎬 광고 생성 파이프라인 시작")
-    logger.info("=" * 80)
-    logger.info(f"📥 사용자 입력: {user_input}")
-    logger.info(f"📐 설정: tone={tone}, max_length={max_length}, style={style}\n")
+    print("=" * 80)
+    print("🎬 광고 생성 파이프라인 시작")
+    print("=" * 80)
+    print(f"📥 사용자 입력: {user_input}")
+    print(f"📐 설정: tone={tone}, max_length={max_length}, style={style}\n")
 
     try:
         # 1. 광고 문구 생성 (TextGenerator)
-        logger.info("1️⃣ 광고 문구 생성")
-        logger.info("-" * 80)
+        print("1️⃣ 광고 문구 생성")
+        print("-" * 80)
 
         text_gen = TextGenerator()
         ad_copy = text_gen.generate_ad_copy(
@@ -88,11 +83,11 @@ def generate_advertisement(
             max_length=max_length
         )
 
-        logger.info(f"✅ 광고 문구: '{ad_copy}' ({len(ad_copy)}자)\n")
+        print(f"✅ 광고 문구: '{ad_copy}' ({len(ad_copy)}자)\n")
 
         # 2. 이미지 프롬프트 생성 (PromptTemplateManager)
-        logger.info("2️⃣ 이미지 프롬프트 생성")
-        logger.info("-" * 80)
+        print("2️⃣ 이미지 프롬프트 생성")
+        print("-" * 80)
 
         prompt_manager = PromptTemplateManager()
         image_prompts = prompt_manager.generate_image_prompt(
@@ -100,9 +95,9 @@ def generate_advertisement(
             style=style
         )
 
-        logger.info(f"✅ Positive: {len(image_prompts['positive'])} chars")
-        logger.info(f"✅ Negative: {len(image_prompts['negative'])} chars")
-        logger.info(f"✅ Industry: {image_prompts['industry']}\n")
+        print(f"✅ Positive: {len(image_prompts['positive'])} chars")
+        print(f"✅ Negative: {len(image_prompts['negative'])} chars")
+        print(f"✅ Industry: {image_prompts['industry']}\n")
 
         # 3. 결과 통합
         result = {
@@ -114,19 +109,19 @@ def generate_advertisement(
             "status": "success"
         }
 
-        logger.info("=" * 80)
-        logger.info("🎉 광고 생성 완료!")
-        logger.info("=" * 80)
-        logger.info(f"📝 광고 문구: {ad_copy}")
-        logger.info(f"📸 Positive: {image_prompts['positive'][:60]}...")
-        logger.info(f"🚫 Negative: {image_prompts['negative'][:60]}...")
-        logger.info(f"🏢 업종: {image_prompts['industry']}")
-        logger.info("=" * 80 + "\n")
+        print("=" * 80)
+        print("🎉 광고 생성 완료!")
+        print("=" * 80)
+        print(f"📝 광고 문구: {ad_copy}")
+        print(f"📸 Positive: {image_prompts['positive'][:60]}...")
+        print(f"🚫 Negative: {image_prompts['negative'][:60]}...")
+        print(f"🏢 업종: {image_prompts['industry']}")
+        print("=" * 80 + "\n")
 
         return result
 
     except Exception as e:
-        logger.error(f"❌ 광고 생성 실패: {e}")
+        print(f"❌ 광고 생성 실패: {e}")
         import traceback
         traceback.print_exc()
 
@@ -150,11 +145,11 @@ def test_without_api():
     (JupyterHub에서 실제 테스트 전 로컬 검증용)
     """
 
-    logger.info("=" * 80)
-    logger.info("🧪 API 호출 없이 구조 테스트")
-    logger.info("=" * 80)
-    logger.info("⚠️  실제 GPT API는 호출하지 않습니다.")
-    logger.info("⚠️  구조와 로직만 검증합니다.\n")
+    print("=" * 80)
+    print("🧪 API 호출 없이 구조 테스트")
+    print("=" * 80)
+    print("⚠️  실제 GPT API는 호출하지 않습니다.")
+    print("⚠️  구조와 로직만 검증합니다.\n")
 
     # 더미 데이터로 테스트
     test_cases = [
@@ -171,14 +166,14 @@ def test_without_api():
     ]
 
     for i, test in enumerate(test_cases, 1):
-        logger.info(f"\n{'='*80}")
-        logger.info(f"테스트 케이스 {i}")
-        logger.info(f"{'='*80}\n")
+        print(f"\n{'='*80}")
+        print(f"테스트 케이스 {i}")
+        print(f"{'='*80}\n")
 
         # 구조만 확인
-        logger.info(f"입력: {test['user_input']}")
-        logger.info(f"톤: {test['tone']}")
-        logger.info(f"최대 길이: {test['max_length']}")
+        print(f"입력: {test['user_input']}")
+        print(f"톤: {test['tone']}")
+        print(f"최대 길이: {test['max_length']}")
 
         expected_output = {
             "ad_copy": "[API 호출 시 생성될 광고 문구]",
@@ -188,16 +183,16 @@ def test_without_api():
             "status": "success"
         }
 
-        logger.info("\n✅ 예상 출력 구조:")
+        print(f"\n✅ 예상 출력 구조:")
         for key, value in expected_output.items():
-            logger.info(f"   {key}: {value}")
+            print(f"   {key}: {value}")
 
-        logger.info(f"\n{'⏸️  '*20}\n")
+        print(f"\n{'⏸️  '*20}\n")
 
-    logger.info("=" * 80)
-    logger.info("✅ 구조 테스트 완료!")
-    logger.info("✅ JupyterHub에서 generate_advertisement() 함수를 호출하여 실제 테스트하세요.")
-    logger.info("=" * 80)
+    print("=" * 80)
+    print("✅ 구조 테스트 완료!")
+    print("✅ JupyterHub에서 generate_advertisement() 함수를 호출하여 실제 테스트하세요.")
+    print("=" * 80)
 
 
 # ============================================
@@ -208,10 +203,10 @@ if __name__ == "__main__":
     # API 호출 없이 구조만 테스트
     test_without_api()
 
-    logger.info("\n" + "=" * 80)
-    logger.info("📌 실제 사용 예제 (JupyterHub에서 실행)")
-    logger.info("=" * 80)
-    logger.info("""
+    print("\n" + "=" * 80)
+    print("📌 실제 사용 예제 (JupyterHub에서 실행)")
+    print("=" * 80)
+    print("""
 from src.generation.text_generation.ad_generator import generate_advertisement
 
 # 광고 생성
@@ -222,9 +217,9 @@ result = generate_advertisement(
 )
 
 # 결과 확인
-logger.info(result['ad_copy'])           # 광고 문구
-logger.info(result['positive_prompt'])   # Positive 프롬프트
-logger.info(result['negative_prompt'])   # Negative 프롬프트
-logger.info(result['industry'])          # 업종
+print(result['ad_copy'])           # 광고 문구
+print(result['positive_prompt'])   # Positive 프롬프트
+print(result['negative_prompt'])   # Negative 프롬프트
+print(result['industry'])          # 업종
 """)
-    logger.info("=" * 80)
+    print("=" * 80)
