@@ -8,7 +8,7 @@ RAG 기반 챗봇 모듈
 """
 
 import json, openai, re
-from typing import Optional, List, Dict, AsyncIterator
+from typing import Any, Optional, List, Dict, AsyncIterator
 from sqlalchemy.orm import Session
 
 from src.utils.image import image_payload 
@@ -917,15 +917,43 @@ class ConsultingService:
 
     def __init__(
         self,
-        rag,
+        llm_orchestrator: LLMOrchestrator,
         conversation_manager: ConversationManager,
+        rag: Optional[Any] = None,
     ):
         from src.generation.chat_bot.rag.prompts import SlotChecker, UserContext
 
-        self.rag = rag
+        self.llm = llm_orchestrator
         self.conv = conversation_manager
+        self.rag = rag
+        self._consultant_bots: Dict[str, Any] = {}
         self.slot_checker = SlotChecker()
         self._session_contexts: Dict[str, UserContext] = {}
+
+    def _get_consultant_bot(self, session_id: str):
+        """세션별 SmallBizConsultant 인스턴스 반환 (슬롯 상태 분리)"""
+        bot = self._consultant_bots.get(session_id)
+        if bot is not None:
+            return bot
+
+        try:
+            from src.generation.chat_bot.agent.agent import SmallBizConsultant
+        except Exception as e:
+            logger.error(f"SmallBizConsultant import failed: {e}", exc_info=True)
+            return None
+
+        try:
+            bot = SmallBizConsultant(
+                llm_model=self.llm.model,
+                use_reranker=False,
+                verbose=False,
+            )
+            self._consultant_bots[session_id] = bot
+            logger.info(f"SmallBizConsultant initialized for session={session_id}")
+            return bot
+        except Exception as e:
+            logger.error(f"SmallBizConsultant init failed: {e}", exc_info=True)
+            return None
 
     def build_context(
         self, db: Session, session_id: str, message: str, recent_limit: int = 5
@@ -1001,26 +1029,39 @@ class ConsultingService:
         self, db: Session, session_id: str, message: str
     ) -> AsyncIterator[Dict]:
         """상담 응답을 스트리밍으로 생성하며 청크/완료 이벤트를 반환"""
-        context = self.build_context(db, session_id, message)
-
-        recent_conversations = context.get("recent_conversations", [])
+        bot = self._get_consultant_bot(session_id)
         assistant_chunks: List[str] = []
-        try:
-            async for chunk in self._stream_consulting_answer(
-                message,
-                recent_conversations,
-                session_id,
-            ):
-                if chunk:
-                    assistant_chunks.append(chunk)
-                    yield {"type": "chunk", "content": chunk}
-        except Exception as e:
-            logger.error(f"Consulting response failed: {e}", exc_info=True)
-            if not assistant_chunks:
-                assistant_chunks.append("죄송합니다. 일시적인 오류가 발생했습니다.")
-                yield {"type": "chunk", "content": assistant_chunks[-1]}
+        assistant_message = ""
 
-        assistant_message = "".join(assistant_chunks).strip() or "무엇을 도와드릴까요?"
+        if bot is not None:
+            result = bot.consult(query=message, user_context=None)
+            assistant_message = (result.get("answer") or "").strip() or "무엇을 도와드릴까요?"
+            yield {"type": "chunk", "content": assistant_message}
+        else:
+            context = self.build_context(db, session_id, message)
+            recent_conversations = context.get("recent_conversations", [])
+
+            if self.rag is not None:
+                try:
+                    async for chunk in self._stream_consulting_answer(
+                        message,
+                        recent_conversations,
+                        session_id,
+                    ):
+                        if chunk:
+                            assistant_chunks.append(chunk)
+                            yield {"type": "chunk", "content": chunk}
+                except Exception as e:
+                    logger.error(f"Consulting RAG response failed: {e}", exc_info=True)
+
+            if not assistant_chunks and self.llm is not None:
+                async for chunk in self.llm.stream_consulting_response(message, context):
+                    if chunk:
+                        assistant_chunks.append(chunk)
+                        yield {"type": "chunk", "content": chunk}
+
+            assistant_message = "".join(assistant_chunks).strip() or "무엇을 도와드릴까요?"
+
         self.conv.add_message(db, session_id, "assistant", assistant_message)
 
         yield {
@@ -1062,9 +1103,10 @@ def get_consulting_service() -> ConsultingService:
     """ConsultingService 싱글톤"""
     global _consulting_service
     if _consulting_service is None:
+        llm = get_llm_orchestrator()
         conv = get_conversation_manager()
         rag = get_consulting_rag()
-        _consulting_service = ConsultingService(rag, conv)
+        _consulting_service = ConsultingService(llm, conv, rag=rag)
     return _consulting_service
 
 
