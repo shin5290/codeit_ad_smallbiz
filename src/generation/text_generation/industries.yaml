@@ -3022,8 +3022,8 @@ tone_guide:
 # ============================================
 
 metadata:
-  version: "1.0.0"
-  last_updated: "2026-01-20"
+  version: "1.1.0"
+  last_updated: "2026-01-27"
   source: "247 Small Business Industries S~E Grade Classification"
   total_grades: 6
   total_subgroups: 18

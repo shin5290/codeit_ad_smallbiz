@@ -3911,7 +3911,7 @@ metadata:
   source: "247 Small Business Industries S~E Grade Classification"
   benchmark: "Civitai Top Prompts Analysis"
   total_grades: 6
-  total_subgroups: 221
+  total_subgroups: 21
   total_businesses: 247
   template_style: "Hybrid Prompting (Natural Language + Keywords)"
   optimization_goal: "Realistic business photography for advertising"
