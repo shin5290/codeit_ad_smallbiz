@@ -1,9 +1,9 @@
 """
-광고 문구 프롬프트 관리자 (v3.0.0)
+광고 문구 프롬프트 관리자 (v3.2.0)
 industries.yaml 기반 업종별 광고 문구 생성
 
 작성자: 배현석 -> 신승목
-버전: 3.0.0
+버전: 3.2.0
 핵심 변경 사항: 소상공인 전체 업종으로 확장
 
 사용 예시:
@@ -118,7 +118,7 @@ class IndustryConfigLoader:
             "nail_salon": "a1_beauty",
             "flower_shop": "a4_delicate_care",
             "clothing_store": "a3_fashion",
-            "general": "s4_neat_variety"
+            "general": "s3_emotional"
         }
 
         if industry_code in legacy_mapping:
@@ -127,7 +127,7 @@ class IndustryConfigLoader:
                 return self._subgroup_cache[mapped_code][1]
 
         # 기본값
-        return self._subgroup_cache.get('s4_neat_variety')
+        return self._subgroup_cache.get('s3_emotional')
 
     def detect_industry(self, user_input: str) -> str:
         """
@@ -137,7 +137,7 @@ class IndustryConfigLoader:
             user_input: 사용자 입력 텍스트
 
         Returns:
-            str: 감지된 하위 그룹 코드 또는 "s4_neat_variety" (기본값)
+            str: 감지된 하위 그룹 코드 또는 "s3_emotional" (기본값)
         """
         user_input_lower = user_input.lower()
 
@@ -150,7 +150,7 @@ class IndustryConfigLoader:
         if scores:
             return max(scores.items(), key=lambda x: x[1])[0]
 
-        return "s4_neat_variety"
+        return "s3_emotional"
 
     def get_grade_for_industry(self, industry_code: str) -> Optional[str]:
         """업종의 등급 반환"""
