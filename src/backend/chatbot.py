@@ -854,12 +854,18 @@ class ConsultingService:
         self,
         llm_orchestrator: LLMOrchestrator,
         conversation_manager: ConversationManager,
+        rag: Optional[Any] = None,
         knowledge_base: Optional[ConsultingKnowledgeBase] = None,
     ):
+        from src.generation.chat_bot.rag.prompts import SlotChecker, UserContext
+
         self.llm = llm_orchestrator
         self.conv = conversation_manager
+        self.rag = rag
         self.knowledge = knowledge_base
         self._consultant_bots: Dict[str, Any] = {}
+        self.slot_checker = SlotChecker()
+        self._session_contexts: Dict[str, UserContext] = {}
 
     def _get_consultant_bot(self, session_id: str):
         """세션별 SmallBizConsultant 인스턴스 반환 (슬롯 상태 분리)"""
@@ -913,24 +919,96 @@ class ConsultingService:
 
         return context
 
+    def _build_rag_filter(self, user_context) -> Optional[Dict[str, str]]:
+        clauses: List[Dict[str, str]] = []
+        if user_context and user_context.industry:
+            clauses.append({"industry": user_context.industry})
+        if user_context and user_context.location:
+            clauses.append({"location": user_context.location})
+        if not clauses:
+            return None
+        if len(clauses) == 1:
+            return clauses[0]
+        return {"$and": clauses}
+
+    def _build_user_context(
+        self,
+        session_id: str,
+        recent_conversations: List[Dict],
+    ):
+        user_context = self._session_contexts.get(session_id)
+        for msg in recent_conversations:
+            if msg.get("role") == "user":
+                content = (msg.get("content") or "").strip()
+                if content:
+                    user_context = self.slot_checker.update_context_from_query(
+                        content, user_context
+                    )
+        if user_context is not None:
+            self._session_contexts[session_id] = user_context
+        return user_context
+
+    async def _stream_consulting_answer(
+        self,
+        message: str,
+        recent_conversations: List[Dict],
+        session_id: str,
+    ) -> AsyncIterator[str]:
+        chat_history = [
+            {"role": msg.get("role"), "content": msg.get("content")}
+            for msg in recent_conversations
+            if msg.get("role") and msg.get("content") is not None
+        ]
+        user_context = self._build_user_context(session_id, recent_conversations)
+        task = self.rag.prompt_builder.classify_task(message)
+        filter_kwargs = self._build_rag_filter(user_context)
+        retrieved_docs = self.rag.retrieve(message, k=5, filter=filter_kwargs)
+
+        async for chunk in self.rag.generate_stream(
+            query=message,
+            retrieved_docs=retrieved_docs,
+            task=task,
+            user_context=user_context,
+            chat_history=chat_history,
+        ):
+            yield chunk
+
     async def stream_response(
         self, db: Session, session_id: str, message: str
     ) -> AsyncIterator[Dict]:
         """상담 응답을 스트리밍으로 생성하며 청크/완료 이벤트를 반환"""
         bot = self._get_consultant_bot(session_id)
+        assistant_chunks: List[str] = []
+        assistant_message = ""
 
-        if bot is None:
-            context = self.build_context(db, session_id, message)
-            assistant_chunks: List[str] = []
-            async for chunk in self.llm.stream_consulting_response(message, context):
-                if chunk:
-                    assistant_chunks.append(chunk)
-                    yield {"type": "chunk", "content": chunk}
-            assistant_message = "".join(assistant_chunks).strip() or "무엇을 도와드릴까요?"
-        else:
+        if bot is not None:
             result = bot.consult(query=message, user_context=None)
             assistant_message = (result.get("answer") or "").strip() or "무엇을 도와드릴까요?"
             yield {"type": "chunk", "content": assistant_message}
+        else:
+            context = self.build_context(db, session_id, message)
+            recent_conversations = context.get("recent_conversations", [])
+
+            if self.rag is not None:
+                try:
+                    async for chunk in self._stream_consulting_answer(
+                        message,
+                        recent_conversations,
+                        session_id,
+                    ):
+                        if chunk:
+                            assistant_chunks.append(chunk)
+                            yield {"type": "chunk", "content": chunk}
+                except Exception as e:
+                    logger.error(f"Consulting RAG response failed: {e}", exc_info=True)
+
+            if not assistant_chunks and self.llm is not None:
+                async for chunk in self.llm.stream_consulting_response(message, context):
+                    if chunk:
+                        assistant_chunks.append(chunk)
+                        yield {"type": "chunk", "content": chunk}
+
+            assistant_message = "".join(assistant_chunks).strip() or "무엇을 도와드릴까요?"
 
         self.conv.add_message(db, session_id, "assistant", assistant_message)
 
@@ -949,6 +1027,7 @@ class ConsultingService:
 _conversation_manager: Optional[ConversationManager] = None
 _llm_orchestrator: Optional[LLMOrchestrator] = None
 _consulting_service: Optional[ConsultingService] = None
+_consulting_rag = None
 
 
 def get_conversation_manager() -> ConversationManager:
@@ -972,11 +1051,18 @@ def get_consulting_service() -> ConsultingService:
     """ConsultingService 싱글톤"""
     global _consulting_service
     if _consulting_service is None:
-        from src.backend.consulting_knowledge_base import get_knowledge_base
-        
         llm = get_llm_orchestrator()
         conv = get_conversation_manager()
-        knowledge = get_knowledge_base()
-        
-        _consulting_service = ConsultingService(llm, conv, knowledge)
+        rag = get_consulting_rag()
+        _consulting_service = ConsultingService(llm, conv, rag=rag)
     return _consulting_service
+
+
+def get_consulting_rag():
+    """SmallBizRAG 싱글톤 (consulting 전용)"""
+    global _consulting_rag
+    if _consulting_rag is None:
+        from src.generation.chat_bot.rag.chain import SmallBizRAG
+
+        _consulting_rag = SmallBizRAG(use_reranker=False)
+    return _consulting_rag
