@@ -75,7 +75,7 @@ class IndustryConfigLoader:
 
     def get_industry(self, industry_code: str) -> Optional[Dict]:
         """
-        업종 설정 가져오기 (v3.0.0 호환)
+        업종 설정 가져오기 (v3.2.0 호환)
 
         Args:
             industry_code: 하위 그룹 코드 (s1_hot_cooking, a1_beauty 등)
@@ -101,8 +101,8 @@ class IndustryConfigLoader:
             subgroup_code = self._business_to_subgroup[normalized_code]
             return self._subgroup_cache[subgroup_code][1]
 
-        # 4. 없으면 general (s4_neat_variety 또는 기본값)
-        return self._subgroup_cache.get('s4_neat_variety')
+        # 4. 없으면 general (s3_emotional 또는 기본값)
+        return self._subgroup_cache.get('s3_emotional')
 
     def _get_legacy_mapping(self) -> Dict[str, str]:
         """레거시 업종 코드 → 신규 하위 그룹 코드 매핑"""
@@ -119,11 +119,11 @@ class IndustryConfigLoader:
             "flower_shop": "a4_delicate_care",
             "clothing_store": "a3_fashion",
 
-            # C등급
-            "laundry": "a4_delicate_care",  # 세탁소는 A4로 이동
+            # D등급
+            "laundry": "d2_appliances",
 
             # 기본값
-            "general": "s4_neat_variety"
+            "general": "s3_emotional"
         }
 
     def get_all_industries(self) -> Dict[str, Dict]:
@@ -161,7 +161,7 @@ class IndustryConfigLoader:
             user_input: 사용자 입력 텍스트
 
         Returns:
-            str: 감지된 하위 그룹 코드 또는 "s4_neat_variety" (기본값)
+            str: 감지된 하위 그룹 코드 또는 "s3_emotional" (기본값)
         """
         user_input_lower = user_input.lower()
 
@@ -176,7 +176,7 @@ class IndustryConfigLoader:
         if scores:
             return max(scores.items(), key=lambda x: x[1])[0]
 
-        return "s4_neat_variety"  # 기본값
+        return "s3_emotional"  # 기본값
 
     def _build_detection_keywords(self) -> Dict[str, List[str]]:
         """
@@ -264,7 +264,7 @@ class PromptGenerator:
         industry_config = self.loader.get_industry(industry)
         if not industry_config:
             # fallback: 기본값 사용
-            industry_config = self.loader.get_industry("s4_neat_variety")
+            industry_config = self.loader.get_industry("s3_emotional")
 
         # 2. Hybrid Prompt 빌드 (업종 템플릿 기반)
         builder = HybridPromptBuilder(industry_config)

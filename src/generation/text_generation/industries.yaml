@@ -466,16 +466,16 @@ s_grade:
 
     keyword_priorities:
       homestyle_35: ["mom's cooking", "like home", "with care"]
-      variety_25: ["variety", "abundant spread", "15 side dishes"]
+      variety_25: ["abundant spread", "15 side dishes"]
       healthy_20: ["clean", "local ingredients", "daily made"]
       warmth_15: ["warm", "comfort food", "family meal"]
       value_5: ["generous portions", "affordable"]
 
     keyword_priorities_ko:
       homestyle_35: ["엄마 손맛", "집밥 같은", "정성", "족발", "보쌈"]
-      variety_25: ["여러 가지", "골라 먹는", "풍성한 상차림", "부침개", "막걸리"]
+      variety_25: ["골라 먹는", "풍성한 상차림"]
       healthy_20: ["깔끔한", "위생적", "국산 재료"]
-      convenience_15: ["바로 먹는", "간편하게", "포장 가능", "비 오는 날"]
+      convenience_15: ["바로 먹는", "간편하게", "포장 가능"]
       value_5: ["푸짐하게", "부담 없이"]
 
     brand_voice: "warm and industry-specific tone"
