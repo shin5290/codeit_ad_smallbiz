@@ -5,7 +5,8 @@
     <meta charset="UTF-8" />
     <title>관리자 페이지</title>
     <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon.png">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
     <script>
         try {
             const savedView = sessionStorage.getItem('admin_view');
@@ -34,6 +35,7 @@
         </aside>
 
         <main class="content">
+            <!-- 세션 목록 뷰 -->
             <section id="view-sessions" class="panel">
                 <div class="toolbar">
                     <div class="left">
@@ -43,17 +45,25 @@
                 </div>
                 <div class="panel" style="background:#f9fafb; box-shadow:none; margin-bottom: 15px;">
                     <div class="filters">
-                        <div class="search-field">
-                            <input type="text" id="sessionFilterQuery" placeholder="session_id 검색" aria-label="세션 ID 검색">
+                        <div class="search-type">
+                            <select id="sessionSearchTypeSelect" aria-label="검색 타입">
+                                <option value="session_id">세션 ID</option>
+                                <option value="login_id">사용자 ID</option>
+                                <option value="user_id">USER ID</option>
+                                <option value="created_at">생성 날짜</option>
+                            </select>
                         </div>
-                        <div class="search-field">
-                            <input type="number" id="sessionFilterUserId" placeholder="user_id" aria-label="user ID">
+                        <div class="search-field" data-search-scope="session" data-search-type="session_id">
+                            <input type="text" id="sessionFilterQuery" placeholder="session_id" aria-label="세션 ID 검색">
                         </div>
-                        <div class="search-field">
-                            <input type="date" id="sessionFilterFromDate" aria-label="시작 날짜">
+                        <div class="search-field hidden" data-search-scope="session" data-search-type="login_id">
+                            <input type="text" id="sessionFilterLoginId" placeholder="예: admin" aria-label="사용자 ID">
                         </div>
-                        <div class="search-field">
-                            <input type="date" id="sessionFilterToDate" aria-label="종료 날짜">
+                        <div class="search-field hidden" data-search-scope="session" data-search-type="user_id">
+                            <input type="number" id="sessionFilterUserId" placeholder="예: 1" aria-label="user ID">
+                        </div>
+                        <div class="search-field hidden" data-search-scope="session" data-search-type="created_at">
+                            <input type="date" id="sessionFilterCreatedDate" aria-label="생성 날짜">
                         </div>
                         <div class="search-actions">
                             <button id="searchSessionsBtn" class="primary">검색</button>
@@ -78,44 +88,62 @@
                 <div class="pagination">
                     <button id="sessionPrevPageBtn" class="secondary">이전</button>
                     <div class="status-text">
-                        <input type="number" id="sessionPageInput" class="page-input" min="1" step="1" aria-label="세션 페이지 이동">
+                        <input type="number" id="sessionPageInput" class="page-input" min="1" step="1"
+                            aria-label="세션 페이지 이동">
                         <span id="sessionPageInfo"></span>
                     </div>
                     <button id="sessionNextPageBtn" class="secondary">다음</button>
                 </div>
+            </section>
 
-                <div class="panel session-detail">
-                    <div class="toolbar">
-                        <div class="left">
-                            <h2>세션 상세</h2>
-                            <span id="sessionDetailSubtitle" class="status-text"></span>
-                        </div>
-                        <div class="right">
-                            <button id="sessionLogJumpBtn" class="secondary" disabled>로그 보기</button>
-                        </div>
+            <!-- 세션 상세 뷰 (별도 화면처럼 보임) -->
+            <section id="view-session-detail" class="panel hidden">
+                <div class="toolbar">
+                    <div class="left">
+                        <button id="sessionBackBtn" class="secondary">← 목록으로</button>
+                        <h2>세션 상세</h2>
+                        <span id="sessionDetailSubtitle" class="status-text"></span>
                     </div>
-                    <div id="sessionDetailEmpty" class="empty-state">세션을 선택하세요.</div>
-                    <div id="sessionDetailBody" class="hidden">
-                        <div class="table-scroll session-detail-table">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>작성 시각</th>
-                                        <th>role</th>
-                                        <th>intent</th>
-                                        <th>내용</th>
-                                        <th>이미지</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="sessionDetailTableBody"></tbody>
-                            </table>
+                </div>
+                <div class="session-meta-panel">
+                    <div id="sessionMetaInfo" class="meta-list"></div>
+                </div>
+                <div class="panel" style="background:#f9fafb; box-shadow:none; margin-bottom: 15px;">
+                    <div class="filters">
+                        <div class="search-field">
+                            <input type="text" id="sessionDetailKeyword" placeholder="키워드 검색" aria-label="메시지 키워드 검색">
                         </div>
-                        <div class="detail-actions">
-                            <button id="sessionLoadMoreBtn" class="secondary">이전 메시지 더보기</button>
+                        <div class="search-actions">
+                            <button id="sessionDetailSearchBtn" class="primary">검색</button>
+                            <button id="sessionDetailResetBtn" class="secondary">초기화</button>
                         </div>
                     </div>
                 </div>
-
+                <div id="sessionDetailEmpty" class="empty-state hidden">메시지가 없습니다.</div>
+                <div id="sessionDetailBody">
+                    <div class="table-scroll session-detail-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>작성 시각</th>
+                                    <th>role</th>
+                                    <th>내용</th>
+                                    <th>이미지</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sessionDetailTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="pagination">
+                        <button id="sessionDetailPrevBtn" class="secondary">이전</button>
+                        <div class="status-text">
+                            <input type="number" id="sessionDetailPageInput" class="page-input" min="1" step="1"
+                                aria-label="메시지 페이지 이동">
+                            <span id="sessionDetailPageInfo"></span>
+                        </div>
+                        <button id="sessionDetailNextBtn" class="secondary">다음</button>
+                    </div>
+                </div>
             </section>
 
             <section id="view-logs" class="panel hidden">
@@ -131,16 +159,20 @@
                 </div>
                 <div class="log-layout">
                     <aside class="log-tree">
-                        <div class="log-tree-header">로그 파일</div>
+                        <div class="log-tree-header">실시간 로그</div>
+                        <div id="logCurrentSection" class="log-current-section">
+                            <button type="button" id="logCurrentBtn" class="log-file-button log-current-button">
+                                <span>현재 실행중인 로그</span>
+                                <span class="badge badge-success">LIVE</span>
+                            </button>
+                        </div>
+                        <div class="log-tree-header" style="margin-top: 12px;">이전 로그 파일</div>
                         <div id="logTreeEmpty" class="empty-state hidden">로그 폴더가 없습니다.</div>
                         <div id="logTreeList" class="log-tree-list"></div>
                     </aside>
                     <div class="log-main">
                         <div class="panel" style="background:#f9fafb; box-shadow:none; margin-bottom: 15px;">
                             <div class="filters">
-                                <div class="search-field">
-                                    <input type="number" id="logLinesInput" min="10" max="1000" placeholder="줄 수" aria-label="라인 수">
-                                </div>
                                 <div class="search-field">
                                     <input type="text" id="logKeywordInput" placeholder="키워드" aria-label="로그 키워드">
                                 </div>
@@ -160,10 +192,12 @@
                                         토큰 마스킹
                                     </label>
                                 </div>
-                                <div class="search-actions">
-                                    <button id="logTailBtn" class="primary">미리보기</button>
-                                    <button id="logStreamBtn" class="secondary">Start</button>
-                                    <button id="logPauseBtn" class="secondary" disabled>Pause</button>
+                                <div class="search-actions" id="logFileActions">
+                                    <button id="logFullViewBtn" class="primary">전체 보기</button>
+                                </div>
+                                <div class="search-actions hidden" id="logStreamActions">
+                                    <button id="logStreamBtn" class="primary">시작</button>
+                                    <button id="logPauseBtn" class="secondary" disabled>일시정지</button>
                                 </div>
                             </div>
                         </div>
@@ -244,7 +278,8 @@
                     <div class="pagination">
                         <button id="userPrevPageBtn" class="secondary">이전</button>
                         <div class="status-text">
-                            <input type="number" id="userPageInput" class="page-input" min="1" step="1" aria-label="회원목록 페이지 이동">
+                            <input type="number" id="userPageInput" class="page-input" min="1" step="1"
+                                aria-label="회원목록 페이지 이동">
                             <span id="userPageInfo"></span>
                         </div>
                         <button id="userNextPageBtn" class="secondary">다음</button>

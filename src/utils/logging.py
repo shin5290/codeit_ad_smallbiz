@@ -258,6 +258,8 @@ def setup_logging(
     # ---------- uvicorn.access 로거 ----------
     if UVICORN_AVAILABLE:
         access_format = '%(levelprefix)s %(asctime)s.%(msecs)03d - "%(request_line)s" %(status_code)s'
+        # 파일용 포맷 (ANSI 색상 코드 없음)
+        access_file_format = '%(asctime)s.%(msecs)03d - %(levelname)s - "%(request_line)s" %(status_code)s'
 
         access_console = logging.StreamHandler(sys.stdout)
         access_console.setFormatter(AccessFormatter(access_format, datefmt=DEFAULT_DATEFMT))
@@ -265,7 +267,8 @@ def setup_logging(
         access_file = RotatingFileHandler(
             RUN_LOG_FILE, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
         )
-        access_file.setFormatter(AccessFormatter(access_format, datefmt=DEFAULT_DATEFMT))
+        # 파일에는 ANSI 색상 코드가 포함되지 않는 일반 Formatter 사용
+        access_file.setFormatter(logging.Formatter(access_file_format, datefmt=DEFAULT_DATEFMT))
 
         access_logger = logging.getLogger("uvicorn.access")
         access_logger.handlers = [access_console, access_file]

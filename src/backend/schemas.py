@@ -214,3 +214,14 @@ class AdminLogFilesResponse(BaseModel):
 
 class AdminLogTailResponse(BaseModel):
     lines: List[str]
+
+
+class AdminLogFullResponse(BaseModel):
+    lines: List[str]
+    total_lines: int
+
+
+class AdminCurrentLogResponse(BaseModel):
+    date: Optional[str] = None
+    file: Optional[str] = None
+    run_id: Optional[str] = None

@@ -296,6 +296,7 @@ def list_sessions(
     offset: int = Query(0, ge=0),
     query: str | None = Query(None),
     user_id: int | None = Query(None),
+    login_id: str | None = Query(None),
     from_date: date | None = Query(None, alias="from"),
     to_date: date | None = Query(None, alias="to"),
     db: Session = Depends(process_db.get_db),
@@ -314,6 +315,7 @@ def list_sessions(
         offset=offset,
         query=query,
         user_id=user_id,
+        login_id=login_id,
         start_at=start_at,
         end_at=end_at,
     )
@@ -345,6 +347,7 @@ def get_session_detail(
     session_id: str,
     message_limit: int = Query(200, ge=1, le=500),
     message_offset: int = Query(0, ge=0),
+    query: str | None = Query(None),
     generation_limit: int = Query(5, ge=0, le=50),
     mask: bool = Query(True),
     db: Session = Depends(process_db.get_db),
@@ -359,6 +362,7 @@ def get_session_detail(
         session_id=session_id,
         limit=message_limit,
         offset=message_offset,
+        query=query,
     )
 
     message_items: list[schemas.AdminSessionMessage] = []
@@ -507,9 +511,15 @@ def list_log_files(
     current_user=Depends(require_admin),
 ):
     log_dir = _resolve_log_dir(date)
+    current_log = get_current_log_file()
+    current_log_name = current_log.name if current_log else None
+    
     files = []
     for entry in log_dir.iterdir():
         if not entry.is_file() or entry.suffix != ".log":
+            continue
+        # 현재 실행 중인 로그 파일은 이전 로그 목록에서 제외
+        if current_log_name and entry.name == current_log_name:
             continue
         stat = entry.stat()
         files.append(
@@ -562,6 +572,104 @@ async def stream_log_file(
         start_time = loop.time()
         try:
             with target.open("r", encoding="utf-8", errors="replace") as file_obj:
+                file_obj.seek(0, os.SEEK_END)
+                while True:
+                    elapsed = loop.time() - start_time
+                    if elapsed > LOG_STREAM_TIMEOUT_SECONDS:
+                        break
+                    line = file_obj.readline()
+                    if not line:
+                        await asyncio.sleep(LOG_STREAM_POLL_INTERVAL)
+                        continue
+                    line = line.rstrip("\n")
+                    if not _filter_log_line(line, query, level):
+                        continue
+                    if mask:
+                        line = _mask_sensitive(line)
+                    payload = {"line": line}
+                    yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+        finally:
+            LOG_STREAM_SEMAPHORE.release()
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+def _read_full_file(path: Path, query: str | None, level: str | None, mask: bool) -> list[str]:
+    """전체 파일을 읽어서 필터링된 라인 목록을 반환합니다."""
+    result: list[str] = []
+    with path.open("r", encoding="utf-8", errors="replace") as file_obj:
+        for line in file_obj:
+            line = line.rstrip("\n")
+            if not _filter_log_line(line, query, level):
+                continue
+            if mask:
+                line = _mask_sensitive(line)
+            result.append(line)
+    return result
+
+
+@router.get("/logs/current", response_model=schemas.AdminCurrentLogResponse)
+def get_current_log_info(
+    db: Session = Depends(process_db.get_db),
+    current_user=Depends(require_admin),
+):
+    """현재 실행 중인 로그 파일 정보를 반환합니다."""
+    current_log = get_current_log_file()
+    if not current_log:
+        return {"date": None, "file": None, "run_id": get_run_id()}
+    
+    log_root = get_log_root().resolve()
+    resolved = current_log.resolve()
+    if not _is_within_root(resolved, log_root):
+        return {"date": None, "file": None, "run_id": get_run_id()}
+    
+    return {
+        "date": resolved.parent.name,
+        "file": resolved.name,
+        "run_id": get_run_id(),
+    }
+
+
+@router.get("/logs/full", response_model=schemas.AdminLogFullResponse)
+def read_full_log_file(
+    date: str = Query(...),
+    file: str = Query(...),
+    query: str | None = Query(None),
+    level: str | None = Query(None),
+    mask: bool = Query(True),
+    db: Session = Depends(process_db.get_db),
+    current_user=Depends(require_admin),
+):
+    """전체 로그 파일을 읽어서 반환합니다."""
+    target = _resolve_log_file(date, file)
+    lines = _read_full_file(target, query, level, mask)
+    return {"lines": lines, "total_lines": len(lines)}
+
+
+@router.get("/logs/stream/current")
+async def stream_current_log(
+    query: str | None = Query(None),
+    level: str | None = Query(None),
+    mask: bool = Query(True),
+    db: Session = Depends(process_db.get_db),
+    current_user=Depends(require_admin),
+):
+    """현재 실행 중인 로그 파일을 실시간으로 스트리밍합니다."""
+    current_log = get_current_log_file()
+    if not current_log or not current_log.exists():
+        raise HTTPException(status_code=404, detail="현재 실행 중인 로그가 없습니다.")
+    
+    await _acquire_log_stream_slot()
+
+    async def event_stream() -> AsyncIterator[str]:
+        loop = asyncio.get_running_loop()
+        start_time = loop.time()
+        try:
+            with current_log.open("r", encoding="utf-8", errors="replace") as file_obj:
                 file_obj.seek(0, os.SEEK_END)
                 while True:
                     elapsed = loop.time() - start_time

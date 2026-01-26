@@ -518,6 +518,7 @@ def get_admin_session_page(
     offset: int = 0,
     query: Optional[str] = None,
     user_id: Optional[int] = None,
+    login_id: Optional[str] = None,
     start_at: Optional[datetime] = None,
     end_at: Optional[datetime] = None,
 ):
@@ -543,8 +544,6 @@ def get_admin_session_page(
         .subquery()
     )
 
-    activity_at = func.coalesce(message_subq.c.last_message_at, models.ChatSession.created_at)
-
     query_builder = (
         db.query(
             models.ChatSession.session_id,
@@ -564,14 +563,18 @@ def get_admin_session_page(
         query_builder = query_builder.filter(models.ChatSession.session_id.ilike(f"%{query}%"))
     if user_id is not None:
         query_builder = query_builder.filter(models.ChatSession.user_id == user_id)
+    if login_id:
+        query_builder = query_builder.filter(models.User.login_id.ilike(f"%{login_id}%"))
+        
+    # 세션 조회 정렬 및 날짜 필터는 요청에 따라 '생성일(created_at)' 기준으로 수행
     if start_at is not None:
-        query_builder = query_builder.filter(activity_at >= start_at)
+        query_builder = query_builder.filter(models.ChatSession.created_at >= start_at)
     if end_at is not None:
-        query_builder = query_builder.filter(activity_at < end_at)
+        query_builder = query_builder.filter(models.ChatSession.created_at < end_at)
 
     total = query_builder.count()
     items = (
-        query_builder.order_by(activity_at.desc(), models.ChatSession.session_id.desc())
+        query_builder.order_by(models.ChatSession.created_at.desc(), models.ChatSession.session_id.desc())
         .offset(offset)
         .limit(limit)
         .all()
@@ -612,18 +615,25 @@ def get_admin_session_messages(
     session_id: str,
     limit: int = 200,
     offset: int = 0,
+    query: Optional[str] = None,
 ):
     """
     관리자용 세션 메시지 조회 (페이징)
     """
-    query = (
+    query_builder = (
         db.query(models.ChatHistory)
         .filter(models.ChatHistory.session_id == session_id)
-        .options(selectinload(models.ChatHistory.image))
-        .order_by(models.ChatHistory.created_at.desc(), models.ChatHistory.id.desc())
     )
-    total = query.count()
-    items_desc = query.offset(offset).limit(limit).all()
+    
+    if query:
+        query_builder = query_builder.filter(models.ChatHistory.content.ilike(f"%{query}%"))
+        
+    query_builder = query_builder.options(selectinload(models.ChatHistory.image)).order_by(
+        models.ChatHistory.created_at.desc(), models.ChatHistory.id.desc()
+    )
+    
+    total = query_builder.count()
+    items_desc = query_builder.offset(offset).limit(limit).all()
     items = list(reversed(items_desc))
     return items, total
 
