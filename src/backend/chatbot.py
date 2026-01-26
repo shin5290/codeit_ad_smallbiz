@@ -8,7 +8,7 @@ RAG 기반 챗봇 모듈
 """
 
 import json, openai, re
-from typing import Optional, List, Dict, AsyncIterator
+from typing import Any, Optional, List, Dict, AsyncIterator
 from sqlalchemy.orm import Session
 
 from src.backend.consulting_knowledge_base import ConsultingKnowledgeBase
@@ -859,6 +859,32 @@ class ConsultingService:
         self.llm = llm_orchestrator
         self.conv = conversation_manager
         self.knowledge = knowledge_base
+        self._consultant_bots: Dict[str, Any] = {}
+
+    def _get_consultant_bot(self, session_id: str):
+        """세션별 SmallBizConsultant 인스턴스 반환 (슬롯 상태 분리)"""
+        bot = self._consultant_bots.get(session_id)
+        if bot is not None:
+            return bot
+
+        try:
+            from src.generation.chat_bot.agent.agent import SmallBizConsultant
+        except Exception as e:
+            logger.error(f"SmallBizConsultant import failed: {e}", exc_info=True)
+            return None
+
+        try:
+            bot = SmallBizConsultant(
+                llm_model=self.llm.model,
+                use_reranker=False,
+                verbose=False,
+            )
+            self._consultant_bots[session_id] = bot
+            logger.info(f"SmallBizConsultant initialized for session={session_id}")
+            return bot
+        except Exception as e:
+            logger.error(f"SmallBizConsultant init failed: {e}", exc_info=True)
+            return None
 
     def build_context(
         self, db: Session, session_id: str, message: str, recent_limit: int = 5
@@ -891,15 +917,21 @@ class ConsultingService:
         self, db: Session, session_id: str, message: str
     ) -> AsyncIterator[Dict]:
         """상담 응답을 스트리밍으로 생성하며 청크/완료 이벤트를 반환"""
-        context = self.build_context(db, session_id, message)
+        bot = self._get_consultant_bot(session_id)
 
-        assistant_chunks: List[str] = []
-        async for chunk in self.llm.stream_consulting_response(message, context):
-            if chunk:
-                assistant_chunks.append(chunk)
-                yield {"type": "chunk", "content": chunk}
+        if bot is None:
+            context = self.build_context(db, session_id, message)
+            assistant_chunks: List[str] = []
+            async for chunk in self.llm.stream_consulting_response(message, context):
+                if chunk:
+                    assistant_chunks.append(chunk)
+                    yield {"type": "chunk", "content": chunk}
+            assistant_message = "".join(assistant_chunks).strip() or "무엇을 도와드릴까요?"
+        else:
+            result = bot.consult(query=message, user_context=None)
+            assistant_message = (result.get("answer") or "").strip() or "무엇을 도와드릴까요?"
+            yield {"type": "chunk", "content": assistant_message}
 
-        assistant_message = "".join(assistant_chunks).strip() or "무엇을 도와드릴까요?"
         self.conv.add_message(db, session_id, "assistant", assistant_message)
 
         yield {
