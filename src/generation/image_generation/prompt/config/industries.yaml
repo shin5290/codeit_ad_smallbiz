@@ -3,9 +3,9 @@
 # Civitai 벤치마크 기반 Hybrid Prompting 템플릿
 # ============================================
 #
-# 버전: 3.0.0
-# 업데이트: 2026-01-19
-# 기준: 247개 업종을 S~E 등급 및 추가 세분화 총 18종 분류
+# 버전: 3.2.0
+# 업데이트: 2026-01-26
+# 기준: 247개 업종을 S~E 등급 및 추가 세분화 총 21종 분류
 # 기반: Civitai Top 프롬프트 패턴 분석
 #
 # 핵심 원칙:
@@ -15,12 +15,12 @@
 # 4. 사진가 용어 사용 (카메라, 조명, 렌즈)
 #
 # 구조:
-# - S 등급: Sensory & Taste Stimulation (4 groups, 70 businesses)
-# - A 등급: Visual Transformation & Self-Care (4 groups, 50 businesses)
-# - B 등급: Space Experience & Education (3 groups, 45 businesses)
-# - C 등급: Trust-Based Professional Services (3 groups, 50 businesses)
-# - D 등급: Purpose-Driven Retail & Equipment (2 groups, 30 businesses)
-# - E 등급: Infrastructure & Special Purpose (2 groups, 2 businesses)
+# - S 등급: Sensory & Taste Stimulation (6 groups, 53 businesses)
+# - A 등급: Visual Transformation & Self-Care (4 groups, 41 businesses)
+# - B 등급: Space Experience & Education (3 groups, 46 businesses)
+# - C 등급: Trust-Based Professional Services (3 groups, 57 businesses)
+# - D 등급: Purpose-Driven Retail & Equipment (3 groups, 45 businesses)
+# - E 등급: Infrastructure & Special Purpose (2 groups, 5 businesses)
 
 # ============================================
 # S Grade: Sensory & Taste Stimulation
@@ -31,7 +31,7 @@ s_grade:
   name_ko: "S등급 - 감성 및 미각 자극"
   characteristics: "High B2C, High Visual Dependency, High Competition"
   core_strategy: "Taste Visualization - High-res food close-ups, optimized lighting, seasonal/weather data integration"
-  total_businesses: 70
+  total_businesses: 53
   
   # ============================================
   # S-1: Hot Cooking & Juicy Emphasis
@@ -39,26 +39,24 @@ s_grade:
   s1_hot_cooking:
     name: "S-1: Hot Cooking & Juicy Emphasis"
     name_ko: "S-1: 고온 조리 및 육즙 강조"
-    count: 19
+    count: 17
     businesses:
       - "Pork BBQ/Braised"
       - "Beef BBQ/Braised"
-      - "Gopchang Hotpot/Grilled"
-      - "Chicken/Duck Grilled"
+      - "Offal Hot Pot/BBQ"
+      - "Chicken/Duck BBQ/Braised"
       - "Fried Chicken"
       - "Pizza"
       - "Burger"
-      - "Malatang/Hotpot"
+      - "Mala Tang/Hot Pot"
       - "Pasta/Steak"
-      - "Western-style Restaurant"
+      - "Western Casual Dining"
       - "Family Restaurant"
-      - "Japanese Curry/Tonkatsu/Rice Bowl"
-      - "Draft Beer Pub"
-      - "Izakaya"
+      - "Japanese Curry/Katsu/Rice Bowl"
       - "Buffet"
       - "Cafeteria"
       - "Chinese Restaurant"
-      - "Japanese Noodles"
+      - "Japanese Noodle"
       - "Vietnamese Restaurant"
     
     visual_core: "Juiciness, steam rising, charcoal grill marks, warm lighting"
@@ -157,11 +155,8 @@ s_grade:
       - katsu
       - tonkatsu
       - rice bowl
-      - draft beer
-      - gastropub
       - izakaya
       - buffet
-      - cafeteria
       - chinese
       - noodle
       - vietnamese
@@ -186,9 +181,6 @@ s_grade:
       - 라멘
       - 우동
       - 이자카야
-      - 술집
-      - 펍
-      - 맥주
       - 뷔페
       - 중식당
       - 돼지구이
@@ -196,11 +188,16 @@ s_grade:
       - 소구이
       - 소찜
       - 곱창전골
+      - 곱창구이
+      - 대창
+      - 막창
       - 닭구이
       - 오리구이
       - 닭찜
       - 오리찜
       - 치킨전문점
+      - 후라이드
+      - 양념치킨
       - 피자전문점
       - 버거전문점
       - 햄버거
@@ -213,9 +210,6 @@ s_grade:
       - 일식카레
       - 덮밥
       - 규동
-      - 생맥주
-      - 생맥주전문점
-      - 요리주점
       - 구내식당
       - 중국집
       - 짜장면
@@ -230,6 +224,10 @@ s_grade:
       - 직화
       - 갓구운
       - 겉바속촉
+      - 고깃집
+      - 숙성고기
+      - 한우
+      - 프리미엄고기
 
     negative_keywords:
       - burnt
@@ -248,14 +246,14 @@ s_grade:
     name_ko: "S-2: 신선도 및 색감 강조"
     count: 8
     businesses:
-      - "Sashimi Restaurant"
-      - "Seafood Grilled/Steamed"
-      - "Pufferfish Specialty"
-      - "Japanese Sushi/Sashimi"
+      - "Raw Fish Restaurant"
+      - "Seafood BBQ/Steamed"
+      - "Pufferfish Restaurant"
+      - "Japanese Sashimi/Sushi"
       - "Seafood Retail"
-      - "Dried Seafood/Salted Fish"
+      - "Dried Fish/Fermented Seafood Retail"
       - "Butcher Shop"
-      - "Vegetables/Fruits Retail"
+      - "Vegetable/Fruit Retail"
     
     visual_core: "Transparent colors, vivid texture, chilled feeling, water droplets"
     
@@ -357,7 +355,6 @@ s_grade:
       - meat
       - vegetable
       - fruit
-      - produce
       - organic
 
     korean_keywords:
@@ -427,29 +424,19 @@ s_grade:
   s3_emotional:
     name: "S-3: Emotional & Soft Texture"
     name_ko: "S-3: 감성 및 부드러운 질감"
-    count: 21
+    count: 11
     businesses:
-      - "Cafe"
-      - "Bakery/Donuts"
+      - "Cafe/Coffee Shop"
+      - "Bakery/Donut Shop"
       - "Ice Cream/Shaved Ice"
       - "Ice Cream Discount Store"
-      - "Rice Cake/Traditional Sweets"
+      - "Rice Cake/Korean Sweets"
       - "Toast/Sandwich/Salad"
       - "Supermarket"
       - "Convenience Store"
-      - "General Retail"
       - "Water/Beverage Retail"
       - "Milk Retail"
-      - "Liquor Store"
-      - "Ice Retail"
-      - "Grain/Flour Retail"
-      - "Health Supplement Store"
-      - "Cosmetics Store"
-      - "Pharmacy"
-      - "Art Gallery Retail"
-      - "Souvenir Shop"
-      - "Bookstore"
-      - "Stationery/Art Supplies"
+      - "Other Fast Food"
     
     visual_core: "Pastel tones, bokeh, creamy texture, morning sunlight, coziness"
     
@@ -545,17 +532,6 @@ s_grade:
       - retail
       - beverage
       - milk
-      - liquor
-      - grain
-      - flour
-      - health supplement
-      - cosmetics
-      - pharmacy
-      - art gallery
-      - souvenir
-      - bookstore
-      - stationery
-      - art supplies
       - latte
       - espresso
       - cappuccino
@@ -586,10 +562,6 @@ s_grade:
       - 샐러드
       - 편의점
       - 슈퍼마켓
-      - 약국
-      - 화장품
-      - 문구
-      - 서점
       - 커피숍
       - 커피전문점
       - 카페테리아
@@ -614,30 +586,6 @@ s_grade:
       - 음료수
       - 우유
       - 유제품
-      - 주류
-      - 와인샵
-      - 얼음
-      - 곡물
-      - 쌀
-      - 잡곡
-      - 건강식품
-      - 건강보조식품
-      - 영양제
-      - 화장품가게
-      - 뷰티샵
-      - 드럭스토어
-      - 약
-      - 조제약
-      - 예술품
-      - 갤러리
-      - 기념품
-      - 선물가게
-      - 책방
-      - 서적
-      - 문구점
-      - 필기구
-      - 화방
-      - 미술용품
       - 달콤한
       - 수제
       - 천연
@@ -652,96 +600,83 @@ s_grade:
       - oily surface
   
   # ============================================
-  # S-4: Neat Arrangement & Variety
+  # S-4: Neat Korean Home-style Cooking
   # ============================================
-  s4_neat_variety:
-    name: "S-4: Neat Arrangement & Variety"
-    name_ko: "S-4: 정갈함과 다채로움"
-    count: 22
+  s4_korean_homestyle:
+    name: "S-4: Neat Korean Home-style Cooking"
+    name_ko: "S-4: 정갈한 한식과 상차림"
+    count: 9
     businesses:
-      - "Korean Set Menu/Traditional Meal"
-      - "Soup/Stew Restaurant"
-      - "Jokbal/Bossam"
+      - "Korean Set Meal"
+      - "Soup/Stew"
+      - "Pig Feet/Bossam"
       - "Korean Pancake"
-      - "Noodles/Kalguksu"
-      - "Cold Noodles"
-      - "Other Korean Restaurants"
-      - "General Pub"
-      - "Club/Bar"
-      - "Other Japanese Restaurants"
-      - "Other Western Restaurants"
-      - "Other Southeast Asian"
-      - "Unclassified Foreign Restaurants"
-      - "Kimbap/Dumplings/Snacks"
-      - "Other Quick Service Restaurants"
-      - "Side Dishes/Groceries"
-      - "Tobacco/E-cigarette Store"
-      - "Thread/Textile Products"
-      - "Musical Instruments Store"
-      - "Music/Video Retail"
-      - "Other Specialty Retail"
-      - "Music/Video Rental"
+      - "Korean Noodle"
+      - "Cold Noodle"
+      - "Other Korean Restaurant"
+      - "Kimbap/Dumpling/Snack"
+      - "Side Dish/Grocery Retail"
     
-    visual_core: "Top-down view, diverse arrangement, vibrant colors, clean containers"
-    
+    visual_core: "Top-down view, neat side dish arrangement, earthenware pot, warm steam, wooden tray"
+
     prompt_template:
       subject_patterns:
-        - "Top-down photograph of {meal_name} with multiple {dishes}"
-        - "Korean-style {dish_name} in assorted small bowls"
-        - "Colorful arrangement of {cuisine_type} dishes on {surface}"
-        - "Traditional {meal_name} spread showing {variety}"
-        - "Neat display of {dish_name} in {containers}"
-      
+        - "Top-down photograph of korean home-style {meal_name} with banchan"
+        - "Traditional {dish_name} in earthenware pot with side dishes"
+        - "Neat arrangement of {cuisine_type} dishes on wooden tray"
+        - "Korean home cooking spread showing {variety}"
+        - "Cozy dining presentation of {dish_name} with warm steam"
+
       setting_patterns:
-        - "traditional restaurant table setting"
+        - "traditional korean restaurant table setting"
         - "home-style dining atmosphere with warm feel"
-        - "cozy eatery interior with authentic mood"
-        - "casual dining table with multiple dishes"
-        - "authentic restaurant environment"
-      
+        - "cozy korean eatery interior with authentic mood"
+        - "casual dining table with multiple side dishes"
+        - "authentic korean restaurant environment"
+
       composition_keywords:
         - "top-down flat lay"
         - "overhead meal spread"
-        - "assorted dishes arrangement"
+        - "neat banchan arrangement"
         - "organized table layout"
-        - "multiple bowl composition"
-        - "colorful variety display"
-      
+        - "multiple small bowl composition"
+        - "grid-style dish display"
+
       lighting_phrases:
         - "home-style warm overhead lighting"
         - "natural daylight on dining table"
         - "soft ambient restaurant lights"
         - "warm inviting illumination"
         - "gentle top lighting on dishes"
-      
+
       style_keywords:
-        - "traditional meal photography"
-        - "authentic dining aesthetic"
+        - "korean home-style cooking photography"
+        - "authentic korean dining aesthetic"
         - "home-cooking style"
-        - "casual restaurant editorial"
-        - "cultural food documentation"
-      
+        - "casual korean restaurant editorial"
+        - "traditional korean food documentation"
+
       color_phrases:
-        - "vibrant assorted food colors"
+        - "vibrant assorted korean food colors"
         - "rich kimchi red with green vegetables"
-        - "colorful traditional palette"
+        - "colorful traditional korean palette"
         - "warm earthy tones with bright accents"
-      
+
       details_keywords:
         - "fresh ingredients visible"
-        - "clean containers and bowls"
+        - "earthenware pot (ddukbaegi)"
+        - "warm steam rising"
+        - "wooden tray"
         - "neat organized arrangement"
-        - "assorted side dishes"
+        - "assorted side dishes (banchan)"
         - "home-style presentation"
-        - "traditional banchan display"
-        - "colorful variety"
-      
+
       technical_keywords:
         - "50mm lens"
         - "overhead perspective"
         - "flat lay photography"
         - "even lighting setup"
-        - "food documentation style"
+        - "korean food documentation style"
     
     required_layers:
       - subject
@@ -751,15 +686,10 @@ s_grade:
     
     keywords:
       - traditional
-      - assorted
-      - variety
       - banchan
       - homestyle
       - authentic
-      - colorful
-      - arranged
       - neat
-      - dining
       - korean set meal
       - soup
       - stew
@@ -773,21 +703,9 @@ s_grade:
       - snack
       - side dish
       - grocery
-      - tobacco
-      - e-cigarette
-      - textile
-      - thread
-      - musical instrument
-      - record
-      - video
-      - rental
-      - bar
-      - pub
-      - club
-      - japanese
-      - western
-      - southeast asian
-      - foreign
+      - earthenware pot
+      - ddukbaegi
+      - wooden tray
 
     korean_keywords:
       - 한식
@@ -803,8 +721,6 @@ s_grade:
       - 만두
       - 떡볶이
       - 반찬
-      - 일식
-      - 양식
       - 한정식
       - 한식당
       - 국
@@ -833,35 +749,14 @@ s_grade:
       - 밀면
       - 막국수
       - 기타한식
-      - 유흥주점
-      - 무도주점
-      - 클럽
-      - 바
-      - 기타일식
-      - 기타양식
-      - 동남아식
-      - 태국식
-      - 인도식
-      - 외국식
       - 김밥집
       - 김밥천국
       - 만두집
       - 분식집
       - 떡볶이집
-      - 간이음식점
       - 반찬가게
       - 식료품점
-      - 담배
-      - 전자담배
-      - 실
-      - 섬유
-      - 원단
-      - 악기점
-      - 음반
-      - 비디오
-      - 대여
-      - 렌탈
-      - 엄마손맛
+      - 뚝배기
       - 정성
       - 가정식
       - 집밥
@@ -874,6 +769,252 @@ s_grade:
       - unappetizing
       - dark lighting
 
+  # ============================================
+  # S-5: Global Variety
+  # ============================================
+  s5_global_variety:
+    name: "S-5: Global Variety"
+    name_ko: "S-5: 글로벌 다채로움"
+    count: 4
+    businesses:
+      - "Other Japanese Restaurant"
+      - "Other Western Restaurant"
+      - "Other Southeast Asian Restaurant"
+      - "Unclassified Foreign Restaurant"
+
+    visual_core: "Exotic spices, vibrant colors, cultural patterns, travel vibe, rich saturation"
+
+    prompt_template:
+      subject_patterns:
+        - "Professional food photography of exotic {cuisine_type} dish"
+        - "Vibrant {dish_name} with colorful ingredients and spices"
+        - "Authentic {country} cuisine with cultural presentation"
+        - "Rich and colorful {meal_name} with traditional plating"
+        - "Travel-inspired photograph of {dish_name}"
+
+      setting_patterns:
+        - "authentic ethnic restaurant atmosphere"
+        - "vibrant cultural dining environment"
+        - "exotic restaurant interior with traditional decor"
+        - "colorful ethnic eatery setting"
+        - "travel-inspired dining atmosphere"
+
+      composition_keywords:
+        - "45-degree angle shot"
+        - "abundant plating composition"
+        - "colorful variety display"
+        - "maximalist food arrangement"
+        - "cultural pattern backdrop"
+
+      lighting_phrases:
+        - "warm rich lighting with high saturation"
+        - "vibrant colorful illumination"
+        - "appetizing golden light"
+        - "cultural restaurant ambient lighting"
+        - "travel-photo warm tones"
+
+      style_keywords:
+        - "exotic cuisine photography"
+        - "travel food editorial"
+        - "cultural dining aesthetic"
+        - "vibrant food advertising"
+        - "ethnic restaurant promotion"
+
+      color_phrases:
+        - "vibrant spice colors"
+        - "rich saturated food tones"
+        - "exotic color palette"
+        - "cultural pattern colors"
+
+      details_keywords:
+        - "exotic spices visible"
+        - "colorful ingredients"
+        - "maximalist plating"
+        - "cultural patterns"
+        - "appetizing gloss"
+        - "authentic presentation"
+        - "rich saturation"
+
+      technical_keywords:
+        - "50mm lens"
+        - "f/2.8 aperture"
+        - "food photography"
+        - "high saturation"
+        - "travel photography style"
+
+    required_layers:
+      - subject
+      - setting
+      - lighting
+      - details
+
+    keywords:
+      - exotic
+      - global
+      - foreign
+      - ethnic
+      - cultural
+      - vibrant
+      - spices
+      - colorful
+      - travel
+      - authentic
+      - japanese
+      - western
+      - southeast asian
+      - thai
+      - indian
+      - vietnamese
+      - mexican
+      - middle eastern
+      - mediterranean
+
+    korean_keywords:
+      - 이국적
+      - 외국음식
+      - 기타일식
+      - 기타양식
+      - 동남아식
+      - 외국식음식점
+      - 태국음식
+      - 인도음식
+      - 터키음식
+      - 멕시칸
+      - 지중해음식
+      - 아시안푸드
+      - 퓨전음식
+      - 세계음식
+      - 현지맛
+      - 정통
+      - 색다른
+      - 맛여행
+      - 미식탐험
+      - 쏨땀
+      - 똠얌꿍
+      - 팟타이
+      - 카레
+      - 난
+      - 탄두리
+
+    negative_keywords:
+      - bland colors
+      - monotone
+      - plain presentation
+      - desaturated
+      - boring composition
+
+  # ============================================
+  # S-6: Nightlife & Party Mood
+  # ============================================
+  s6_nightlife:
+    name: "S-6: Nightlife & Party Mood"
+    name_ko: "S-6: 화려한 무드와 야간 감성"
+    count: 4
+    businesses:
+      - "Draft Beer Specialty"
+      - "Gastropub"
+      - "General Bar"
+      - "Dance Bar"
+
+    visual_core: "Neon signage, colorful cocktails, bokeh background, cinematic dark mood, party vibe"
+
+    prompt_template:
+      subject_patterns:
+        - "Cinematic photograph of {venue_type} with neon lighting"
+        - "Nightlife atmosphere shot of {drink/food} with bokeh background"
+        - "Party vibe photograph of {subject} in {venue}"
+        - "Colorful {item} with neon signage reflection"
+        - "Dynamic crowd scene in {entertainment_venue}"
+
+      setting_patterns:
+        - "nightlife atmosphere with neon signs"
+        - "trendy bar interior with mood lighting"
+        - "party venue with colorful lights"
+        - "modern entertainment space with dark ambiance"
+        - "vibrant nightclub atmosphere"
+
+      composition_keywords:
+        - "central subject focus"
+        - "bokeh background effect"
+        - "dynamic angle shot"
+        - "neon reflection composition"
+        - "crowd blur effect"
+
+      lighting_phrases:
+        - "neon signage reflection"
+        - "cinematic dark mood lighting"
+        - "colorful party lights"
+        - "mood lighting with bokeh"
+        - "vibrant nightlife illumination"
+
+      style_keywords:
+        - "nightlife photography"
+        - "cinematic dark mood"
+        - "party atmosphere editorial"
+        - "entertainment venue promotion"
+        - "trendy bar aesthetic"
+
+      color_phrases:
+        - "neon colors with dark background"
+        - "vibrant party color palette"
+        - "cinematic blue and pink tones"
+        - "colorful cocktail hues"
+
+      details_keywords:
+        - "neon signage reflection"
+        - "colorful cocktails"
+        - "bokeh background"
+        - "party vibe"
+        - "glass texture"
+        - "dynamic crowd blur"
+        - "cinematic mood"
+
+      technical_keywords:
+        - "35mm lens"
+        - "f/1.4 aperture"
+        - "low light photography"
+        - "cinematic color grading"
+        - "bokeh effect"
+
+    required_layers:
+      - subject
+      - setting
+      - lighting
+      - style
+
+    keywords:
+      - nightlife
+      - party
+      - bar
+      - pub
+      - neon
+      - cocktail
+      - beer
+      - karaoke
+      - entertainment
+      - club
+      - dance
+      - trendy
+      - hotspot
+
+    korean_keywords:
+      - 퇴근후
+      - 주말밤
+      - DJ
+      - 시그니처칵테일
+      - 생맥주
+      - 수제맥주
+      - 크래프트비어
+      - 안주
+      - 호프집
+
+    negative_keywords:
+      - bright daylight
+      - plain background
+      - boring atmosphere
+      - empty venue
+      - harsh fluorescent lighting
+
 # ============================================
 # A 등급: Visual Transformation & Self-Care
 # ============================================
@@ -883,7 +1024,7 @@ a_grade:
   name_ko: "A등급 - 비주얼 변화 및 자기관리"
   characteristics: "High B2C, High Visual Dependency, Medium-High Competition"
   core_strategy: "Style Proposal - Before/After, sophisticated model cuts, trendy fonts, 'Investment in Myself'"
-  total_businesses: 50
+  total_businesses: 41
   
   # ============================================
   # A-1: Person-Centered Beauty & Aesthetics
@@ -891,13 +1032,14 @@ a_grade:
   a1_beauty:
     name: "A-1: Person-Centered Beauty & Aesthetics"
     name_ko: "A-1: 인물 중심 뷰티 및 에스테틱"
-    count: 5
+    count: 6
     businesses:
       - "Hair Salon"
-      - "Skin Care Salon"
+      - "Skin Care Clinic"
       - "Dermatology/Urology Clinic"
       - "Plastic Surgery Clinic"
       - "Nail Salon"
+      - "Cosmetics Retail"
     
     visual_core: "Flawless skin texture, glossy finish, rim lighting, confident expression"
     
@@ -1047,10 +1189,13 @@ a_grade:
       - 속눈썹
       - 반영구
       - 눈썹문신
-      - 전문디자이너
-      - 맞춤상담
       - 피부결
-      - 윤기
+      - 화장품
+      - 화장품가게
+      - 코스메틱
+      - 뷰티숍
+      - 스킨케어
+      - 메이크업
 
     negative_keywords:
       - bad anatomy
@@ -1068,10 +1213,10 @@ a_grade:
     name_ko: "A-2: 신체 변화 및 웰니스"
     count: 6
     businesses:
-      - "Gym"
+      - "Gym/Fitness Center"
       - "Yoga/Pilates Studio"
       - "Taekwondo/Martial Arts"
-      - "General Sports Facility"
+      - "Multi-sports Facility"
       - "Body Shape/Weight Management"
       - "Massage/Spa"
     
@@ -1219,7 +1364,6 @@ a_grade:
       - 안마
       - 발마사지
       - 타이마사지
-      - 스파샵
       - 웰니스
       - 탄탄한
       - 근육
@@ -1240,28 +1384,23 @@ a_grade:
   a3_fashion:
     name: "A-3: Fashion & Style Items"
     name_ko: "A-3: 패션 및 스타일 아이템"
-    count: 23
+    count: 18
     businesses:
       - "Men's Clothing Retail"
       - "Women's Clothing Retail"
       - "Children's Clothing Retail"
-      - "Hanbok Store"
+      - "Hanbok Retail"
       - "Other Clothing Retail"
-      - "Bedding/Curtains Store"
-      - "Accessories/Fashion Items"
-      - "Wig Store"
-      - "Shoes Store"
-      - "Bag Store"
-      - "Watch/Jewelry Store"
-      - "Eyewear Store"
-      - "Camera/Optical Equipment"
-      - "Photo Studio"
-      - "Interior Design Service"
-      - "Product Design Service"
-      - "Visual Design Service"
+      - "Bedding/Curtain Retail"
+      - "Wig Retail"
+      - "Shoes Retail"
+      - "Bag Retail"
+      - "Interior Design"
+      - "Product Design"
+      - "Visual Design"
       - "Fashion/Textile Design"
       - "Clothing Rental"
-      - "Clothing/Bedding Alterations"
+      - "Clothing/Bedding Repair"
       - "Leather/Bag/Shoe Repair"
       - "Wedding Hall"
       - "Wedding Consulting"
@@ -1355,14 +1494,6 @@ a_grade:
       - wig
       - shoes
       - bag
-      - watch
-      - jewelry
-      - eyeglasses
-      - lens
-      - camera
-      - optical
-      - photo studio
-      - portrait
       - interior design
       - product design
       - visual design
@@ -1378,8 +1509,8 @@ a_grade:
       - lookbook
       - must-have
       - daily
-      - office
       - date
+      - office look
 
     korean_keywords:
       - 옷
@@ -1477,24 +1608,19 @@ a_grade:
   a4_delicate_care:
     name: "A-4: Delicate Care & Emotional Items"
     name_ko: "A-4: 섬세한 케어 및 감성 소품"
-    count: 16
+    count: 11
     businesses:
-      - "Florist"
-      - "Pet Store/Pet Supplies"
-      - "Veterinary Clinic"
-      - "Toy Store"
-      - "Sports Equipment Store"
-      - "Bicycle Shop"
-      - "Furniture Store"
-      - "Kitchen/Home Goods"
-      - "Public Bath/Sauna"
-      - "Laundry Service"
-      - "Self-Service Laundry"
-      - "Watch/Jewelry/Instrument Repair"
-      - "Music Academy"
-      - "Art Academy"
-      - "Other Art/Sports Education"
-      - "Recreation Education"
+      - "Flower Shop"
+      - "Pet/Pet Supplies Retail"
+      - "Veterinary Hospital"
+      - "Furniture Retail"
+      - "Kitchen/Home Goods Retail"
+      - "Health Supplement Retail"
+      - "Accessories/Sundries Retail"
+      - "Watch/Jewelry Retail"
+      - "Eyeglasses/Lens Retail"
+      - "Camera/Optical Equipment Retail"
+      - "Photo Studio"
     
     visual_core: "Macro photography, vivid colors, gloss, intricate details"
     
@@ -1589,19 +1715,17 @@ a_grade:
       - furniture
       - kitchen goods
       - home goods
-      - public bath
-      - sauna
-      - laundry
-      - dry cleaning
-      - self-service laundromat
       - watch repair
       - jewelry repair
       - instrument repair
-      - music academy
-      - art academy
-      - art education
-      - sports education
-      - recreation education
+      - watch
+      - jewelry
+      - eyeglasses
+      - lens
+      - camera
+      - optical
+      - photo studio
+      - portrait
 
     korean_keywords:
       - 꽃집
@@ -1614,9 +1738,6 @@ a_grade:
       - 자전거
       - 가구
       - 주방용품
-      - 목욕탕
-      - 사우나
-      - 세탁
       - 수선
       - 악기
       - 미술학원
@@ -1646,25 +1767,9 @@ a_grade:
       - 주방용품점
       - 가정용품
       - 생활용품
-      - 대중목욕탕
-      - 찜질방
-      - 세탁소
-      - 드라이클리닝
-      - 빨래방
-      - 셀프빨래방
-      - 코인세탁
       - 시계수리
       - 귀금속수리
       - 악기수리
-      - 음악학원
-      - 피아노학원
-      - 기타학원
-      - 바이올린학원
-      - 미술학원
-      - 그림학원
-      - 예술학원
-      - 스포츠학원
-      - 레크리에이션
       - 섬세한
       - 꼼꼼한
       - 특별한날
@@ -1687,7 +1792,7 @@ b_grade:
   name_ko: "B등급 - 공간 체험 및 교육"
   characteristics: "Medium-High B2C, Medium Visual Dependency, High Competition"
   core_strategy: "Aesthetics of Space - Wide-angle interior lens, keywords: 'immersion', 'rest', 'enjoyment'"
-  total_businesses: 45
+  total_businesses: 46
   
   # ============================================
   # B-1: Learning & Focus
@@ -1695,24 +1800,26 @@ b_grade:
   b1_learning:
     name: "B-1: Learning & Focus"
     name_ko: "B-1: 학습/몰입"
-    count: 16
+    count: 18
     businesses:
-      - "Entrance Exam/Academic Academy"
+      - "College Prep/Academic Academy"
       - "Foreign Language Academy"
-      - "Professional Exam/Civil Service Academy"
+      - "Professional Certificate Academy"
       - "Social Education Facility"
       - "Employee Training Center"
       - "Driving School"
-      - "Technical/Vocational Training"
+      - "Other Technical/Vocational Training"
       - "Computer Academy"
-      - "Other Education Institutions"
+      - "Other Education Institution"
       - "Education Consulting"
-      - "Education Support Services"
+      - "Other Education Support Service"
       - "Reading Room/Study Cafe"
       - "Youth Training Facility"
-      - "Dormitory/Goshiwon"
-      - "Other Accommodation"
-      - "Comic Cafe"
+      - "Comic Book Cafe"
+      - "Music Academy"
+      - "Art Academy"
+      - "Other Art/Sports Education"
+      - "Recreation Education"
     
     visual_core: "Wide angle, bright and airy, organized desk, focused atmosphere"
     
@@ -1809,15 +1916,17 @@ b_grade:
       - reading room
       - study cafe
       - youth training
-      - dormitory
-      - goshiwon
-      - accommodation
       - comic cafe
       - manga cafe
       - quiet
       - concentration
       - success
       - achievement
+      - music academy
+      - art academy
+      - art education
+      - sports education
+      - recreation education
 
     korean_keywords:
       - 학원
@@ -1879,6 +1988,18 @@ b_grade:
       - 성적향상
       - 합격
       - 소수정예
+      - 음악학원
+      - 피아노학원
+      - 기타학원
+      - 드럼학원
+      - 바이올린학원
+      - 보컬학원
+      - 미술학원
+      - 미술교습소
+      - 입시미술
+      - 그림
+      - 취미미술
+      - 예술학원
 
     negative_keywords:
       - crowded
@@ -1894,27 +2015,17 @@ b_grade:
   b2_leisure:
     name: "B-2: Leisure & Stay"
     name_ko: "B-2: 여가/스테이"
-    count: 19
+    count: 9
     businesses:
       - "Hotel/Resort"
-      - "Motel/Inn"
+      - "Inn/Motel"
       - "Pension"
       - "Camping/Glamping"
-      - "PC Room"
-      - "Karaoke"
-      - "Video Room"
-      - "Electronic Game Room"
-      - "Other Entertainment Venues"
-      - "Fishing Operation"
-      - "Water/Marine Leisure"
-      - "Lottery Sales"
-      - "Go/Chess Game Operation"
-      - "Other Entertainment Services"
-      - "Sports/Recreation Equipment Rental"
-      - "Other Personal/Household Rental"
+      - "Dormitory/Goshiwon"
+      - "Public Bath/Sauna"
       - "Travel Agency"
-      - "Travel Support/Booking Services"
-      - "Copy Shop"
+      - "Other Travel Support Service"
+      - "Other Accommodation"
     
     visual_core: "Cinematic, high ceiling, luxury, panoramic view"
     
@@ -1990,7 +2101,8 @@ b_grade:
       - leisure
       - hospitality
       - accommodation
-      - entertainment
+      - dormitory
+      - goshiwon
       - spacious
       - premium
       - inviting
@@ -2002,21 +2114,8 @@ b_grade:
       - guesthouse
       - camping
       - glamping
-      - pc cafe
-      - internet cafe
-      - karaoke
-      - video room
-      - arcade
-      - game room
-      - fishing
-      - water leisure
-      - marine leisure
-      - lottery
-      - board game
-      - equipment rental
       - travel agency
       - booking service
-      - copy service
       - healing
       - escape
       - recharge
@@ -2031,10 +2130,8 @@ b_grade:
       - 펜션
       - 캠핑
       - 글램핑
-      - PC방
-      - 노래방
-      - 찜질방
-      - 낚시
+      - 기숙사
+      - 고시원
       - 여행사
       - 호텔리조트
       - 특급호텔
@@ -2045,45 +2142,21 @@ b_grade:
       - 캠핑장
       - 글램핑장
       - 오토캠핑
-      - 피씨방
-      - 게임방
-      - 인터넷카페
-      - 노래연습장
-      - 코인노래방
-      - 비디오방
-      - 전자게임장
-      - 오락실
-      - 게임센터
-      - 기타오락장
-      - 낚시터
-      - 바다낚시
-      - 민물낚시
-      - 수상레저
-      - 해양레저
-      - 요트
-      - 제트스키
-      - 복권
-      - 로또
-      - 바둑
-      - 장기
-      - 체스
-      - 보드게임
-      - 스포츠용품대여
-      - 레크리에이션용품
-      - 가정용품대여
       - 여행사
       - 투어
       - 여행상품
       - 예약서비스
-      - 복사
-      - 프린트
       - 힐링
       - 쉼
       - 재충전
       - 오션뷰
       - 프라이빗
-      - 바베큐
       - 키즈룸
+      - 찜질방
+      - 사우나
+      - 온천
+      - 목욕탕
+      - 스파샵
 
     negative_keywords:
       - dirty
@@ -2099,18 +2172,27 @@ b_grade:
   b3_sports:
     name: "B-3: Sports & Activities"
     name_ko: "B-3: 스포츠/활동"
-    count: 10
+    count: 19
     businesses:
       - "Swimming Pool"
       - "Bowling Alley"
-      - "Billiards Hall"
-      - "Golf Driving Range"
+      - "Billiard Hall"
+      - "Golf Practice Range"
       - "Tennis Court"
       - "Table Tennis Hall"
-      - "Other Sports Facilities"
-      - "Squash/Racquetball Court"
-      - "Exhibition/Convention Services"
-      - "Other Personal/Household Repair"
+      - "Other Sports Facility"
+      - "Squash/Racketball Court"
+      - "Sports/Recreation Equipment Rental"
+      - "Karaoke"
+      - "Video Room"
+      - "Arcade"
+      - "PC Cafe"
+      - "Other Entertainment Venue"
+      - "Water/Marine Leisure"
+      - "Other Entertainment Service"
+      - "Fishing Spot"
+      - "Lottery Sales"
+      - "Board Game Venue"
     
     visual_core: "Spacious facility, professional equipment, cleanliness, dynamic visual"
     
@@ -2185,7 +2267,6 @@ b_grade:
       - facility
       - professional
       - equipment
-      - training
       - spacious
       - modern
       - clean
@@ -2211,7 +2292,18 @@ b_grade:
       - skill improvement
       - fun
       - accessible
-      - parking
+      - water leisure
+      - marine leisure
+      - equipment rental
+      - pc cafe
+      - internet cafe
+      - karaoke
+      - video room
+      - arcade
+      - game room
+      - fishing
+      - lottery
+      - board game
 
     korean_keywords:
       - 수영장
@@ -2243,11 +2335,6 @@ b_grade:
       - 스포츠시설
       - 스쿼시
       - 라켓볼
-      - 전시
-      - 컨벤션
-      - 행사대행
-      - 이벤트
-      - 수리업
       - 최신시설
       - 넓은
       - 쾌적한
@@ -2256,6 +2343,46 @@ b_grade:
       - 가까운
       - 주차편리
       - 프로레슨
+      - PC방
+      - 노래방
+      - 낚시
+      - 낚시터
+      - 바다낚시
+      - 민물낚시
+      - 선상낚시
+      - 수상레저
+      - 요트
+      - 제트스키
+      - 서핑
+      - 복권
+      - 로또
+      - 바둑
+      - 장기
+      - 기원
+      - 피씨방
+      - 게임방
+      - 인터넷카페
+      - 노래연습장
+      - 코인노래방
+      - 비디오방
+      - 전자게임장
+      - 오락실
+      - 게임센터
+      - 기타오락장
+      - 낚시터
+      - 바다낚시
+      - 민물낚시
+      - 수상레저
+      - 해양레저
+      - 요트
+      - 제트스키
+      - 복권
+      - 로또
+      - 바둑
+      - 장기
+      - 체스
+      - 보드게임
+      - 레크리에이션용품
 
     negative_keywords:
       - dark
@@ -2274,7 +2401,7 @@ c_grade:
   name_ko: "C등급 - 신뢰 기반 전문 서비스"
   characteristics: "Medium B2C, Low Visual Dependency, Medium Competition"
   core_strategy: "Solution Presentation - Clean graphics, blue tones, keywords: 'expertise', 'trust', 'reviews'"
-  total_businesses: 50
+  total_businesses: 57
   
   # ============================================
   # C-1: Professional Office Services
@@ -2282,26 +2409,34 @@ c_grade:
   c1_office:
     name: "C-1: Professional Office Services"
     name_ko: "C-1: 전문 사무"
-    count: 18
+    count: 26
     businesses:
       - "Real Estate Agency"
       - "Lawyer"
       - "Patent Attorney"
       - "Judicial Scrivener"
-      - "Administrative Scrivener"
-      - "Labor Attorney"
-      - "Other Legal Services"
+      - "Administrative Agent"
+      - "Certified Labor Attorney"
+      - "Other Legal Service"
       - "Certified Public Accountant"
       - "Tax Accountant"
-      - "Other Accounting Services"
+      - "Other Accounting Service"
       - "Advertising Agency"
-      - "Outdoor/Exhibition Advertising"
+      - "Outdoor/Exhibition Ad Agency"
       - "Ad Media Sales"
-      - "Advertising Design/Production"
-      - "Other Advertising Services"
-      - "Market Research/Opinion Polling"
+      - "Ad Design/Production"
+      - "Other Advertising Service"
+      - "Market/Opinion Research"
       - "Management Consulting"
-      - "Other Office Support Services"
+      - "Other Office Support Service"
+      - "Employment Agency"
+      - "Temporary/Day Labor Supply"
+      - "Permanent Labor/HR Service"
+      - "Copy Service"
+      - "Exhibition/Convention Service"
+      - "Business Card/Signage Production"
+      - "Translation/Interpretation"
+      - "Business/IP Brokerage"
     
     visual_core: "Bright office, professional meeting room, blue accents"
     
@@ -2406,7 +2541,11 @@ c_grade:
       - expertise
       - trust
       - accurate
-      - transparent
+      - business card
+      - signage production
+      - translation
+      - interpretation
+      - brokerage
 
     korean_keywords:
       - 부동산
@@ -2453,6 +2592,36 @@ c_grade:
       - 투명한
       - 복잡한문제
       - 무료상담
+      - 고용알선
+      - 인력사무소
+      - 임시인력
+      - 일용인력
+      - 상용인력
+      - 인사관리
+      - 인력공급
+      - 파견업
+      - 인력파견
+      - 헤드헌팅
+      - 복사
+      - 인쇄
+      - 출력
+      - 전시대행
+      - 컨벤션
+      - 행사대행
+      - 명함제작
+      - 간판제작
+      - 번역
+      - 통역
+      - 번역서비스
+      - 사업중개
+      - 명함
+      - 간판
+      - 광고물제작
+      - 번역서비스
+      - 통역서비스
+      - 영어번역
+      - 중개업
+      - 무형재산권
 
     negative_keywords:
       - unprofessional
@@ -2468,24 +2637,26 @@ c_grade:
   c2_medical:
     name: "C-2: Medical & Healthcare"
     name_ko: "C-2: 의료/케어"
-    count: 16
+    count: 18
     businesses:
       - "General Hospital"
       - "Hospital"
       - "Dental Hospital"
       - "Oriental Medicine Hospital"
       - "Nursing Hospital"
-      - "Internal Medicine/Pediatrics"
+      - "Internal Medicine/Pediatrics Clinic"
       - "Surgery Clinic"
-      - "Neurology/Psychiatry"
-      - "Ophthalmology"
-      - "Otolaryngology"
-      - "Obstetrics/Gynecology"
-      - "Other Clinics"
+      - "Neurology/Psychiatry Clinic"
+      - "Ophthalmology Clinic"
+      - "ENT Clinic"
+      - "OB/GYN Clinic"
+      - "Other Clinic"
       - "Dental Clinic"
       - "Oriental Medicine Clinic"
-      - "Radiology/Pathology Lab"
-      - "Similar Medical Services"
+      - "Radiology/Pathology Clinic"
+      - "Alternative Medicine"
+      - "Pharmacy"
+      - "Medical Equipment Retail"
     
     visual_core: "Clinical cleanliness, bright and sterile, high-end equipment, peaceful atmosphere"
     
@@ -2584,7 +2755,6 @@ c_grade:
       - radiology
       - pathology
       - alternative medicine
-      - specialist
       - clinical experience
       - recovery
       - pain relief
@@ -2647,24 +2817,21 @@ c_grade:
   c3_technical:
     name: "C-3: Technical & Construction Services"
     name_ko: "C-3: 기술/시공"
-    count: 16
+    count: 13
     businesses:
       - "Auto Repair Shop"
       - "Car Wash"
       - "Motorcycle Repair"
-      - "Architectural Design Services"
+      - "Architectural Design Service"
       - "Urban Planning/Landscape Design"
       - "Building/Civil Engineering"
       - "Environmental Engineering"
-      - "Other Engineering Services"
-      - "Facility Maintenance Services"
-      - "Building General Cleaning"
-      - "Industrial Equipment Cleaning"
-      - "Pest Control/Disinfection"
+      - "Other Engineering Service"
+      - "Facility Maintenance Service"
+      - "Building Cleaning Service"
+      - "Industrial/Transport Cleaning"
+      - "Disinfection/Pest Control"
       - "Landscape Maintenance"
-      - "Business Card/Signage Production"
-      - "Translation/Interpretation"
-      - "Business/IP Brokerage"
     
     visual_core: "Tool details, organized workspace, Before/After results"
     
@@ -2760,11 +2927,6 @@ c_grade:
       - pest control
       - disinfection
       - landscape maintenance
-      - signage production
-      - business card
-      - translation
-      - interpretation
-      - brokerage
       - before-after
       - warranty
       - guarantee
@@ -2810,14 +2972,6 @@ c_grade:
       - 해충방제
       - 조경유지
       - 조경관리
-      - 명함
-      - 간판
-      - 광고물제작
-      - 번역서비스
-      - 통역서비스
-      - 영어번역
-      - 중개업
-      - 무형재산권
       - 전후비교
       - AS보증
       - 만족보장
@@ -2842,7 +2996,7 @@ d_grade:
   name_ko: "D등급 - 목적형 소매 및 장비"
   characteristics: "Low-Medium B2C, Low-Medium Visual, Low-Medium Competition"
   core_strategy: "Information & Benefits - Product features, discount emphasis, keywords: 'in stock', 'same-day installation'"
-  total_businesses: 30
+  total_businesses: 45
   
   # ============================================
   # D-1: Heavy Equipment & Parts
@@ -2850,24 +3004,21 @@ d_grade:
   d1_equipment:
     name: "D-1: Heavy Equipment & Parts"
     name_ko: "D-1: 중장비/부품"
-    count: 16
+    count: 13
     businesses:
       - "Tire Retail"
       - "Auto Parts Retail"
-      - "Motorcycle Parts Retail"
-      - "Hardware/Tools Store"
-      - "Wallpaper/Flooring Store"
-      - "Construction Materials"
-      - "Other Building Materials"
-      - "Electrical/Lighting Equipment"
-      - "Livestock Feed Retail"
+      - "Motorcycle/Parts Retail"
+      - "Hardware/Tool Retail"
+      - "Wallpaper/Flooring Retail"
+      - "Construction Material Retail"
+      - "Other Construction Material Retail"
+      - "Electrical/Lighting Retail"
       - "Construction Equipment Rental"
-      - "Industrial Equipment Rental"
-      - "Transportation Equipment Rental"
+      - "Other Industrial Equipment Rental"
+      - "Other Transport Equipment Rental"
       - "Home Fuel Retail"
-      - "Medical Equipment Retail"
-      - "Used Goods Store"
-      - "Packaging/Filling Services"
+      - "Packaging/Charging Service"
     
     visual_core: "Industrial aesthetic, metallic texture, high contrast"
     
@@ -2970,7 +3121,6 @@ d_grade:
       - charging service
       - in stock
       - same-day
-      - discount
       - genuine
 
     korean_keywords:
@@ -3020,8 +3170,6 @@ d_grade:
       - 충전업
       - 재고보유
       - 당일출고
-      - 할인
-      - 특가
       - 정품
       - 내구성
 
@@ -3043,18 +3191,18 @@ d_grade:
     businesses:
       - "Computer/Software Retail"
       - "Mobile Phone Retail"
-      - "Home Appliances Store"
-      - "Office Equipment Store"
-      - "Computer/Laptop Repair"
-      - "Mobile Phone Repair"
-      - "Appliance Repair"
+      - "Home Appliance Retail"
+      - "Office Equipment Retail"
+      - "Computer/Laptop/Printer Repair"
       - "Computer/Office Equipment Rental"
-      - "Employment Agency"
-      - "Temporary Staffing"
-      - "HR/Staffing Services"
+      - "Mobile Phone/Telecom Repair"
+      - "Home Appliance Repair"
       - "Car Rental"
-      - "Personal/Household Repair"
-      - "Personal/Household Rental"
+      - "Other Personal/Home Goods Repair"
+      - "Other Personal/Home Goods Rental"
+      - "Laundry"
+      - "Self-service Laundromat"
+      - "Second-hand Goods Retail"
     
     visual_core: "Clean photography, white background, high-tech feel"
     
@@ -3159,6 +3307,12 @@ d_grade:
       - high spec
       - genuine product
       - after service
+      - Laundry
+      - Laundromat
+      - Laundry shop
+      - Dry cleaning
+      - Self-service laundry
+      - Coin-operated laundry
 
     korean_keywords:
       - 컴퓨터
@@ -3195,12 +3349,6 @@ d_grade:
       - 가전제품수리
       - 컴퓨터대여
       - 사무기기대여
-      - 고용알선
-      - 인력사무소
-      - 임시인력
-      - 일용인력
-      - 상용인력
-      - 인사관리
       - 자동차대여
       - 렌터카
       - 가정용품수리
@@ -3210,6 +3358,11 @@ d_grade:
       - 고사양
       - 정품
       - AS
+      - 세탁소
+      - 드라이클리닝
+      - 빨래방
+      - 셀프빨래
+      - 코인세탁
 
     negative_keywords:
       - old
@@ -3218,6 +3371,180 @@ d_grade:
       - broken
       - messy wires
       - distorted
+
+  # ============================================
+  # D-3: Hobby & Lifestyle Retail
+  # ============================================
+  d3_hobby_lifestyle:
+    name: "D-3: Hobby & Lifestyle Retail"
+    name_ko: "D-3: 취미 및 라이프스타일 소매"
+    count: 18
+    businesses:
+      - "Musical Instrument Retail"
+      - "Record/Video Retail"
+      - "Record/Video Rental"
+      - "Tobacco/E-cigarette Retail"
+      - "Thread/Textile Retail"
+      - "Liquor Retail"
+      - "Art Retail"
+      - "Souvenir Shop"
+      - "Bookstore"
+      - "Stationery/Art Supplies Retail"
+      - "Toy Retail"
+      - "Sports Equipment Retail"
+      - "Bicycle Retail"
+      - "Watch/Jewelry/Instrument Repair"
+      - "Animal Feed Retail"
+      - "Grain/Flour Retail"
+      - "Other General Retail"
+      - "Other Specialty Retail"
+
+    visual_core: "Hobbyist room, organized collection, macro shot details, vintage texture, lifestyle composition"
+
+    prompt_template:
+      subject_patterns:
+        - "Professional product photograph of {item} in lifestyle setting"
+        - "Macro shot of {product} details with vintage aesthetic"
+        - "Organized collection display of {products} on wooden shelf"
+        - "Lifestyle composition of {item} in hobbyist room"
+        - "Warm vintage photograph of {product} collection"
+
+      setting_patterns:
+        - "hobbyist room with organized shelves"
+        - "vintage retail space with warm lighting"
+        - "cozy lifestyle store interior"
+        - "collector's display environment"
+        - "specialty shop with curated products"
+
+      composition_keywords:
+        - "macro detail shot"
+        - "lifestyle composition"
+        - "organized shelf display"
+        - "product collection view"
+        - "warm vintage arrangement"
+
+      lighting_phrases:
+        - "warm vintage lighting"
+        - "natural light mixed with warm tones"
+        - "soft lifestyle photography lighting"
+        - "cozy ambient illumination"
+        - "detail-focused lighting"
+
+      style_keywords:
+        - "lifestyle product photography"
+        - "hobbyist collection aesthetic"
+        - "vintage retail style"
+        - "specialty shop editorial"
+        - "collector's item presentation"
+
+      color_phrases:
+        - "warm vintage tones"
+        - "natural wood colors"
+        - "cozy earthy palette"
+        - "soft lifestyle hues"
+
+      details_keywords:
+        - "macro shot details"
+        - "organized collection"
+        - "wooden shelf display"
+        - "warm vintage texture"
+        - "sharp product focus"
+        - "lifestyle composition"
+        - "collector's aesthetic"
+
+      technical_keywords:
+        - "100mm macro lens"
+        - "f/2.8 aperture"
+        - "product photography"
+        - "lifestyle style"
+        - "detail focus"
+
+    required_layers:
+      - subject
+      - setting
+      - lighting
+      - details
+
+    keywords:
+      - hobby
+      - lifestyle
+      - collection
+      - vintage
+      - specialty
+      - musical instrument
+      - record
+      - vinyl
+      - video
+      - tobacco
+      - e-cigarette
+      - textile
+      - thread
+      - liquor
+      - wine
+      - art
+      - souvenir
+      - bookstore
+      - stationery
+      - art supplies
+      - toy
+      - sports equipment
+      - bicycle
+      - watch repair
+      - jewelry repair
+      - recreation
+      - collector
+
+    korean_keywords:
+      - 악기점
+      - 악기소매
+      - 기타
+      - 피아노
+      - 바이올린
+      - 음반
+      - LP
+      - 비디오
+      - 음반대여
+      - 담배
+      - 전자담배
+      - 실
+      - 섬유
+      - 원단
+      - 주류소매
+      - 와인샵
+      - 양주
+      - 예술품
+      - 갤러리
+      - 기념품
+      - 기념품점
+      - 서점
+      - 책방
+      - 문구점
+      - 문구
+      - 화방
+      - 미술용품
+      - 장난감
+      - 완구점
+      - 운동용품
+      - 스포츠용품
+      - 자전거
+      - 자전거판매
+      - 시계수리
+      - 귀금속수리
+      - 악기수리
+      - 레크리에이션
+      - 취미
+      - 컬렉션
+      - 빈티지
+      - 희귀템
+      - 한정판
+
+    negative_keywords:
+      - cluttered mess
+      - poor lighting
+      - generic store shelf
+      - cold industrial feel
+      - blurry details
+      - cheap display
 
 # ============================================
 # E GRADE: Infrastructure & Special Purpose
@@ -3228,7 +3555,7 @@ e_grade:
   name_ko: "E등급 - 인프라 및 특수 목적"
   characteristics: "Low B2C, Low Visual Dependency, Low Competition"
   core_strategy: "Accessibility & Public Interest - Clear location, honest pricing, calm tone"
-  total_businesses: 2
+  total_businesses: 5
   
   # ============================================
   # E-1: Convenience & Infrastructure
@@ -3236,10 +3563,11 @@ e_grade:
   e1_infrastructure:
     name: "E-1: Convenience & Infrastructure"
     name_ko: "E-1: 편의/인프라"
-    count: 2
+    count: 3
     businesses:
       - "Gas Station"
       - "Gas Charging Station"
+      - "Ice Retail"
     
     visual_core: "Straightforward, clear signage, bright sky, wide perspective"
     
@@ -3379,7 +3707,7 @@ e_grade:
     count: 2
     businesses:
       - "Funeral Hall"
-      - "Crematorium/Cemetery/Charnel House"
+      - "Crematorium/Cemetery/Ossuary"
     
     visual_core: "Calm atmosphere, subdued colors, symmetrical composition, dignity"
     
@@ -3578,12 +3906,12 @@ guidelines:
 # ============================================
 
 metadata:
-  version: "3.0.0"
-  last_updated: "2026-01-16"
+  version: "3.2.0"
+  last_updated: "2026-01-26"
   source: "247 Small Business Industries S~E Grade Classification"
   benchmark: "Civitai Top Prompts Analysis"
   total_grades: 6
-  total_subgroups: 18
+  total_subgroups: 221
   total_businesses: 247
   template_style: "Hybrid Prompting (Natural Language + Keywords)"
   optimization_goal: "Realistic business photography for advertising"
