@@ -1,0 +1,635 @@
+# 이유노님 체크리스트
+## 프론트엔드 (Svelte) + 백엔드 API (FastAPI routes.py)
+
+**담당 범위**: 
+- Svelte 프론트엔드 UI/UX
+- FastAPI routes.py (API 엔드포인트)
+- 프론트엔드-백엔드 통신
+
+**프로젝트 기간**: 2025-12-29 ~ 2026-01-27
+
+---
+
+## 📅 1단계 (MVP): ~ 2026-01-15
+
+### 🗓 1주차 (12/29 ~ 1/4): 프로젝트 초기 설정
+#### 환경 설정
+
+**프론트엔드 설정**
+- [V] Node.js 18+ 설치 확인 -> 20.19.6
+- [V] Svelte 프로젝트 생성 (로컬, 프로젝트 루트에서)
+  ```bash
+  npm create vite@latest src/frontend -- --template svelte
+  ```
+- [V] 필요한 패키지 설치 (프로젝트 루트에서)
+  - axios: HTTP 클라이언트 라이브러리, 백엔드 API와 통신하기 위해 사용
+  - 대안: 내장된 `fetch API` 사용 가능 (추가 설치 불필요)
+  ```bash
+  cd src/frontend
+  npm install
+  npm install axios 
+  ```
+- [V] Vercel CLI 설치 및 로그인
+  - **Vercel**: 프론트엔드 배포 플랫폼, 프론트엔드를 Vercel에 배포하기 위한 도구
+  - `-g`: 글로벌 설치 (시스템 전역에서 사용 가능)
+  ```bash
+  npm install -g vercel
+  vercel login
+  ```
+
+**백엔드 API 설정**
+- [V] GCP VM 접속 확인
+- [V] Python 가상 환경 활성화
+  ```bash
+  cd ~/codeit_ad_smallbiz
+  source source /opt/jhub-venv/bin/activate
+  ```
+- [V] FastAPI 설치 확인, 없을 시 설치
+  ```bash
+  pip list | grep fastapi
+  pip install fastapi
+  ```
+
+#### routes.py 기본 엔드포인트
+
+**routes.py 파일 생성**
+- [V] `src/backend/routes.py` 파일 생성
+- [V] FastAPI 앱 초기화
+  ```python
+  from fastapi import FastAPI
+  app = FastAPI()
+  ```
+- [V] CORS 설정
+  ```python
+  from fastapi.middleware.cors import CORSMiddleware
+  app.add_middleware(CORSMiddleware, ...)
+  ```
+
+**POST /generate 엔드포인트**
+- [V] GenerateRequest 스키마 정의 (schemas.py 협업)
+- [V] UUID로 Task ID 생성
+- [V] Task 상태 저장소 (딕셔너리) 생성
+- [V] 즉시 응답 반환 `{"task_id": "..."}`
+- [V] BackgroundTasks로 작업 시작 (services.py 호출)
+
+**GET /status/{task_id} 엔드포인트**
+- [V] Task ID로 상태 조회
+- [V] TaskStatus 스키마 반환
+- [V] 404 에러 처리
+
+**로컬 테스트**
+- [V] uvicorn 서버 실행
+  ```bash
+  uvicorn src.backend.routes:app --reload --host 0.0.0.0 --port 8000
+  ```
+- [V] Postman으로 API 테스트
+  - [V] POST /generate 호출
+  - [V] GET /status/{task_id} 호출
+- [V] Swagger UI 확인 (http://localhost:8000/docs)
+
+#### 1주차: Day 5-7 (1/2-1/4): 챗봇 UI 프로토타입
+
+**App.svelte 기본 레이아웃**
+- [V] 파일 생성: `src/frontend/src/App.svelte`
+- [V] Header 컴포넌트 영역
+  - [V] 로고 또는 타이틀
+  - [V] 로그인/회원가입 버튼 영역 (빈 버튼)
+- [V] MainContent 영역
+- [V] 상태 변수 정의
+  ```javascript
+  let isLoggedIn = false;
+  let currentUser = null;
+  ```
+
+**ChatbotUI.svelte 생성**
+- [V] 파일 생성: `src/frontend/src/lib/components/ChatbotUI.svelte`
+- [V] 텍스트 입력 필드 (`<textarea>`)
+- [V] 이미지 비율 선택 UI
+  - [V] 라디오 버튼: 1:1, 4:3, 3:4
+  - [V] 기본값: 1:1
+- [V] 생성 버튼
+- [V] 대화 이력 표시 영역
+  - [V] `messages` 배열 상태 변수
+  - [V] 메시지 렌더링 루프
+
+**backendClient.js 기본 구조**
+- [V] 파일 생성: `src/frontend/src/lib/api/backendClient.js`
+- [V] API_URL 환경 변수 설정
+  ```javascript
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  ```
+- [V] `generateAd()` 함수 구현
+  ```javascript
+  async function generateAd({user_id, input_text, aspect_ratio})
+  ```
+- [V] `checkTaskStatus()` 함수 구현
+  ```javascript
+  async function checkTaskStatus(task_id)
+  ```
+
+**통합 테스트**
+- [V] 프론트엔드에서 백엔드 API 호출 테스트
+- [V] Task ID 수신 확인
+- [V] 네트워크 탭에서 요청/응답 확인
+
+**✅ 1주차 마일스톤**: 프론트엔드 → 백엔드 API 호출 → Task ID 수신 확인
+
+---
+
+### 🗓 2주차 (1/5 ~ 1/11): 결과 표시 및 AI 연동
+
+#### Day 8-9 (1/5-1/6): 결과 표시 UI
+
+**ChatbotUI에 결과 렌더링 추가**
+- [V] 이미지 URL 처리
+  - [V] `<img>` 태그로 표시
+  - [V] API_URL 연결: `${API_URL}/static/images/${image_url}`
+- [V] 광고 문구 텍스트 표시
+  - [V] 메시지 객체에 `content` 필드
+- [ ] 다운로드 버튼 추가 (선택)
+  - [ ] 이미지 다운로드 링크
+
+**LoadingSpinner.svelte 컴포넌트**
+- [ ] 파일 생성: `src/frontend/src/lib/components/LoadingSpinner.svelte`
+- [ ] CSS Spinner 애니메이션
+- [ ] "생성 중..." 텍스트
+- [ ] progress 표시 (선택)
+  - [ ] `{progress}%` 표시
+
+**ChatbotUI에 로딩 통합**
+- [ ] `isGenerating` 상태 변수
+- [ ] 생성 중일 때 Spinner 표시
+- [ ] 입력 필드 비활성화
+
+#### Day 10-11 (1/7-1/8): 대화 이력 UI
+
+**메시지 렌더링 스타일링**
+- [ ] 사용자 메시지: 오른쪽 정렬, 파란색 배경
+  ```css
+  .message.user {
+    align-self: flex-end;
+    background-color: #0084ff;
+  }
+  ```
+- [ ] AI 메시지: 왼쪽 정렬, 회색 배경
+  ```css
+  .message.assistant {
+  align-self: flex-start;
+  background-color: #f1f0f0;
+  }
+  ```
+- [ ] 이미지 포함 시 썸네일 표시
+  - [ ] 최대 너비 300px
+
+**상태 폴링 로직 구현**
+- [ ] `pollTaskStatus()` 함수 작성
+  ```javascript
+  async function pollTaskStatus(taskId, maxRetries = 60) {
+    for (let i = 0; i < maxRetries; i++) {
+      await sleep(1000);
+      const status = await checkTaskStatus(taskId);
+      if (status.status === 'completed') return status.result;
+      if (status.status === 'failed') throw new Error(status.error);
+    }
+    throw new Error('타임아웃');
+  }
+  ```
+- [ ] `sleep()` 유틸리티 함수
+  ```javascript
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  ```
+- [ ] 1초마다 상태 확인
+- [ ] 최대 60회 (60초 타임아웃)
+
+#### Day 12-14 (1/9-1/11): 통합 테스트
+
+**전체 플로우 테스트**
+- [ ] 텍스트 입력
+- [ ] 생성할 이미지 비율 선택
+- [ ] 생성 버튼 클릭
+- [ ] 로딩 표시 확인
+- [ ] 결과 표시 확인
+  - [ ] 이미지 정상 로드
+  - [ ] 광고 문구 표시
+
+**정적 파일 서빙 확인 (routes.py)**
+- [ ] FastAPI StaticFiles 설정
+  ```python
+  from fastapi.staticfiles import StaticFiles
+  app.mount("/static/images", StaticFiles(directory=settings.STORAGE_PATH))
+  ```
+- [ ] `/static/images/{path}` 접근 테스트
+- [ ] CORS 설정 확인
+
+**에러 케이스 처리**
+- [ ] 네트워크 오류 시 에러 메시지
+- [ ] 타임아웃 시 안내 메시지
+- [ ] 생성 실패 시 사용자 알림
+
+**✅ 2주차 마일스톤**: 광고 생성 전체 플로우 동작 확인
+
+---
+
+### 🗓 3주차 (1/12 ~ 1/15): 인증 및 이력 관리
+
+#### Day 15-16 (1/12-1/13): 회원가입/로그인 UI
+
+**AuthUI.svelte 컴포넌트 생성**
+- [ ] 파일 생성: `src/frontend/src/lib/components/AuthUI.svelte`
+- [ ] 모드 전환 상태 변수
+  ```javascript
+  let mode = 'login';  // 'login' | 'signup'
+  ```
+- [ ] 회원가입 폼
+  - [ ] ID 입력 필드 (placeholder: "아이디 (3-20자)")
+  - [ ] 비밀번호 입력 필드 (placeholder: "비밀번호 (8자 이상)")
+  - [ ] 가입하기 버튼
+  - [ ] "이미 계정이 있으신가요? 로그인" 링크
+- [ ] 로그인 폼
+  - [ ] ID 입력 필드
+  - [ ] 비밀번호 입력 필드
+  - [ ] 로그인 버튼
+  - [ ] "계정이 없으신가요? 회원가입" 링크
+- [ ] 에러 메시지 표시 영역
+
+**클라이언트 유효성 검증**
+- [ ] ID 검증
+  - [ ] 길이: 3-20자
+  - [ ] 형식: 영문+숫자만 (정규식)
+- [ ] 비밀번호 검증
+  - [ ] 길이: 8-30자
+- [ ] 실시간 에러 메시지
+  ```javascript
+  let errorMessage = '';
+  ```
+
+**backendClient.js 인증 함수 추가**
+- [ ] `signup()` 함수
+  ```javascript
+  async function signup(login_id, login_pw)
+  ```
+- [ ] `login()` 함수
+  ```javascript
+  async function login(login_id, login_pw)
+  ```
+- [ ] 에러 처리 및 응답 파싱
+
+**App.svelte 세션 관리**
+- [ ] localStorage에 토큰 저장
+  ```javascript
+  localStorage.setItem('session_token', token);
+  ```
+- [ ] 페이지 로드 시 토큰 복원
+  ```javascript
+  onMount(() => {
+    const token = localStorage.getItem('session_token');
+    if (token) isLoggedIn = true;
+  });
+  ```
+- [ ] 로그아웃 기능
+  ```javascript
+  function handleLogout() {
+    localStorage.removeItem('session_token');
+    localStorage.removeItem('user_info');
+    isLoggedIn = false;
+  }
+  ```
+
+#### Day 17 (1/14): routes.py 인증 엔드포인트
+
+**POST /auth/signup**
+- [ ] SignupRequest 스키마 (schemas.py)
+  ```python
+  class SignupRequest(BaseModel):
+      login_id: str
+      login_pw: str
+  ```
+- [ ] `services.register_user()` 호출
+- [ ] 에러 처리
+  - [ ] 중복 ID: `{"success": false, "error": "ID 중복"}`
+  - [ ] 유효성 실패: `{"success": false, "error": "..."}`
+- [ ] 성공 응답: `{"success": true, "user_id": 1}`
+
+**POST /auth/login**
+- [ ] LoginRequest 스키마
+- [ ] `services.authenticate_user()` 호출
+- [ ] JWT 토큰 반환
+  ```python
+  return {
+      "success": true,
+      "user_id": result["user_id"],
+      "session_token": result["session_token"]
+  }
+  ```
+- [ ] 인증 실패 처리
+  ```python
+  return {"success": false, "error": "계정 없음"}
+  ```
+
+**AuthUI ↔ routes.py 통합 테스트**
+- [ ] 회원가입 플로우
+  - [ ] 정상 케이스
+  - [ ] ID 중복 케이스
+  - [ ] 유효성 검증 실패 케이스
+- [ ] 로그인 플로우
+  - [ ] 정상 케이스
+  - [ ] 잘못된 비밀번호
+  - [ ] 존재하지 않는 사용자
+
+#### Day 18 (1/15): 생성 이력 UI
+
+**GenerationHistoryUI.svelte 생성**
+- [ ] 파일 생성: `src/frontend/src/lib/components/GenerationHistoryUI.svelte`
+- [ ] Props: `user_id`
+- [ ] 상태 변수
+  ```javascript
+  let historyList = [];
+  let selectedItem = null;
+  ```
+- [ ] `onMount`에서 이력 조회
+  ```javascript
+  onMount(async () => {
+    historyList = await backendClient.getGenerationHistory(user_id);
+  });
+  ```
+
+**썸네일 그리드 레이아웃**
+- [ ] CSS Grid 레이아웃
+  ```css
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  ```
+- [ ] 각 항목에 이미지 + 날짜 표시
+- [ ] 클릭 시 상세 보기
+
+**ImageModal.svelte 생성**
+- [ ] 파일 생성: `src/frontend/src/lib/components/ImageModal.svelte`
+- [ ] Props: `item`
+- [ ] 모달 배경 (반투명)
+- [ ] 원본 이미지 표시
+- [ ] 상세 정보 표시
+  - [ ] 생성 날짜
+  - [ ] 스타일 태그
+  - [ ] 이미지 비율
+- [ ] 닫기 버튼
+  ```javascript
+  on:close={() => selectedItem = null}
+  ```
+
+**backendClient.js 이력 함수 추가**
+- [ ] `getGenerationHistory()` 함수
+  ```javascript
+  async function getGenerationHistory(user_id)
+  ```
+- [ ] API 호출: `GET /history/generation?user_id=${user_id}`
+
+**GET /history/generation 엔드포인트 (routes.py)**
+- [ ] Query 파라미터: `user_id`
+- [ ] `services.get_generation_history()` 호출
+- [ ] JSON 배열 반환
+  ```python
+  return [{id, output_url, created_at, style, aspect_ratio}, ...]
+  ```
+
+**App.svelte에 통합**
+- [ ] 로그인 시 GenerationHistoryUI 표시
+  ```svelte
+  {#if isLoggedIn}
+    <GenerationHistoryUI user_id={currentUser.user_id} />
+  {/if}
+  ```
+
+**✅ 3주차 마일스톤 (MVP 완성)**: 회원가입/로그인/생성/이력 전체 동작
+
+---
+
+## 📅 2단계 (개선): 2026-01-16 ~ 27
+
+### 🗓 4주차 (1/16 ~ 1/22): 품질 향상
+
+#### Day 19-21 (1/16-1/18): 채팅 이력 UI
+
+**ChatHistoryUI.svelte 생성**
+- [ ] 파일 생성: `src/frontend/src/lib/components/ChatHistoryUI.svelte`
+- [ ] 세션 목록 표시
+  - [ ] 각 세션의 첫 메시지 미리보기
+  - [ ] 생성 날짜
+- [ ] 세션 클릭 시 대화 이력 로드
+- [ ] 현재 세션 vs 과거 세션 구분
+
+**backendClient.js 함수 추가**
+- [ ] `getChatSessions()` 함수
+- [ ] `getChatHistory(session_id)` 함수
+
+**routes.py 엔드포인트 추가**
+- [ ] `GET /history/chat/sessions?user_id={id}`
+- [ ] `GET /history/chat?user_id={id}&session_id={sid}`
+
+**세션 관리 로직**
+- [ ] 새 대화 시작 시 새 session_id 생성
+- [ ] localStorage에 현재 session_id 저장
+- [ ] 과거 세션 불러오기 기능
+
+#### Day 22-24 (1/19-1/21): UI/UX 개선
+
+**반응형 디자인**
+- [ ] 모바일 뷰 (<768px)
+  - [ ] 단일 컬럼 레이아웃
+  - [ ] 터치 친화적 버튼 크기
+- [ ] 태블릿 뷰 (768px-1024px)
+  - [ ] 2열 그리드
+- [ ] 데스크톱 뷰 (>1024px)
+  - [ ] 3열 그리드
+
+**애니메이션 추가**
+- [ ] 메시지 페이드인 애니메이션
+  ```css
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  ```
+- [ ] 모달 슬라이드 애니메이션
+- [ ] 버튼 호버 효과
+
+**Toast 알림**
+- [ ] Toast.svelte 컴포넌트 생성
+- [ ] 성공/실패/정보 타입
+- [ ] 자동 사라짐 (3초)
+- [ ] 위치: 화면 우측 상단
+
+**에러 처리 개선**
+- [ ] 네트워크 오류 재시도 버튼
+- [ ] 사용자 친화적 에러 메시지
+  - [ ] "네트워크 연결을 확인해주세요"
+  - [ ] "이미지 생성에 실패했습니다. 다시 시도해주세요"
+- [ ] 에러 로그 콘솔 출력
+
+### 🗓 5주차 (1/23 ~ 1/27): 마무리
+
+#### Day 25-27 (1/23-1/25): 최종 테스트 및 버그 수정
+
+**E2E 테스트 (수동)**
+- [ ] 비회원 광고 생성
+- [ ] 회원가입 → 로그인 → 광고 생성 → 이력 조회
+- [ ] 여러 비율 (1:1, 4:3, 3:4) 테스트
+- [ ] 다양한 브라우저 테스트
+  - [ ] Chrome
+  - [ ] Firefox
+  - [ ] Safari (Mac)
+  - [ ] Mobile Safari (iOS)
+  - [ ] Chrome Mobile (Android)
+
+**성능 최적화**
+- [ ] 이미지 lazy loading
+  ```svelte
+  <img loading="lazy" src={...} />
+  ```
+- [ ] 불필요한 재렌더링 방지
+- [ ] API 호출 디바운싱 (필요 시)
+
+**접근성 개선**
+- [ ] 키보드 네비게이션
+- [ ] ARIA 레이블
+- [ ] 대체 텍스트 (이미지)
+
+#### Day 28-30 (1/26-1/27): Vercel 배포
+
+**프로덕션 빌드**
+- [ ] 환경 변수 설정
+  ```bash
+  # .env.production
+  VITE_API_URL=http://{GCP_VM_IP}:8000
+  ```
+- [ ] 빌드 테스트
+  ```bash
+  npm run build
+  npm run preview
+  ```
+
+**Vercel 배포**
+- [ ] `vercel --prod` 실행
+- [ ] 환경 변수 설정 (Vercel Dashboard)
+  - [ ] VITE_API_URL
+- [ ] 커스텀 도메인 연결 (선택)
+
+**배포 후 확인**
+- [ ] 프로덕션 URL 접속
+- [ ] 모든 기능 정상 동작 확인
+- [ ] 모바일 환경 테스트
+
+**문서화**
+- [ ] 프론트엔드 README 작성
+  - [ ] 설치 방법
+  - [ ] 실행 방법
+  - [ ] 빌드 방법
+  - [ ] 환경 변수 설명
+- [ ] API 엔드포인트 문서화
+  - [ ] Swagger UI 주석 추가
+
+**✅ 최종 완료**: 프론트엔드 + 백엔드 API 배포 완료
+
+---
+
+## 📊 진행 상황 추적
+
+### 1단계 (MVP) 체크리스트 요약
+
+**1주차**: 환경 설정 + routes.py 기본 + 챗봇 UI 프로토타입
+- [ ] Svelte 프로젝트 생성
+- [ ] routes.py: POST /generate, GET /status
+- [ ] ChatbotUI.svelte 기본 구조
+- [ ] backendClient.js 기본 함수
+
+**2주차**: 결과 표시 + 상태 폴링
+- [ ] 이미지/텍스트 결과 렌더링
+- [ ] LoadingSpinner 컴포넌트
+- [ ] 상태 폴링 로직
+- [ ] 정적 파일 서빙
+
+**3주차**: 인증 + 이력
+- [ ] AuthUI 컴포넌트
+- [ ] routes.py: POST /auth/signup, POST /auth/login
+- [ ] GenerationHistoryUI 컴포넌트
+- [ ] routes.py: GET /history/generation
+
+### 2단계 (개선) 체크리스트 요약
+
+**4주차**: 채팅 이력 + UI/UX
+- [ ] ChatHistoryUI 컴포넌트
+- [ ] 반응형 디자인
+- [ ] 애니메이션
+- [ ] Toast 알림
+
+**5주차**: 테스트 + 배포
+- [ ] E2E 테스트
+- [ ] 성능 최적화
+- [ ] Vercel 배포
+- [ ] 문서화
+
+---
+
+## 🤝 협업 포인트
+
+### 진수경님과의 협업
+- [ ] schemas.py 스키마 정의 공유
+  - [ ] GenerateRequest
+  - [ ] TaskStatus
+  - [ ] SignupRequest, LoginRequest
+- [ ] services.py 함수 호출 인터페이스 확인
+  - [ ] create_advertisement()
+  - [ ] register_user()
+  - [ ] authenticate_user()
+  - [ ] get_generation_history()
+
+### 신승목님과의 협업
+- [ ] 배포 스크립트 확인
+- [ ] Vercel 환경 변수 설정
+- [ ] CORS 설정 확인
+- [ ] 정적 파일 서빙 경로 확인
+
+---
+
+## 📝 참고 사항
+
+### 환경 변수 (.env)
+```bash
+# 로컬 개발
+VITE_API_URL=http://localhost:8000
+
+# 프로덕션
+VITE_API_URL=http://{GCP_VM_IP}:8000
+```
+
+### Svelte 개발 서버 실행
+```bash
+cd ~/codeit_ad_smallbiz/src/frontend
+npm run dev
+```
+
+### FastAPI 서버 실행
+```bash
+cd ~/codeit_ad_smallbiz
+uvicorn src.backend.routes:app --reload --host 0.0.0.0 --port 8000
+```
+
+### 유용한 명령어
+```bash
+# Svelte 빌드
+npm run build
+
+# 빌드 미리보기
+npm run preview
+
+# Vercel 배포
+vercel --prod
+```
+
+---
+
+**작성일**: 2026-01-05
+**담당자**: 이유노님 (프론트엔드 + 백엔드 API)  
+**최종 수정**: 2026-01-05
