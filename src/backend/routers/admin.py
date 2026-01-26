@@ -328,6 +328,7 @@ def list_sessions(
                 created_at=row.created_at,
                 last_message_at=row.last_message_at,
                 message_count=row.message_count or 0,
+                generation_count=row.generation_count or 0,
             )
         )
 

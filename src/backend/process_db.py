@@ -534,6 +534,15 @@ def get_admin_session_page(
         .subquery()
     )
 
+    generation_subq = (
+        db.query(
+            models.GenerationHistory.session_id.label("session_id"),
+            func.count(models.GenerationHistory.id).label("generation_count"),
+        )
+        .group_by(models.GenerationHistory.session_id)
+        .subquery()
+    )
+
     activity_at = func.coalesce(message_subq.c.last_message_at, models.ChatSession.created_at)
 
     query_builder = (
@@ -544,8 +553,10 @@ def get_admin_session_page(
             models.User.login_id,
             func.coalesce(message_subq.c.message_count, 0).label("message_count"),
             message_subq.c.last_message_at.label("last_message_at"),
+            func.coalesce(generation_subq.c.generation_count, 0).label("generation_count"),
         )
         .outerjoin(message_subq, models.ChatSession.session_id == message_subq.c.session_id)
+        .outerjoin(generation_subq, models.ChatSession.session_id == generation_subq.c.session_id)
         .outerjoin(models.User, models.User.user_id == models.ChatSession.user_id)
     )
 

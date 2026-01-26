@@ -136,6 +136,7 @@ class AdminSessionItem(BaseModel):
     created_at: datetime
     last_message_at: Optional[datetime] = None
     message_count: int
+    generation_count: int = 0
 
 
 class AdminSessionPage(BaseModel):

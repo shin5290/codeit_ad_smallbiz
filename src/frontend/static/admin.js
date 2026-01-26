@@ -4,7 +4,6 @@
         const limit = 5;
         const userLimit = 15;
         const sessionLimit = 20;
-        const messageSearchLimit = 20;
         let currentPage = 1;
         let totalPages = 1;
         let isReady = false;
@@ -20,12 +19,14 @@
         const sessionMessageLimit = 200;
         let sessionMessageTotal = 0;
         let sessionLoadedCount = 0;
-        let messageSearchPage = 1;
-        let messageSearchTotalPages = 1;
         let logEventSource = null;
         let logIsStreaming = false;
         let logPaused = false;
         let logBuffer = [];
+        let selectedLogDate = null;
+        let selectedLogFile = null;
+        const logFileCache = new Map();
+        const logDateNodes = new Map();
 
         const userTableBody = document.getElementById('userTableBody');
         const userCount = document.getElementById('userCount');
@@ -52,18 +53,13 @@
         const sessionDetailSubtitle = document.getElementById('sessionDetailSubtitle');
         const sessionDetailEmpty = document.getElementById('sessionDetailEmpty');
         const sessionDetailBody = document.getElementById('sessionDetailBody');
-        const sessionMeta = document.getElementById('sessionMeta');
-        const sessionTimeline = document.getElementById('sessionTimeline');
-        const sessionGenerations = document.getElementById('sessionGenerations');
+        const sessionDetailTableBody = document.getElementById('sessionDetailTableBody');
         const sessionLogJumpBtn = document.getElementById('sessionLogJumpBtn');
         const sessionLoadMoreBtn = document.getElementById('sessionLoadMoreBtn');
-        const messageSearchTableBody = document.getElementById('messageSearchTableBody');
-        const messageSearchCount = document.getElementById('messageSearchCount');
-        const messagePageInfo = document.getElementById('messagePageInfo');
-        const messagePageInput = document.getElementById('messagePageInput');
         const logStatus = document.getElementById('logStatus');
-        const logDateSelect = document.getElementById('logDateSelect');
-        const logFileSelect = document.getElementById('logFileSelect');
+        const logSelectedPath = document.getElementById('logSelectedPath');
+        const logTreeList = document.getElementById('logTreeList');
+        const logTreeEmpty = document.getElementById('logTreeEmpty');
         const logLinesInput = document.getElementById('logLinesInput');
         const logKeywordInput = document.getElementById('logKeywordInput');
         const logLevelSelect = document.getElementById('logLevelSelect');
@@ -462,17 +458,12 @@
                 row.classList.add('session-row');
                 row.dataset.sessionId = encodeURIComponent(item.session_id || '');
                 const loginLabel = item.login_id ? escapeHtml(item.login_id) : 'guest';
-                const statusBadge = item.user_id
-                    ? '<span class="badge badge-success">authed</span>'
-                    : '<span class="badge badge-neutral">guest</span>';
                 row.innerHTML = `
                     <td><button type="button" class="link-button session-link" data-session-id="${encodeURIComponent(item.session_id || '')}">${escapeHtml(item.session_id)}</button></td>
                     <td>${loginLabel}</td>
-                    <td>${item.user_id ?? '-'}</td>
-                    <td>${formatDateTime(item.created_at)}</td>
-                    <td>${formatDateTime(item.last_message_at)}</td>
                     <td>${item.message_count ?? 0}</td>
-                    <td>${statusBadge}</td>
+                    <td>${item.generation_count ?? 0}</td>
+                    <td>${formatDateTime(item.created_at)}</td>
                 `;
                 sessionTableBody.appendChild(row);
             });
@@ -499,82 +490,38 @@
             });
         }
 
-        function renderSessionMeta(detail) {
-            const logHint = detail.log_hint ? `${detail.log_hint.date}/${detail.log_hint.file}` : '-';
-            const rows = [
-                { label: 'session_id', value: detail.session_id },
-                { label: 'login_id', value: detail.login_id || 'guest' },
-                { label: 'user_id', value: detail.user_id ?? 'guest' },
-                { label: 'created_at', value: formatDateTime(detail.created_at) },
-                { label: 'last_message_at', value: formatDateTime(detail.last_message_at) },
-                { label: 'message_count', value: detail.message_count ?? 0 },
-                { label: 'run_id', value: detail.run_id || '-' },
-                { label: 'log_file', value: logHint },
-            ];
-            sessionMeta.innerHTML = rows
-                .map(({ label, value }) => `
-                    <div class="meta-row">
-                        <span class="meta-label">${escapeHtml(label)}</span>
-                        <span class="meta-value">${escapeHtml(String(value ?? '-'))}</span>
-                    </div>
-                `)
-                .join('');
-        }
-
-        function buildSessionMessageItem(message) {
-            const roleLabel = message.role === 'user' ? 'user' : 'assistant';
-            const thumbUrl = message.image?.file_hash ? buildImageUrl(message.image.file_hash, IMAGE_SIZE.thumb) : null;
-            const fullUrl = message.image?.file_hash ? buildImageUrl(message.image.file_hash, IMAGE_SIZE.full) : null;
-            const imageHtml = thumbUrl
-                ? `<img class="thumb timeline-thumb" src="${thumbUrl}" loading="lazy" alt="preview" onclick="openImageModal('${fullUrl}')">`
-                : '';
+        function buildSessionMessageRow(message) {
+            const roleLabel = message.role === 'assistant' ? 'assistant' : 'user';
+            const roleBadge = roleLabel === 'assistant'
+                ? '<span class="badge badge-tight">assistant</span>'
+                : '<span class="badge badge-tight badge-neutral">user</span>';
+            const intentValue = hasText(message.intent) ? escapeHtml(message.intent) : '-';
+            const contentCell = buildTextPreview(message.content, '메시지');
+            const imageHtml = message.image ? buildImageCell(message.image) : '-';
             return `
-                <div class="timeline-item ${roleLabel}">
-                    <div class="timeline-meta">
-                        <span class="badge badge-tight">${escapeHtml(roleLabel)}</span>
-                        <span class="status-text">${formatDateTime(message.created_at)}</span>
-                    </div>
-                    <div class="timeline-content">${escapeHtml(message.content)}</div>
-                    ${imageHtml}
-                </div>
+                <tr class="session-message-row ${roleLabel}">
+                    <td class="nowrap">${formatDateTime(message.created_at)}</td>
+                    <td>${roleBadge}</td>
+                    <td>${intentValue}</td>
+                    <td>${contentCell}</td>
+                    <td>${imageHtml}</td>
+                </tr>
             `;
         }
 
-        function renderSessionMessages(messages, { append = false } = {}) {
-            const html = messages.map(buildSessionMessageItem).join('');
-            if (append) {
-                sessionTimeline.insertAdjacentHTML('afterbegin', html);
-            } else {
-                sessionTimeline.innerHTML = html || '<div class="empty-state">메시지가 없습니다.</div>';
-            }
-        }
-
-        function renderSessionGenerations(generations) {
-            if (!generations || !generations.length) {
-                sessionGenerations.innerHTML = '<div class="empty-state">생성 이력이 없습니다.</div>';
+        function renderSessionMessagesTable(messages, { append = false } = {}) {
+            const html = messages.map(buildSessionMessageRow).join('');
+            if (!html) {
+                if (!append) {
+                    sessionDetailTableBody.innerHTML = '<tr><td colspan="5" class="empty-cell">메시지가 없습니다.</td></tr>';
+                }
                 return;
             }
-            const rows = generations.map((gen) => {
-                const content = buildTextPreview(gen.output_text, '생성 결과');
-                const imageHtml = gen.output_image ? buildImageCell(gen.output_image) : '-';
-                return `
-                    <div class="generation-card">
-                        <div class="meta-row">
-                            <span class="meta-label">type</span>
-                            <span class="meta-value">${escapeHtml(gen.content_type || '-')}</span>
-                        </div>
-                        <div class="meta-row">
-                            <span class="meta-label">created_at</span>
-                            <span class="meta-value">${formatDateTime(gen.created_at)}</span>
-                        </div>
-                        <div class="generation-content">
-                            ${content}
-                            ${imageHtml !== '-' ? imageHtml : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            sessionGenerations.innerHTML = rows;
+            if (append) {
+                sessionDetailTableBody.insertAdjacentHTML('afterbegin', html);
+            } else {
+                sessionDetailTableBody.innerHTML = html;
+            }
         }
 
         function updateSessionDetailSubtitle() {
@@ -606,18 +553,16 @@
             sessionMessageTotal = data.message_count || 0;
 
             if (!append) {
-                sessionTimeline.innerHTML = '';
+                sessionDetailTableBody.innerHTML = '';
                 sessionLoadedCount = 0;
                 sessionDetailBody.classList.remove('hidden');
                 sessionDetailEmpty.classList.add('hidden');
             }
 
             const messages = data.messages || [];
-            renderSessionMessages(messages, { append });
+            renderSessionMessagesTable(messages, { append });
             sessionLoadedCount += messages.length;
 
-            renderSessionMeta(data);
-            renderSessionGenerations(data.generations || []);
             updateSessionDetailSubtitle();
             updateSessionLoadMoreState();
 
@@ -655,66 +600,6 @@
             if (success) {
                 sessionMessageOffset = nextOffset;
             }
-        }
-
-        async function fetchMessageSearch() {
-            const params = new URLSearchParams();
-            params.set('limit', String(messageSearchLimit));
-            params.set('offset', String((messageSearchPage - 1) * messageSearchLimit));
-
-            const keyword = document.getElementById('messageSearchKeyword').value;
-            const level = document.getElementById('messageSearchLevel').value;
-            const fromDate = document.getElementById('messageSearchFromDate').value;
-            const toDate = document.getElementById('messageSearchToDate').value;
-            if (keyword) params.set('query', keyword);
-            if (level) params.set('level', level);
-            if (fromDate) params.set('from', fromDate);
-            if (toDate) params.set('to', toDate);
-
-            const res = await fetch(`${API_BASE}/admin/messages?${params.toString()}`, {
-                credentials: 'include',
-            });
-            if (!res.ok) {
-                const data = await safeJson(res);
-                showLogin(data.detail || "관리자 권한이 필요합니다.");
-                return;
-            }
-
-            const data = await safeJson(res);
-            const items = data.items || [];
-            messageSearchTableBody.innerHTML = '';
-
-            items.forEach((item) => {
-                const row = document.createElement('tr');
-                const sessionButton = `
-                    <button type="button" class="link-button session-link" data-session-id="${encodeURIComponent(item.session_id || '')}">
-                        ${escapeHtml(item.session_id)}
-                    </button>
-                `;
-                const roleBadge = item.role === 'assistant'
-                    ? '<span class="badge badge-tight">assistant</span>'
-                    : '<span class="badge badge-tight badge-neutral">user</span>';
-                row.innerHTML = `
-                    <td>${sessionButton}</td>
-                    <td>${roleBadge}</td>
-                    <td>${buildTextPreview(item.content, '메시지')}</td>
-                    <td>${formatDateTime(item.created_at)}</td>
-                `;
-                messageSearchTableBody.appendChild(row);
-            });
-
-            const total = data.total || 0;
-            messageSearchTotalPages = Math.max(1, Math.ceil(total / messageSearchLimit));
-            if (messageSearchPage > messageSearchTotalPages) {
-                messageSearchPage = messageSearchTotalPages;
-                await fetchMessageSearch();
-                return;
-            }
-            messageSearchCount.textContent = `총 ${total}건`;
-            messagePageInfo.textContent = ` / ${messageSearchTotalPages}`;
-            messagePageInput.value = String(messageSearchPage);
-            hideLogin();
-            isReady = true;
         }
 
         function formatBytes(value) {
@@ -773,6 +658,127 @@
             renderLogLines([line], { append: true });
         }
 
+        function updateLogSelectedPath() {
+            if (!logSelectedPath) return;
+            if (selectedLogDate && selectedLogFile) {
+                logSelectedPath.textContent = `선택: ${selectedLogDate}/${selectedLogFile}`;
+            } else {
+                logSelectedPath.textContent = '';
+            }
+        }
+
+        function clearLogSelection() {
+            selectedLogDate = null;
+            selectedLogFile = null;
+            updateLogSelectedPath();
+        }
+
+        function createLogDateItem(date) {
+            const item = document.createElement('div');
+            item.className = 'log-date-item';
+            item.dataset.date = date;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'log-date-button';
+            button.textContent = date;
+            const fileList = document.createElement('div');
+            fileList.className = 'log-file-list hidden';
+            button.addEventListener('click', () => {
+                void selectLogDate(date);
+            });
+            item.append(button, fileList);
+            logDateNodes.set(date, { item, fileList });
+            return item;
+        }
+
+        async function selectLogDate(date, { preselectFile = null } = {}) {
+            if (!date) return;
+            selectedLogDate = date;
+            logDateNodes.forEach((node, key) => {
+                const isActive = key === date;
+                node.item.classList.toggle('is-active', isActive);
+                node.fileList.classList.toggle('hidden', !isActive);
+            });
+            await loadLogFilesForDate(date, { preselectFile, autoSelect: true });
+        }
+
+        async function loadLogFilesForDate(date, { preselectFile = null, autoSelect = true } = {}) {
+            const node = logDateNodes.get(date);
+            if (!node) return;
+            let files = logFileCache.get(date);
+            if (!files) {
+                const res = await fetch(`${API_BASE}/admin/logs/files?date=${encodeURIComponent(date)}`, {
+                    credentials: 'include',
+                });
+                if (!res.ok) {
+                    const data = await safeJson(res);
+                    showLogin(data.detail || "관리자 권한이 필요합니다.");
+                    return;
+                }
+                const data = await safeJson(res);
+                files = data.files || [];
+                logFileCache.set(date, files);
+            }
+            renderLogFiles(date, files, { preselectFile, autoSelect });
+        }
+
+        function renderLogFiles(date, files, { preselectFile = null, autoSelect = true } = {}) {
+            const node = logDateNodes.get(date);
+            if (!node) return;
+            const { fileList } = node;
+            if (!files.length) {
+                fileList.innerHTML = '<div class="empty-state">파일 없음</div>';
+                if (selectedLogDate === date) {
+                    selectedLogFile = null;
+                    updateLogSelectedPath();
+                }
+                return;
+            }
+            fileList.innerHTML = files.map((item) => {
+                const label = `${item.name}`;
+                const sizeLabel = formatBytes(item.size_bytes);
+                return `
+                    <button type="button" class="log-file-button" data-date="${encodeURIComponent(date)}" data-file="${encodeURIComponent(item.name)}">
+                        <span>${escapeHtml(label)}</span>
+                        <span class="log-file-meta">${escapeHtml(sizeLabel)}</span>
+                    </button>
+                `;
+            }).join('');
+            fileList.querySelectorAll('.log-file-button').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const fileName = decodeURIComponent(btn.dataset.file || '');
+                    const targetDate = decodeURIComponent(btn.dataset.date || '');
+                    if (!fileName || !targetDate) return;
+                    stopLogStream();
+                    setSelectedLogFile(targetDate, fileName);
+                });
+            });
+            let nextFile = null;
+            if (preselectFile && files.some((item) => item.name === preselectFile)) {
+                nextFile = preselectFile;
+            } else if (autoSelect && files[0]) {
+                nextFile = files[0].name;
+            }
+            if (nextFile) {
+                setSelectedLogFile(date, nextFile);
+            }
+        }
+
+        function setSelectedLogFile(date, file) {
+            const isSameSelection = selectedLogDate === date && selectedLogFile === file;
+            if (!isSameSelection && logIsStreaming) {
+                stopLogStream('로그 파일이 변경되었습니다.');
+            }
+            selectedLogDate = date;
+            selectedLogFile = file;
+            updateLogSelectedPath();
+            document.querySelectorAll('.log-file-button').forEach((btn) => {
+                const btnDate = decodeURIComponent(btn.dataset.date || '');
+                const btnFile = decodeURIComponent(btn.dataset.file || '');
+                btn.classList.toggle('is-active', btnDate === date && btnFile === file);
+            });
+        }
+
         async function fetchLogDates({ preselectDate = null, preselectFile = null } = {}) {
             const res = await fetch(`${API_BASE}/admin/logs/dates`, { credentials: 'include' });
             if (!res.ok) {
@@ -784,51 +790,28 @@
             const dates = data.dates || [];
             hideLogin();
             isReady = true;
+            logTreeList.innerHTML = '';
+            logDateNodes.clear();
+            logFileCache.clear();
             if (!dates.length) {
-                logDateSelect.innerHTML = '<option value="">날짜 없음</option>';
-                logFileSelect.innerHTML = '<option value="">파일 없음</option>';
+                logTreeEmpty.classList.remove('hidden');
+                clearLogSelection();
                 return;
             }
-            logDateSelect.innerHTML = dates.map((item) => `<option value="${item}">${item}</option>`).join('');
-            if (preselectDate && dates.includes(preselectDate)) {
-                logDateSelect.value = preselectDate;
-            }
-            await fetchLogFiles({ preselectFile });
-        }
-
-        async function fetchLogFiles({ preselectFile = null } = {}) {
-            const date = logDateSelect.value;
-            if (!date) {
-                logFileSelect.innerHTML = '<option value="">파일 없음</option>';
-                return;
-            }
-            const res = await fetch(`${API_BASE}/admin/logs/files?date=${encodeURIComponent(date)}`, {
-                credentials: 'include',
+            logTreeEmpty.classList.add('hidden');
+            dates.forEach((item) => {
+                logTreeList.appendChild(createLogDateItem(item));
             });
-            if (!res.ok) {
-                const data = await safeJson(res);
-                showLogin(data.detail || "관리자 권한이 필요합니다.");
-                return;
-            }
-            const data = await safeJson(res);
-            const files = data.files || [];
-            if (!files.length) {
-                logFileSelect.innerHTML = '<option value="">파일 없음</option>';
-                return;
-            }
-            logFileSelect.innerHTML = files.map((item) => {
-                const label = `${item.name} (${formatBytes(item.size_bytes)})`;
-                return `<option value="${item.name}">${label}</option>`;
-            }).join('');
-            if (preselectFile && files.some((item) => item.name === preselectFile)) {
-                logFileSelect.value = preselectFile;
-            }
+            const targetDate = preselectDate && dates.includes(preselectDate)
+                ? preselectDate
+                : dates[0];
+            await selectLogDate(targetDate, { preselectFile });
         }
 
         async function fetchLogTail() {
             stopLogStream();
-            const date = logDateSelect.value;
-            const file = logFileSelect.value;
+            const date = selectedLogDate;
+            const file = selectedLogFile;
             if (!date || !file) {
                 setLogStatus('로그 파일을 선택하세요.');
                 return;
@@ -862,8 +845,8 @@
 
         function startLogStream() {
             if (logIsStreaming) return;
-            const date = logDateSelect.value;
-            const file = logFileSelect.value;
+            const date = selectedLogDate;
+            const file = selectedLogFile;
             if (!date || !file) {
                 setLogStatus('로그 파일을 선택하세요.');
                 return;
@@ -1068,9 +1051,7 @@
             sessionMessageTotal = 0;
             sessionLoadedCount = 0;
             sessionDetailSubtitle.textContent = '';
-            sessionMeta.innerHTML = '';
-            sessionTimeline.innerHTML = '';
-            sessionGenerations.innerHTML = '';
+            sessionDetailTableBody.innerHTML = '';
             sessionDetailBody.classList.add('hidden');
             sessionDetailEmpty.classList.remove('hidden');
             sessionLogJumpBtn.disabled = true;
@@ -1078,21 +1059,6 @@
             updateSessionSelectionHighlight();
             if (shouldFetch && isReady) {
                 fetchSessions();
-            }
-        }
-
-        function resetMessageSearchFilters({ shouldFetch = true } = {}) {
-            document.getElementById('messageSearchKeyword').value = '';
-            document.getElementById('messageSearchLevel').value = '';
-            document.getElementById('messageSearchFromDate').value = '';
-            document.getElementById('messageSearchToDate').value = '';
-            messageSearchPage = 1;
-            messageSearchTableBody.innerHTML = '';
-            messageSearchCount.textContent = '';
-            messagePageInfo.textContent = '';
-            messagePageInput.value = '1';
-            if (shouldFetch && isReady) {
-                fetchMessageSearch();
             }
         }
 
@@ -1160,7 +1126,6 @@
                 if (nextView === 'sessions') {
                     if (prevView !== 'sessions') {
                         resetSessionFilters({ shouldFetch: isReady });
-                        resetMessageSearchFilters({ shouldFetch: false });
                     } else if (isReady) {
                         fetchSessions();
                     }
@@ -1241,66 +1206,9 @@
             await initLogsView({ preselectDate: date, preselectFile: file });
         });
 
-        document.getElementById('messageSearchBtn').addEventListener('click', () => {
-            messageSearchPage = 1;
-            fetchMessageSearch();
-        });
-        document.getElementById('messageResetBtn').addEventListener('click', resetMessageSearchFilters);
-        document.getElementById('messagePrevPageBtn').addEventListener('click', () => {
-            if (messageSearchPage > 1) {
-                messageSearchPage -= 1;
-                fetchMessageSearch();
-            }
-        });
-        document.getElementById('messageNextPageBtn').addEventListener('click', () => {
-            if (messageSearchPage < messageSearchTotalPages) {
-                messageSearchPage += 1;
-                fetchMessageSearch();
-            }
-        });
-        messagePageInput.addEventListener('keydown', (event) => {
-            if (event.key !== 'Enter') return;
-            const value = Number(event.target.value);
-            if (!Number.isFinite(value)) return;
-            const nextPage = Math.min(Math.max(1, Math.floor(value)), messageSearchTotalPages);
-            if (nextPage !== messageSearchPage) {
-                messageSearchPage = nextPage;
-                fetchMessageSearch();
-            }
-        });
-        messagePageInput.addEventListener('blur', (event) => {
-            const value = Number(event.target.value);
-            if (!Number.isFinite(value)) {
-                event.target.value = String(messageSearchPage);
-                return;
-            }
-            const nextPage = Math.min(Math.max(1, Math.floor(value)), messageSearchTotalPages);
-            if (nextPage !== messageSearchPage) {
-                messageSearchPage = nextPage;
-                fetchMessageSearch();
-            } else {
-                event.target.value = String(messageSearchPage);
-            }
-        });
-        messageSearchTableBody.addEventListener('click', (event) => {
-            const link = event.target.closest('.session-link');
-            if (!link) return;
-            const sessionId = decodeURIComponent(link.dataset.sessionId || '');
-            if (!sessionId) return;
-            setActiveView('sessions');
-            selectSession(sessionId);
-        });
-
         logRefreshBtn.addEventListener('click', () => {
             stopLogStream();
-            initLogsView({ preselectDate: logDateSelect.value, preselectFile: logFileSelect.value });
-        });
-        logDateSelect.addEventListener('change', () => {
-            stopLogStream();
-            fetchLogFiles();
-        });
-        logFileSelect.addEventListener('change', () => {
-            stopLogStream();
+            initLogsView({ preselectDate: selectedLogDate, preselectFile: selectedLogFile });
         });
         logTailBtn.addEventListener('click', fetchLogTail);
         logStreamBtn.addEventListener('click', () => {
@@ -1443,7 +1351,6 @@
 
         window.addEventListener('load', async () => {
             resetSessionFilters({ shouldFetch: false });
-            resetMessageSearchFilters({ shouldFetch: false });
             resetUserFilters({ shouldFetch: false });
             resetFilters({ shouldFetch: false });
             sessionLoadMoreBtn.disabled = true;
