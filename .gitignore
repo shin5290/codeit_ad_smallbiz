@@ -214,4 +214,5 @@ __marimo__/
 # Image generation models (large files)
 src/generation/image_generation/models/
 
-/data
+# ChromaDB (vector store local data)
+**/vectorstore/chroma_db/
