@@ -370,6 +370,47 @@ class SmallBizRAG:
 
         return response.content
 
+    async def generate_stream(
+        self,
+        query: str,
+        retrieved_docs: List[Dict[str, Any]],
+        task: Optional[str] = None,
+        user_context: Optional[UserContext] = None,
+        chat_history: Optional[List[Dict[str, str]]] = None,
+    ):
+        """
+        RAG 응답 스트리밍 생성 (프롬프트 엔지니어링 적용)
+        """
+        if task is None:
+            task = self.prompt_builder.classify_task(query)
+
+        if chat_history is None:
+            chat_history = self.chat_history
+
+        messages = self.prompt_builder.build_prompt(
+            query=query,
+            retrieved_docs=retrieved_docs,
+            task=task,
+            user_context=user_context,
+            chat_history=chat_history,
+        )
+
+        stream = getattr(self.llm, "astream", None)
+        if not callable(stream):
+            response = self.llm.invoke(messages)
+            content = getattr(response, "content", "") or ""
+            if content:
+                yield content
+            return
+
+        async for chunk in self.llm.astream(messages):
+            if isinstance(chunk, str):
+                content = chunk
+            else:
+                content = getattr(chunk, "content", None)
+            if content:
+                yield content
+
     def query(
         self,
         question: str,
