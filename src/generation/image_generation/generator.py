@@ -29,12 +29,16 @@ from PIL import Image
 from src.utils.logging import get_logger
 
 from .workflow import ImageGenerationWorkflow
+from .nodes.base import BaseNode
 from .nodes.text2image import Text2ImageNode
 from .nodes.image2image import Image2ImageNode
 from .nodes.prompt_processor import PromptProcessorNode
 from .nodes.save_image import SaveImageNode
 from .nodes.gpt_layout_analyzer import GPTLayoutAnalyzerNode
 from .nodes.text_overlay import TextOverlayNode
+from .nodes.preprocessing import BackgroundRemovalNode
+from .nodes.product_layout_analyzer import ProductLayoutAnalyzerNode
+from .nodes.postprocessing import BackgroundCompositeNode
 
 logger = get_logger(__name__)
 
@@ -57,6 +61,7 @@ def generate_and_save_image(
     strength: float = 0.6,  # I2I 변형 강도 (0.3~0.7 권장)
     control_type: Literal["canny", "depth", "pose"] = "canny",
     controlnet_conditioning_scale: float = 0.8,
+    need_rmbg: bool = False,  # NEW: 제품 배경 제거 + 합성 모드
     progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> Dict[str, Any]:
     """
@@ -125,7 +130,21 @@ def generate_and_save_image(
     _ = controlnet_conditioning_scale
 
     try:
-        generation_method = "i2i" if reference_image is not None else "t2i"
+        # 엣지 케이스 검증
+        if need_rmbg and reference_image is None:
+            raise ValueError(
+                "need_rmbg=True requires a reference_image. "
+                "Background removal can only be applied to existing images."
+            )
+
+        # 생성 방법 결정
+        if need_rmbg and reference_image is not None:
+            generation_method = "composite"
+        elif reference_image is not None:
+            generation_method = "i2i"
+        else:
+            generation_method = "t2i"
+
         # 저장 디렉토리 설정
         if storage_dir is None:
             storage_dir = DEFAULT_STORAGE_DIR
@@ -135,17 +154,76 @@ def generate_and_save_image(
                 progress_callback({"event": event, "node": node_name})
 
         def on_node_start(node, _data) -> None:
-            if node.node_name in ("Text2ImageNode", "Image2ImageNode"):
+            if node.node_name == "BackgroundRemovalNode":
+                emit_progress("background_removal_start", node.node_name)
+            elif node.node_name in ("Text2ImageNode", "Image2ImageNode"):
                 emit_progress("image_generation_start", node.node_name)
+            elif node.node_name == "ProductLayoutAnalyzerNode":
+                emit_progress("layout_analysis_start", node.node_name)
+            elif node.node_name == "BackgroundCompositeNode":
+                emit_progress("composite_start", node.node_name)
             elif node.node_name == "SaveImageNode":
                 emit_progress("image_save_start", node.node_name)
 
         def on_node_end(node, _data) -> None:
             if node.node_name == "PromptProcessorNode":
                 emit_progress("prompt_done", node.node_name)
+            elif node.node_name == "BackgroundRemovalNode":
+                emit_progress("background_removal_done", node.node_name)
+            elif node.node_name == "ProductLayoutAnalyzerNode":
+                emit_progress("layout_analysis_done", node.node_name)
 
         # 워크플로우 구성
-        if reference_image is not None:
+        if reference_image is not None and need_rmbg:
+            # NEW: 제품 합성 워크플로우
+            # BackgroundRemoval → Prompt → T2I → Save(origin) → Rename → LayoutAnalyzer → Composite → Save(final)
+            workflow = ImageGenerationWorkflow(name=f"ZIT_Composite_{style}")
+
+            # 1. 배경 제거
+            workflow.add_node(BackgroundRemovalNode())
+
+            # 2. 배경 프롬프트 처리
+            workflow.add_node(PromptProcessorNode(default_style=style))
+
+            # 3. 배경 생성
+            workflow.add_node(Text2ImageNode(auto_unload=False))
+
+            # 4. 배경 저장 (origin/)
+            workflow.add_node(SaveImageNode(storage_dir=storage_dir, is_origin=True))
+
+            # 5. image → background 리네임 (BackgroundCompositeNode가 "background" 키를 필요로 함)
+            class RenameKeyNode(BaseNode):
+                def __init__(self):
+                    super().__init__("RenameKeyNode")
+                def process(self, inputs):
+                    return {"background": inputs["image"]}
+                def get_required_inputs(self):
+                    return ["image"]
+                def get_output_keys(self):
+                    return ["background"]
+
+            workflow.add_node(RenameKeyNode())
+
+            # 6. 제품 배치 결정 (GPT-4V 자동 배치)
+            workflow.add_node(ProductLayoutAnalyzerNode())
+
+            # 7. 합성
+            workflow.add_node(BackgroundCompositeNode())
+
+            # 8. 최종 저장
+            workflow.add_node(SaveImageNode(storage_dir=storage_dir, is_origin=False))
+
+            # 입력 데이터
+            inputs = {
+                "image": reference_image,        # BackgroundRemovalNode용
+                "user_input": user_input,        # PromptProcessorNode용 (배경 프롬프트)
+                "style": style,
+                "aspect_ratio": aspect_ratio,
+                "num_inference_steps": num_inference_steps,
+                "industry": industry,
+            }
+
+        elif reference_image is not None:
             # I2I 워크플로우: Prompt → I2I → (Text Overlay) → Save
             workflow = ImageGenerationWorkflow(name=f"ZIT_I2I_{style}")
             workflow.add_node(PromptProcessorNode(default_style=style))
@@ -296,3 +374,200 @@ def generate_batch_images(
     logger.info(f"Batch complete: {success_count}/{len(results)} images generated")
 
     return results
+
+
+def generate_product_composite(
+    product_image: Image.Image,
+    background_prompt: str,
+    style: Literal["realistic", "ultra_realistic", "semi_realistic", "anime"] = "realistic",
+    aspect_ratio: Literal["1:1", "3:4", "4:3", "16:9", "9:16"] = "1:1",
+    industry: Optional[Literal["cafe", "restaurant", "retail", "service"]] = None,
+    context: Optional[str] = None,
+    num_inference_steps: int = 8,
+    seed: Optional[int] = None,
+    storage_dir: Optional[Path] = None,
+    auto_layout: bool = True,
+    manual_scale: Optional[float] = None,
+    manual_position: Optional[tuple] = None,
+    progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+) -> Dict[str, Any]:
+    """
+    제품 이미지 + AI 배경 합성
+
+    워크플로우:
+    1. BackgroundRemovalNode: 제품 배경 제거
+    2. PromptProcessorNode: 배경 프롬프트 변환
+    3. Text2ImageNode: AI 배경 생성
+    4. ProductLayoutAnalyzerNode: GPT-4V가 배치 결정 (auto_layout=True)
+    5. BackgroundCompositeNode: 제품 + 배경 합성
+    6. SaveImageNode: 최종 이미지 저장
+
+    Args:
+        product_image: 제품 이미지 (PIL Image)
+        background_prompt: 배경 생성 프롬프트
+            예: "modern minimalist studio background"
+        style: 배경 이미지 스타일
+        aspect_ratio: 배경 이미지 비율
+        industry: 업종
+        context: 제품 컨텍스트 (GPT 배치 결정 시 참고)
+            예: "카페 신메뉴", "음식점 이벤트"
+        num_inference_steps: 배경 생성 스텝 수
+        seed: 배경 생성 시드
+        storage_dir: 저장 디렉토리
+        auto_layout: GPT-4V 자동 배치 활성화 (기본: True)
+        manual_scale: 수동 스케일 지정 (auto_layout=False 시)
+        manual_position: 수동 위치 지정 (auto_layout=False 시)
+        progress_callback: 진행 상황 콜백
+
+    Returns:
+        Dict[str, Any]: 생성 결과
+            {
+                "success": bool,
+                "image_path": str,
+                "filename": str,
+                "width": int,
+                "height": int,
+                "style": str,
+                "seed": int or None,
+                "generation_time": float,
+                "background_prompt": str,
+                "layout": {
+                    "position": tuple,
+                    "scale": float,
+                    "reasoning": str
+                },
+                "error": str or None
+            }
+
+    Example:
+        >>> from PIL import Image
+        >>> product = Image.open("product.jpg")
+        >>> result = generate_product_composite(
+        ...     product_image=product,
+        ...     background_prompt="clean white studio background",
+        ...     style="realistic",
+        ...     aspect_ratio="1:1",
+        ...     context="카페 신메뉴"
+        ... )
+        >>> print(result["image_path"])
+        >>> print(result["layout"]["reasoning"])
+    """
+    start_time = time.time()
+
+    try:
+        # 저장 디렉토리 설정
+        if storage_dir is None:
+            storage_dir = DEFAULT_STORAGE_DIR
+
+        def emit_progress(event: str, node_name: str) -> None:
+            if progress_callback:
+                progress_callback({"event": event, "node": node_name})
+
+        def on_node_start(node, _data) -> None:
+            if node.node_name == "BackgroundRemovalNode":
+                emit_progress("background_removal_start", node.node_name)
+            elif node.node_name == "Text2ImageNode":
+                emit_progress("background_generation_start", node.node_name)
+            elif node.node_name == "ProductLayoutAnalyzerNode":
+                emit_progress("layout_analysis_start", node.node_name)
+            elif node.node_name == "BackgroundCompositeNode":
+                emit_progress("composite_start", node.node_name)
+
+        def on_node_end(node, _data) -> None:
+            if node.node_name == "BackgroundRemovalNode":
+                emit_progress("background_removal_done", node.node_name)
+            elif node.node_name == "ProductLayoutAnalyzerNode":
+                emit_progress("layout_analysis_done", node.node_name)
+
+        # 워크플로우 구성
+        workflow = ImageGenerationWorkflow(name=f"ProductComposite_{style}")
+
+        # 1. 제품 배경 제거
+        workflow.add_node(BackgroundRemovalNode())
+
+        # 2. 배경 프롬프트 처리
+        workflow.add_node(PromptProcessorNode(default_style=style))
+
+        # 3. AI 배경 생성
+        workflow.add_node(Text2ImageNode(auto_unload=False))
+
+        # 4. 배치 결정 (조건부)
+        if auto_layout:
+            workflow.add_node(ProductLayoutAnalyzerNode())
+
+        # 5. 합성
+        workflow.add_node(BackgroundCompositeNode())
+
+        # 6. 저장
+        workflow.add_node(SaveImageNode(storage_dir=storage_dir))
+
+        # 입력 데이터
+        inputs = {
+            "image": product_image,           # 배경 제거용
+            "user_input": background_prompt,  # 배경 생성용
+            "style": style,
+            "aspect_ratio": aspect_ratio,
+            "num_inference_steps": num_inference_steps,
+            "industry": industry,
+        }
+
+        # 배치 설정
+        if auto_layout:
+            if context:
+                inputs["context"] = context
+        else:
+            # 수동 배치
+            if manual_scale is not None:
+                inputs["scale"] = manual_scale
+            if manual_position is not None:
+                inputs["position"] = manual_position
+
+        # seed 추가
+        if seed is not None:
+            inputs["seed"] = seed
+
+        # 워크플로우 실행
+        result = workflow.run(
+            inputs,
+            on_node_start=on_node_start,
+            on_node_end=on_node_end,
+        )
+
+        generation_time = time.time() - start_time
+
+        return {
+            "success": True,
+            "image_path": result["image_path"],
+            "filename": result["filename"],
+            "width": result["width"],
+            "height": result["height"],
+            "style": result.get("detected_style", style),
+            "seed": result.get("seed"),
+            "generation_time": generation_time,
+            "background_prompt": result["prompt"],
+            "layout": {
+                "position": result.get("position"),
+                "scale": result.get("scale"),
+                "reasoning": result.get("reasoning", "Manual placement" if not auto_layout else "Auto placement")
+            },
+            "error": None
+        }
+
+    except Exception as e:
+        generation_time = time.time() - start_time
+        import traceback
+        error_msg = f"{str(e)}\n{traceback.format_exc()}"
+
+        return {
+            "success": False,
+            "image_path": None,
+            "filename": None,
+            "width": None,
+            "height": None,
+            "style": style,
+            "seed": seed,
+            "generation_time": generation_time,
+            "background_prompt": background_prompt,
+            "layout": None,
+            "error": error_msg
+        }
