@@ -26,6 +26,8 @@ import time
 
 from PIL import Image
 
+from src.utils.logging import get_logger
+
 from .workflow import ImageGenerationWorkflow
 from .nodes.text2image import Text2ImageNode
 from .nodes.image2image import Image2ImageNode
@@ -33,6 +35,8 @@ from .nodes.prompt_processor import PromptProcessorNode
 from .nodes.save_image import SaveImageNode
 from .nodes.gpt_layout_analyzer import GPTLayoutAnalyzerNode
 from .nodes.text_overlay import TextOverlayNode
+
+logger = get_logger(__name__)
 
 
 # 기본 저장 경로: /mnt/data/generated
@@ -161,6 +165,7 @@ def generate_and_save_image(
                 "strength": strength,
                 "aspect_ratio": aspect_ratio,
                 "num_inference_steps": num_inference_steps,
+                "industry": industry,
             }
         else:
             # T2I 워크플로우: Prompt → T2I → Save(원본) → (Text Overlay) → Save(최종)
@@ -184,6 +189,7 @@ def generate_and_save_image(
                 "style": style,
                 "aspect_ratio": aspect_ratio,
                 "num_inference_steps": num_inference_steps,
+                "industry": industry,
             }
 
         # seed 추가 (선택적)
@@ -265,7 +271,7 @@ def generate_batch_images(
     results = []
 
     for i, prompt in enumerate(prompts):
-        print(f"\n[Batch {i+1}/{len(prompts)}] Generating: {prompt[:50]}...")
+        logger.info(f"[Batch {i+1}/{len(prompts)}] Generating: {prompt[:50]}...")
 
         seed = seeds[i] if seeds is not None else None
 
@@ -282,11 +288,11 @@ def generate_batch_images(
         results.append(result)
 
         if result["success"]:
-            print(f"Saved: {result['image_path']}")
+            logger.info(f"Saved: {result['image_path']}")
         else:
-            print(f"Failed: {result['error'][:100]}")
+            logger.error(f"Failed: {result['error'][:100]}")
 
     success_count = sum(1 for r in results if r["success"])
-    print(f"\nBatch complete: {success_count}/{len(results)} images generated")
+    logger.info(f"Batch complete: {success_count}/{len(results)} images generated")
 
     return results

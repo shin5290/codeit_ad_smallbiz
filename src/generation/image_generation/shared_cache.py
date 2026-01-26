@@ -21,6 +21,10 @@ from diffusers import (
     AutoencoderKL
 )
 
+from src.utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 # ==============================================================================
 # 전역 공유 컴포넌트 캐시
 # ==============================================================================
@@ -30,6 +34,7 @@ _GLOBAL_TEXT_ENCODER = None
 _GLOBAL_TOKENIZER = None
 _GLOBAL_SCHEDULER = None
 _CACHE_LOCK = threading.Lock()
+_PIPELINE_LOCK = threading.Lock()  # 파이프라인 사용 중 락
 
 # 모델 경로
 ZIT_MODELS_DIR = Path(os.getenv("ZIT_MODELS_DIR", "/opt/ai-models/zit"))
@@ -49,7 +54,7 @@ def load_shared_components(device: str = "cuda") -> Tuple:
     with _CACHE_LOCK:
         # 이미 로드되었으면 반환
         if _GLOBAL_TRANSFORMER is not None:
-            print("[SharedCache] ✅ Using cached components")
+            logger.info("[SharedCache] ✅ Using cached components")
             return (
                 _GLOBAL_TRANSFORMER,
                 _GLOBAL_VAE,
@@ -58,7 +63,7 @@ def load_shared_components(device: str = "cuda") -> Tuple:
                 _GLOBAL_SCHEDULER
             )
 
-        print(f"[SharedCache] 🚀 Loading ZIT components (20.5GB)...")
+        logger.info(f"[SharedCache] 🚀 Loading ZIT components (20.5GB)...")
 
         # Scheduler 로드
         _GLOBAL_SCHEDULER = FlowMatchEulerDiscreteScheduler.from_pretrained(
@@ -90,20 +95,20 @@ def load_shared_components(device: str = "cuda") -> Tuple:
             if hasattr(_GLOBAL_TRANSFORMER, "set_attn_processor"):
                 from diffusers.models.attention_processor import AttnProcessor2_0
                 _GLOBAL_TRANSFORMER.set_attn_processor(AttnProcessor2_0())
-                print(f"[SharedCache] FlashAttention enabled")
+                logger.info(f"[SharedCache] FlashAttention enabled")
         except Exception as e:
-            print(f"[SharedCache] Could not enable attention optimization: {e}")
+            logger.info(f"[SharedCache] Could not enable attention optimization: {e}")
 
         # VAE 최적화
         _GLOBAL_VAE.enable_tiling()
         _GLOBAL_VAE.enable_slicing()
-        print(f"[SharedCache] VAE tiling/slicing enabled")
+        logger.info(f"[SharedCache] VAE tiling/slicing enabled")
 
         # 임시 파이프라인 삭제
         del temp_pipe
         gc.collect()
 
-        print(f"[SharedCache] ✅ Components loaded on {device}")
+        logger.info(f"[SharedCache] ✅ Components loaded on {device}")
 
         return (
             _GLOBAL_TRANSFORMER,
@@ -135,7 +140,7 @@ def get_t2i_pipeline(device: str = "cuda") -> ZImagePipeline:
     pipe.enable_attention_slicing()
     pipe.to(device)
 
-    print("[SharedCache] T2I pipeline created (using shared components)")
+    logger.info("[SharedCache] T2I pipeline created (using shared components)")
     return pipe
 
 
@@ -160,34 +165,41 @@ def get_i2i_pipeline(device: str = "cuda") -> ZImageImg2ImgPipeline:
     pipe.enable_attention_slicing()
     pipe.to(device)
     
-    print("[SharedCache] I2I pipeline created (using shared components)")
+    logger.info("[SharedCache] I2I pipeline created (using shared components)")
     return pipe
 
 
 def flush_shared_cache():
-    """전역 캐시 완전 초기화"""
+    """전역 캐시 완전 초기화 (안전: 파이프라인 사용 중 대기)"""
     global _GLOBAL_TRANSFORMER, _GLOBAL_VAE, _GLOBAL_TEXT_ENCODER
     global _GLOBAL_TOKENIZER, _GLOBAL_SCHEDULER
 
-    with _CACHE_LOCK:
-        if _GLOBAL_TRANSFORMER is not None:
-            del _GLOBAL_TRANSFORMER
-            del _GLOBAL_VAE
-            del _GLOBAL_TEXT_ENCODER
-            del _GLOBAL_TOKENIZER
-            del _GLOBAL_SCHEDULER
+    # 파이프라인 사용이 완료될 때까지 대기
+    with _PIPELINE_LOCK:
+        with _CACHE_LOCK:
+            if _GLOBAL_TRANSFORMER is not None:
+                del _GLOBAL_TRANSFORMER
+                del _GLOBAL_VAE
+                del _GLOBAL_TEXT_ENCODER
+                del _GLOBAL_TOKENIZER
+                del _GLOBAL_SCHEDULER
 
-            _GLOBAL_TRANSFORMER = None
-            _GLOBAL_VAE = None
-            _GLOBAL_TEXT_ENCODER = None
-            _GLOBAL_TOKENIZER = None
-            _GLOBAL_SCHEDULER = None
+                _GLOBAL_TRANSFORMER = None
+                _GLOBAL_VAE = None
+                _GLOBAL_TEXT_ENCODER = None
+                _GLOBAL_TOKENIZER = None
+                _GLOBAL_SCHEDULER = None
 
-            gc.collect()
-            torch.cuda.empty_cache()
-            print("[SharedCache] ✅ Cache flushed")
+                gc.collect()
+                torch.cuda.empty_cache()
+                logger.info("[SharedCache] ✅ Cache flushed")
 
 
 def is_cache_loaded() -> bool:
     """캐시 로드 상태 확인"""
     return _GLOBAL_TRANSFORMER is not None
+
+
+def get_pipeline_lock():
+    """파이프라인 사용 시 락을 획득하는 context manager"""
+    return _PIPELINE_LOCK

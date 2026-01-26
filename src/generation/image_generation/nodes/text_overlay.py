@@ -9,8 +9,12 @@ from typing import Dict, Any, Tuple
 from PIL import Image, ImageDraw, ImageFilter
 import copy
 
+from src.utils.logging import get_logger
+
 from .base import BaseNode
 from ..tools.font_loader import load_font
+
+logger = get_logger(__name__)
 
 
 class TextOverlayNode(BaseNode):
@@ -71,10 +75,10 @@ class TextOverlayNode(BaseNode):
 
         # layout_spec이 없으면 원본 이미지 그대로 반환
         if not layout_spec:
-            print(f"[{self.node_name}] ⏭️  No layout_spec provided, skipping text overlay")
+            logger.info(f"[{self.node_name}] ⏭️  No layout_spec provided, skipping text overlay")
             return {"image": image}
 
-        print(f"[{self.node_name}] Applying text overlay...")
+        logger.info(f"[{self.node_name}] Applying text overlay...")
 
         # 이미지 복사 (원본 보존)
         canvas = image.copy()
@@ -82,10 +86,10 @@ class TextOverlayNode(BaseNode):
         # 각 레이어를 순차적으로 렌더링
         layers = layout_spec.get("layers", [])
         for i, layer in enumerate(layers):
-            print(f"   Rendering layer {i+1}/{len(layers)}: \"{layer.get('text', '')}\"")
+            logger.info(f"   Rendering layer {i+1}/{len(layers)}: \"{layer.get('text', '')}\"")
             canvas = self._render_layer(canvas, layer)
 
-        print(f"[{self.node_name}] ✅ Text overlay complete")
+        logger.info(f"[{self.node_name}] ✅ Text overlay complete")
 
         return {"image": canvas}
 

@@ -7,6 +7,10 @@ GPT-4V가 이미지를 분석하고 텍스트 레이아웃을 결정하기 위�
 
 from typing import Dict, List, Any
 
+from src.utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 # ==============================================================================
 # 동적 폰트 목록 가져오기
 # ==============================================================================
@@ -21,7 +25,7 @@ def get_font_enum() -> List[str]:
         return get_available_fonts()
     except Exception as e:
         # Fallback: 기본 폰트만 반환
-        print(f"⚠️ Failed to load font list: {e}")
+        logger.warning(f"⚠️ Failed to load font list: {e}")
         return [
             "NanumGothic",
             "NanumGothicBold",

@@ -22,6 +22,8 @@ import gc
 from PIL import Image
 import threading # [전략 2] 동시성 제어용
 
+from src.utils.logging import get_logger
+
 from .base import BaseNode
 from ..config import (
     model_config,
@@ -29,6 +31,8 @@ from ..config import (
     aspect_ratio_templates,
 )
 from ..shared_cache import get_t2i_pipeline, flush_shared_cache
+
+logger = get_logger(__name__)
 
 # Z-Image Turbo 모델 경로
 ZIT_MODELS_DIR = Path(os.getenv("ZIT_MODELS_DIR", "/opt/ai-models/zit"))
@@ -60,7 +64,7 @@ class Text2ImageNode(BaseNode):
 
     def load_pipeline(self):
         """공유 캐시를 사용하여 T2I 파이프라인 로드"""
-        print(f"[{self.node_name}] Loading T2I pipeline (shared cache)...")
+        logger.info(f"[{self.node_name}] Loading T2I pipeline (shared cache)...")
         return get_t2i_pipeline(self.device)
 
     def safe_unload_lora(self, pipe):
@@ -69,10 +73,10 @@ class Text2ImageNode(BaseNode):
             try:
                 pipe.unload_lora_weights()
             except Exception as e:
-                print(f"⚠️ Warning: unload_lora_weights failed: {e}")
+                logger.warning(f"Warning: unload_lora_weights failed: {e}")
         else:
             # unload가 없는 구버전 등에서는 fuse 해제 등을 고려해야 하나 ZIT는 최신이므로 패스
-            print(f"⚠️ Warning: Pipeline has no unload_lora_weights method.")
+            logger.warning(f"Warning: Pipeline has no unload_lora_weights method.")
 
     def switch_lora(self, pipe, style):
         global _CURRENT_LORA
@@ -83,7 +87,7 @@ class Text2ImageNode(BaseNode):
         # 1. Base Model로 복귀
         if target_lora_file is None:
             if _CURRENT_LORA is not None:
-                print(f"[{self.node_name}] 🔄 Switching to Base Model")
+                logger.info(f"[{self.node_name}] 🔄 Switching to Base Model")
                 self.safe_unload_lora(pipe)
                 _CURRENT_LORA = style
             return
@@ -91,17 +95,17 @@ class Text2ImageNode(BaseNode):
         # 2. 새로운 LoRA 로드
         lora_path = ZIT_LORA_DIR / target_lora_file
         if lora_path.exists():
-            print(f"[{self.node_name}] 🔄 Loading LoRA: {style}")
+            logger.info(f"[{self.node_name}] Loading LoRA: {style}")
             self.safe_unload_lora(pipe) # 기존 제거
             try:
                 pipe.load_lora_weights(str(lora_path))
                 _CURRENT_LORA = style
             except Exception as e:
-                print(f"⚠️ LoRA Load Error (Check filename/encoding): {e}")
+                logger.error(f"LoRA Load Error (Check filename/encoding): {e}")
                 # 로드 실패 시 상태를 알 수 없으므로 초기화 표시
-                _CURRENT_LORA = "error" 
+                _CURRENT_LORA = "error"
         else:
-            print(f"⚠️ LoRA file missing: {lora_path}")
+            logger.warning(f"LoRA file missing: {lora_path}")
 
     def get_generator_device(self, pipe):
         """[전략 5] Generator를 위한 올바른 디바이스 탐색"""
@@ -154,7 +158,7 @@ class Text2ImageNode(BaseNode):
 
             generator = torch.Generator(device=exec_device).manual_seed(seed)
 
-            print(f"[{self.node_name}] Generating ({width}x{height}, seed={seed})...")
+            logger.info(f"[{self.node_name}] Generating ({width}x{height}, seed={seed})...")
 
             # 3. 생성
             with torch.no_grad():
@@ -171,7 +175,7 @@ class Text2ImageNode(BaseNode):
             # [전략 4] 주기적 메모리 정리 (매번 하면 느림, 3회마다 실행)
             _EXECUTION_COUNT += 1
             if _EXECUTION_COUNT % 3 == 0:
-                print(f"[{self.node_name}] 🧹 Periodic Memory Cleanup (Count: {_EXECUTION_COUNT})")
+                logger.info(f"[{self.node_name}] 🧹 Periodic Memory Cleanup (Count: {_EXECUTION_COUNT})")
                 gc.collect()
                 torch.cuda.empty_cache()
 
