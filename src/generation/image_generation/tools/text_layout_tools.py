@@ -7,16 +7,49 @@ GPT-4V가 이미지를 분석하고 텍스트 레이아웃을 결정하기 위�
 
 from typing import Dict, List, Any
 
+from src.utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+# ==============================================================================
+# 동적 폰트 목록 가져오기
+# ==============================================================================
+
+def get_font_enum() -> List[str]:
+    """
+    사용 가능한 폰트 목록을 동적으로 가져옴
+    /mnt/fonts의 커스텀 폰트 포함
+    """
+    try:
+        from .font_loader import get_available_fonts
+        return get_available_fonts()
+    except Exception as e:
+        # Fallback: 기본 폰트만 반환
+        logger.warning(f"⚠️ Failed to load font list: {e}")
+        return [
+            "NanumGothic",
+            "NanumGothicBold",
+            "NanumMyeongjo",
+            "NotoSansKR",
+            "NotoSerifKR"
+        ]
+
 # ==============================================================================
 # OpenAI Function Calling Tool Definition
 # ==============================================================================
 
-TEXT_OVERLAY_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "apply_text_overlay",
-        "description": "이미지에 텍스트를 오버레이하기 위한 레이아웃 명세. 각 텍스트 레이어의 위치, 폰트, 색상, 효과를 지정합니다.",
-        "parameters": {
+def get_text_overlay_tool() -> Dict[str, Any]:
+    """
+    동적 폰트 목록을 포함한 TEXT_OVERLAY_TOOL 생성
+    """
+    available_fonts = get_font_enum()
+
+    return {
+        "type": "function",
+        "function": {
+            "name": "apply_text_overlay",
+            "description": "이미지에 텍스트를 오버레이하기 위한 레이아웃 명세. 각 텍스트 레이어의 위치, 폰트, 색상, 효과를 지정합니다.",
+            "parameters": {
             "type": "object",
             "properties": {
                 "layers": {
@@ -61,14 +94,8 @@ TEXT_OVERLAY_TOOL = {
                                 "properties": {
                                     "family": {
                                         "type": "string",
-                                        "enum": [
-                                            "NanumGothic",      # 고딕체 (기본, 중성적)
-                                            "NanumGothicBold",  # 고딕체 볼드 (강조)
-                                            "NanumMyeongjo",    # 명조체 (고급스러운, 전통적)
-                                            "NotoSansKR",       # 산세리프 (현대적, 깔끔)
-                                            "NotoSerifKR"       # 세리프 (우아한, 고전적)
-                                        ],
-                                        "description": "폰트 패밀리. 이미지 분위기에 맞춰 선택 (캐주얼→고딕, 고급→명조/세리프)"
+                                        "enum": available_fonts,
+                                        "description": "폰트 패밀리. 이미지 분위기와 레이어 역할에 맞춰 선택 (일반 레이어와 강조 레이어에 다른 폰트 사용)"
                                     },
                                     "size": {
                                         "type": "integer",
@@ -210,6 +237,9 @@ TEXT_OVERLAY_TOOL = {
     }
 }
 
+# Backward compatibility: 기본 TEXT_OVERLAY_TOOL (레거시 코드용)
+TEXT_OVERLAY_TOOL = get_text_overlay_tool()
+
 
 # ==============================================================================
 # GPT-4V Analysis Prompt Template
@@ -231,6 +261,10 @@ def get_analysis_prompt(text_data: Dict[str, str], image_context: str = "") -> s
     # 텍스트 데이터를 읽기 쉽게 포맷팅
     text_items = "\n".join([f"- {key}: \"{value}\"" for key, value in text_data.items()])
 
+    # 사용 가능한 폰트 목록 가져오기
+    available_fonts = get_font_enum()
+    font_list = "\n".join([f"- {font}" for font in available_fonts])
+
     prompt = f"""You are an expert graphic designer specializing in advertising image composition.
 
 ## YOUR TASK
@@ -249,47 +283,104 @@ Analyze the provided advertising image and determine the optimal layout for over
 - **Visual flow**: Text should guide the viewer's eye naturally (top→bottom, left→right for Korean)
 - **Hierarchy**: Primary text (product name) should be more prominent than secondary text (tagline)
 
-### 2. COLOR SELECTION
+### 2. COLOR SELECTION (CRITICAL FOR VISIBILITY!)
 - **Contrast ratio**: Ensure WCAG AA compliance (contrast ratio > 4.5:1 for readability)
 - **Background analysis**:
-  - Dark background (avg brightness < 128) → Use light/white text (RGB: 240-255)
-  - Light background (avg brightness > 128) → Use dark text (RGB: 0-50)
-  - Complex background → Consider stroke/shadow effects
+  - Dark background (avg brightness < 128) → Use WHITE text (RGB: 255, 255, 255) with dark stroke
+  - Light background (avg brightness > 128) → Use BLACK text (RGB: 0, 0, 0) with white stroke
+  - Complex/medium background → ALWAYS use strong stroke (width: 4-6px) with contrasting color
+- **CRITICAL**: When in doubt, use WHITE text with thick BLACK stroke (works on 90% of images)
 - **Brand harmony**: Colors should complement the overall image mood
 
-### 3. FONT SELECTION
-- **NanumGothic / NanumGothicBold**:
-  - Use for: Casual, friendly, everyday products (cafes, restaurants, retail)
-  - Style: Clean, neutral, highly readable
-- **NanumMyeongjo**:
-  - Use for: Traditional, elegant, premium products (luxury goods, traditional Korean)
-  - Style: Serif, sophisticated, classic
-- **NotoSansKR**:
-  - Use for: Modern, tech-savvy, minimalist products (apps, services, fashion)
-  - Style: Sans-serif, contemporary, clean
-- **NotoSerifKR**:
-  - Use for: Artistic, editorial, high-end products (magazines, galleries, premium services)
-  - Style: Serif, refined, elegant
+### 3. FONT SELECTION (SMART LAYER-BASED STRATEGY)
+
+**CRITICAL: Use DIFFERENT fonts for regular vs. emphasized layers!**
+
+#### Available Fonts:
+{font_list}
+
+#### Font Personality Guide (MATCH FONT TO IMAGE MOOD!):
+
+**🎨 Cute/Playful/Character** (desserts, mascots, children):
+- **BMJUA_ttf**: Round, cute, bouncy - Pokemon, character products
+- **BMDOHYEON_ttf**: Bold, fun, energetic - snacks, playful brands
+- **Cafe24Ssurround**: Rounded, friendly - cafes, bakeries
+- **NanumPenScript-Regular**: Handwritten - personal, warm
+
+**💼 Modern/Clean/Professional** (tech, fashion, corporate):
+- **Pretendard-Bold**: Modern, sharp - tech/startups
+- **SUIT-Bold**: Contemporary - business, fashion
+- **SpoqaHanSansNeo-Bold**: Clean sans - apps, services
+- **NotoSansKR-Medium**: Neutral, versatile
+
+**💥 Bold/Impact/Promotional** (sales, events):
+- **BlackHanSans-Regular**: Ultra-bold - SALE, events
+- **GmarketSansTTFBold**: Strong impact - promotions
+- **SCDream9**: Very bold - strong emphasis
+- **KBO Dia Gothic_bold**: Sports, dynamic
+
+**✨ Elegant/Traditional/Premium**:
+- **NanumMyeongjo**: Traditional serif - heritage
+- **NotoSerifKR**: Classic serif - editorial
+- **SCDream7**: Elegant - premium
+
+**Font Pairing Examples**:
+- Pokemon/character bread: Base=**BMJUA_ttf**, Emphasis=**BMDOHYEON_ttf**
+- Modern cafe: Base=**Pretendard-Bold**, Emphasis=**Cafe24Ssurround**
+- Sale event: Base=**NanumGothic**, Emphasis=**BlackHanSans-Regular**
+
+**CRITICAL RULES**:
+1. **Analyze image first** - cute? modern? traditional?
+2. **Choose matching fonts** - not just defaults!
+3. **Different fonts per layer** - create hierarchy!
 
 ### 4. FONT SIZE HIERARCHY
-- **Product Name / Main Text**: 60-100px (needs to be immediately visible)
-- **Tagline / Secondary Text**: 30-50px (supporting information)
-- **Fine Print / Details**: 20-30px (additional info, disclaimers)
+- **Product Name / Main Text**: 80-140px (needs to be LARGE and immediately visible, DOMINANT presence)
+- **Tagline / Secondary Text**: 40-70px (supporting information, but still clearly readable)
+- **Fine Print / Details**: 25-40px (additional info, disclaimers)
+- **CRITICAL**: Korean advertising text must be BOLD and LARGE - err on the larger side!
 
-### 5. EFFECTS DECISION TREE
+### 5. EFFECTS DECISION TREE (ALWAYS PRIORITIZE READABILITY!)
 - **Clean, simple background (sky, solid color, blur)**:
-  - No effects needed, or minimal shadow (offset: 2-3px, blur: 3-5px)
+  - Add subtle shadow (offset: 3-4px, blur: 6-8px) for depth
 
-- **Medium complexity (patterns, gradients)**:
-  - Add stroke (width: 2-4px, contrasting color) OR shadow (offset: 3-5px, blur: 5-8px)
+- **Medium complexity (patterns, gradients, food photography)**:
+  - ALWAYS add thick stroke (width: 4-6px, contrasting color) + shadow (offset: 3-5px, blur: 6-10px)
 
 - **High complexity (busy scene, multiple objects)**:
-  - Combine stroke + shadow, OR use semi-transparent background_box (alpha: 0.6-0.8)
+  - Use THICK stroke (width: 6-8px) + shadow, OR semi-transparent background_box (alpha: 0.7-0.85)
+
+- **DEFAULT SAFE OPTION**: White text + thick black stroke (6px) + subtle shadow works on 90% of images!
 
 ### 6. KOREAN TEXT CONSIDERATIONS
 - Korean text is denser than Latin alphabet → needs slightly larger font size
 - Ensure adequate letter spacing for readability
 - Korean reads top-to-bottom or left-to-right → position accordingly
+
+### 7. KEYWORD EMPHASIS (MANDATORY LAYER SPLITTING!)
+
+**⚠️ CRITICAL: ALWAYS split text into multiple layers for visual hierarchy!**
+
+**Step 1: Analyze image mood/style**
+- Cute/playful → Use custom decorative fonts from font list
+- Modern/clean → Use sans-serif fonts
+- Traditional/elegant → Use serif fonts
+- Food/bakery → Use rounded, friendly fonts
+
+**Step 2: Split text into layers**
+- Create AT LEAST 2 layers if text contains 2+ words
+- Identify main keyword (제품명, 브랜드명, 핵심단어)
+
+**Step 3: Font pairing based on image**
+- Layer 1 (supporting text): Choose from available fonts matching image mood
+- Layer 2 (emphasis): Choose DIFFERENT font from Layer 1, stronger/bolder variant
+
+**Font Selection Priority**:
+1. Check available font list above - prefer custom fonts for unique styling
+2. Match font personality to image content (cute → rounded fonts, professional → clean sans-serif)
+3. Use DIFFERENT fonts for different layers
+
+**RULE: Single-layer text is BORING. Always create visual hierarchy!**
 
 ## OUTPUT REQUIREMENTS
 You MUST call the `apply_text_overlay` function with a complete layout specification.

@@ -1,6 +1,8 @@
 import os, hashlib
-from fastapi import HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from datetime import datetime, timezone
+from email.utils import formatdate, parsedate_to_datetime
+from fastapi import HTTPException, UploadFile, Request
+from fastapi.responses import FileResponse, Response
 from typing import Optional, Dict
 from sqlalchemy.orm import Session
 from PIL import Image
@@ -9,6 +11,75 @@ from src.backend import process_db
 from .logging import get_logger
 
 logger = get_logger(__name__)
+
+CACHE_CONTROL_HEADER = "private, max-age=3600"
+THUMB_DIRNAME = "thumbs"
+THUMB_MAX_SIZE = 256
+
+def _stat_cache_headers(path: str) -> tuple[str, str]:
+    stat = os.stat(path)
+    etag = f'W/"{stat.st_mtime_ns:x}-{stat.st_size:x}"'
+    last_modified = formatdate(stat.st_mtime, usegmt=True)
+    return etag, last_modified
+
+def _etag_matches(if_none_match: str, etag: str) -> bool:
+    tags = [tag.strip() for tag in if_none_match.split(",") if tag.strip()]
+    if "*" in tags:
+        return True
+    return etag in tags
+
+def _is_not_modified(request: Optional[Request], path: str, etag: str) -> bool:
+    if not request:
+        return False
+    if_none_match = request.headers.get("if-none-match")
+    if if_none_match:
+        return _etag_matches(if_none_match, etag)
+    if_modified_since = request.headers.get("if-modified-since")
+    if not if_modified_since:
+        return False
+    try:
+        since = parsedate_to_datetime(if_modified_since)
+        if since.tzinfo is None:
+            since = since.replace(tzinfo=timezone.utc)
+        modified_at = datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc)
+        return modified_at <= since
+    except Exception:
+        return False
+
+def _thumbnail_path(path: str) -> str:
+    directory = os.path.dirname(path)
+    thumb_dir = os.path.join(directory, THUMB_DIRNAME)
+    return os.path.join(thumb_dir, os.path.basename(path))
+
+def _guess_format(path: str, img_format: Optional[str]) -> str:
+    if img_format:
+        return img_format
+    ext = os.path.splitext(path)[1].lower()
+    if ext in (".jpg", ".jpeg"):
+        return "JPEG"
+    if ext == ".png":
+        return "PNG"
+    if ext == ".webp":
+        return "WEBP"
+    return "PNG"
+
+def _ensure_thumbnail(path: str) -> str:
+    thumb_path = _thumbnail_path(path)
+    if os.path.exists(thumb_path):
+        return thumb_path
+    os.makedirs(os.path.dirname(thumb_path), exist_ok=True)
+    with Image.open(path) as img:
+        img.thumbnail((THUMB_MAX_SIZE, THUMB_MAX_SIZE))
+        img_format = _guess_format(path, img.format)
+        if img_format.upper() == "JPEG" and img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        save_kwargs: dict[str, object] = {}
+        if img_format.upper() == "JPEG":
+            save_kwargs.update({"quality": 82, "optimize": True, "progressive": True})
+        elif img_format.upper() == "PNG":
+            save_kwargs["optimize"] = True
+        img.save(thumb_path, format=img_format, **save_kwargs)
+    return thumb_path
 
 def sha256_hex(data: bytes) -> str:
     """
@@ -95,7 +166,12 @@ def load_image_from_payload(payload: Optional[Dict]) -> Optional[Image.Image]:
     return Image.open(image_path)
 
 
-def get_image_file_response(db: Session, file_hash: str) -> FileResponse:
+def get_image_file_response(
+    db: Session,
+    file_hash: str,
+    request: Optional[Request] = None,
+    size: Optional[str] = None,
+) -> FileResponse | Response:
     """
     파일 경로 조회 및 FileResponse 반환(프론트용)
     """
@@ -107,7 +183,27 @@ def get_image_file_response(db: Session, file_hash: str) -> FileResponse:
     if not path or not os.path.exists(path):
         raise HTTPException(status_code=404, detail="File missing on disk")
 
-    return FileResponse(path)
+    resolved_path = path
+    if size:
+        size_key = size.lower()
+        if size_key in ("thumb", "thumbnail", "small"):
+            try:
+                resolved_path = _ensure_thumbnail(path)
+            except Exception as exc:
+                logger.warning("thumbnail generation failed: %s", exc, exc_info=True)
+                resolved_path = path
+        elif size_key not in ("full", "original"):
+            raise HTTPException(status_code=400, detail="Invalid image size")
+
+    etag, last_modified = _stat_cache_headers(resolved_path)
+    headers = {
+        "Cache-Control": CACHE_CONTROL_HEADER,
+        "ETag": etag,
+        "Last-Modified": last_modified,
+    }
+    if _is_not_modified(request, resolved_path, etag):
+        return Response(status_code=304, headers=headers)
+    return FileResponse(resolved_path, headers=headers)
 
 
 def image_payload(image) -> Optional[Dict]:

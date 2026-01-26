@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import Optional, Dict, List
 from PIL import ImageFont
 
+from src.utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 # ==============================================================================
 # 폰트 경로 및 매핑
 # ==============================================================================
@@ -53,36 +57,42 @@ class FontLoader:
         self._scan_fonts()
 
     def _scan_fonts(self):
-        """시스템 폰트 및 커스텀 폰트 스캔"""
-        print("[FontLoader] Scanning fonts...")
+        """시스템 폰트 및 커스텀 폰트 스캔 (커스텀 폰트 우선)"""
+        logger.info("[FontLoader] Scanning fonts...")
 
-        # 1. 시스템 폰트 확인 (FONT_PATHS 기준)
+        # 1. 시스템 폰트 먼저 로드 (fallback)
         for family, path_str in FONT_PATHS.items():
             path = Path(path_str)
             if path.exists():
                 self._font_cache[family] = path
             else:
-                print(f"⚠️ Font not found: {family} at {path}")
+                logger.warning(f"Font not found: {family} at {path}")
 
-        # 2. 커스텀 폰트 디렉토리 (/mnt/fonts)
+        # 2. 커스텀 폰트로 덮어쓰기 (/mnt/fonts 우선)
         if CUSTOM_FONT_DIR.exists():
-            print(f"[FontLoader] Scanning custom fonts: {CUSTOM_FONT_DIR}")
+            logger.info(f"[FontLoader] Scanning custom fonts: {CUSTOM_FONT_DIR} (overrides system fonts)")
             self._scan_custom_fonts()
 
         # 로그 출력
-        print(f"[FontLoader] Loaded {len(self._font_cache)} fonts:")
+        logger.info(f"[FontLoader] Loaded {len(self._font_cache)} fonts:")
         for family in sorted(self._font_cache.keys()):
-            print(f"  ✅ {family}")
+            logger.info(f"  ✅ {family}")
 
     def _scan_custom_fonts(self):
-        """커스텀 폰트 디렉토리 스캔 (TTF/OTF/TTC)"""
+        """커스텀 폰트 디렉토리 스캔 (TTF/OTF/TTC), 시스템 폰트 덮어쓰기"""
         for ext in ["*.ttf", "*.otf", "*.ttc"]:
             for font_file in CUSTOM_FONT_DIR.glob(ext):
                 # 파일명을 family 이름으로 사용 (확장자 제거)
                 family_name = font_file.stem
-                if family_name not in self._font_cache:
-                    self._font_cache[family_name] = font_file
-                    print(f"  ✅ Custom: {family_name}")
+
+                # 덮어쓰기 여부 로그
+                if family_name in self._font_cache:
+                    logger.info(f"  🔄 Override: {family_name} (custom overrides system)")
+                else:
+                    logger.info(f"  ✅ Custom: {family_name}")
+
+                # 무조건 커스텀 폰트로 덮어쓰기
+                self._font_cache[family_name] = font_file
 
     def get_font_path(self, family: str) -> Optional[Path]:
         """
@@ -113,7 +123,7 @@ class FontLoader:
 
         if font_path is None:
             # Fallback 체인
-            print(f"⚠️ Font '{family}' not found, trying fallbacks")
+            logger.warning(f"Font '{family}' not found, trying fallbacks")
 
             # 1. DejaVu 시도
             font_path = self.get_font_path("DejaVu")
@@ -123,12 +133,12 @@ class FontLoader:
                 for fallback in korean_fonts:
                     font_path = self.get_font_path(fallback)
                     if font_path:
-                        print(f"   Using fallback: {fallback}")
+                        logger.info(f"   Using fallback: {fallback}")
                         break
 
             if font_path is None:
                 # 3. 최후의 수단: PIL 기본 폰트
-                print(f"⚠️ No fonts available, using PIL default")
+                logger.warning(f"No fonts available, using PIL default")
                 return ImageFont.load_default()
 
         try:
@@ -138,7 +148,7 @@ class FontLoader:
             else:
                 return ImageFont.truetype(str(font_path), size=size)
         except Exception as e:
-            print(f"⚠️ Failed to load font '{family}' from {font_path}: {e}")
+            logger.error(f"Failed to load font '{family}' from {font_path}: {e}")
             return ImageFont.load_default()
 
     def get_available_fonts(self) -> List[str]:
@@ -198,9 +208,9 @@ def check_font_availability():
     """
     loader = get_font_loader()
 
-    print("\n" + "="*80)
-    print("FONT AVAILABILITY REPORT")
-    print("="*80)
+    logger.info("\n" + "="*80)
+    logger.info("FONT AVAILABILITY REPORT")
+    logger.info("="*80)
 
     required_fonts = [
         "NanumGothic",
@@ -216,15 +226,15 @@ def check_font_availability():
 
         if is_available:
             path = loader.get_font_path(font_family)
-            print(f"{status:20} {font_family:20} → {path.name}")
+            logger.info(f"{status:20} {font_family:20} → {path.name}")
         else:
-            print(f"{status:20} {font_family:20}")
+            logger.info(f"{status:20} {font_family:20}")
 
-    print("\n" + "="*80)
-    print("ALL AVAILABLE FONTS:")
+    logger.info("\n" + "="*80)
+    logger.info("ALL AVAILABLE FONTS:")
     for font in loader.get_available_fonts():
-        print(f"  - {font}")
-    print("="*80 + "\n")
+        logger.info(f"  - {font}")
+    logger.info("="*80 + "\n")
 
 
 # ==============================================================================
@@ -236,12 +246,12 @@ if __name__ == "__main__":
     check_font_availability()
 
     # 테스트: 폰트 로드
-    print("\nTesting font loading...")
+    logger.info("\nTesting font loading...")
 
     test_fonts = ["NanumGothicBold", "NotoSansKR", "NonExistentFont"]
     for font_name in test_fonts:
         try:
             font = load_font(font_name, 48)
-            print(f"✅ Loaded {font_name} at 48px")
+            logger.info(f"✅ Loaded {font_name} at 48px")
         except Exception as e:
-            print(f"❌ Failed to load {font_name}: {e}")
+            logger.info(f"❌ Failed to load {font_name}: {e}")

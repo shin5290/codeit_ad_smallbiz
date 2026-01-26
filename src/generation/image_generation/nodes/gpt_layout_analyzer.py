@@ -15,15 +15,18 @@ from PIL import Image
 from openai import OpenAI
 from dotenv import load_dotenv
 
+from src.utils.logging import get_logger
+
 from .base import BaseNode
 from ..tools.text_layout_tools import (
-    TEXT_OVERLAY_TOOL,
+    get_text_overlay_tool,  # 동적 tool 생성 함수
     get_analysis_prompt,
     validate_layout_spec,
     get_default_layout
 )
 
 load_dotenv()
+logger = get_logger(__name__)
 
 
 class GPTLayoutAnalyzerNode(BaseNode):
@@ -101,12 +104,12 @@ class GPTLayoutAnalyzerNode(BaseNode):
 
         # text_data가 없으면 스킵
         if not text_data:
-            print(f"[{self.node_name}] ⏭️  No text_data provided, skipping text overlay")
+            logger.info(f"[{self.node_name}] ⏭️  No text_data provided, skipping text overlay")
             return {"layout_spec": None}
 
-        print(f"[{self.node_name}] Analyzing image with GPT-4V...")
-        print(f"   Text data: {text_data}")
-        print(f"   Context: {image_context or 'None'}")
+        logger.info(f"[{self.node_name}] Analyzing image with GPT-4V...")
+        logger.info(f"   Text data: {text_data}")
+        logger.info(f"   Context: {image_context or 'None'}")
 
         # 1. 이미지를 base64로 인코딩
         image_base64 = self._encode_image_to_base64(image)
@@ -121,19 +124,26 @@ class GPTLayoutAnalyzerNode(BaseNode):
                 layout_spec = self._call_gpt_vision(image_base64, analysis_prompt)
                 break
             except Exception as e:
-                print(f"⚠️ GPT-4V call failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}")
+                logger.warning(f"GPT-4V call failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}")
                 if attempt == self.max_retries:
-                    print(f"⚠️ All retries exhausted, using fallback layout")
+                    logger.warning(f"All retries exhausted, using fallback layout")
                     layout_spec = get_default_layout(text_data, image.size)
 
         # 4. 레이아웃 검증
         try:
             validate_layout_spec(layout_spec)
-            print(f"[{self.node_name}] ✅ Layout analysis complete")
-            print(f"   Layers: {len(layout_spec['layers'])}")
+            logger.info(f"[{self.node_name}] Layout analysis complete")
+            logger.info(f"   Layers: {len(layout_spec['layers'])}")
+
+            # 폰트 선택 디버깅
+            for i, layer in enumerate(layout_spec['layers']):
+                font_family = layer['font']['family']
+                font_size = layer['font']['size']
+                text = layer['text']
+                logger.info(f"   Layer {i+1}: '{text}' → {font_family} ({font_size}px)")
         except ValueError as e:
-            print(f"⚠️ Layout validation failed: {e}")
-            print(f"⚠️ Using fallback layout")
+            logger.warning(f"Layout validation failed: {e}")
+            logger.warning(f"Using fallback layout")
             layout_spec = get_default_layout(text_data, image.size)
 
         return {
@@ -196,7 +206,7 @@ class GPTLayoutAnalyzerNode(BaseNode):
                     ]
                 }
             ],
-            tools=[TEXT_OVERLAY_TOOL],
+            tools=[get_text_overlay_tool()],  # 동적으로 폰트 목록 포함
             tool_choice={"type": "function", "function": {"name": "apply_text_overlay"}}
         )
 
@@ -216,7 +226,7 @@ class GPTLayoutAnalyzerNode(BaseNode):
         # 디버깅: GPT의 reasoning 출력
         for i, layer in enumerate(layout_spec.get("layers", [])):
             reasoning = layer.get("reasoning", "No reasoning provided")
-            print(f"   Layer {i+1}: \"{layer.get('text', '')}\" - {reasoning}")
+            logger.info(f"   Layer {i+1}: \"{layer.get('text', '')}\" - {reasoning}")
 
         return layout_spec
 

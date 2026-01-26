@@ -10,6 +10,9 @@ from typing import Dict, List, Optional
 from src.generation.image_generation.prompt.prompt_templates import (
     HybridPromptBuilder, NegativePromptBuilder)
 from src.generation.image_generation.prompt.style_router import StyleRouter
+from src.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class IndustryConfigLoader:
@@ -361,7 +364,7 @@ class PromptGenerator:
 try:
     industry_config = IndustryConfigLoader()
 except Exception as e:
-    print(f"⚠️  industries.yaml 로드 실패: {e}")
+    logger.info(f"⚠️  industries.yaml 로드 실패: {e}")
     industry_config = None
 
 

@@ -4,7 +4,7 @@ Image Generation Workflow
 여러 노드를 연결하여 이미지 생성 파이프라인을 구성하는 워크플로우 정의
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Callable
 from .nodes.base import BaseNode
 
 
@@ -68,7 +68,13 @@ class ImageGenerationWorkflow:
         # 메서드 체이닝 패턴: self를 반환하여 .add_node().add_node() 가능
         return self
 
-    def run(self, initial_inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def run(
+        self,
+        initial_inputs: Dict[str, Any],
+        *,
+        on_node_start: Optional[Callable[[BaseNode, Dict[str, Any]], None]] = None,
+        on_node_end: Optional[Callable[[BaseNode, Dict[str, Any]], None]] = None,
+    ) -> Dict[str, Any]:
         """
         워크플로우 실행 (모든 노드를 순차적으로 실행)
 
@@ -105,6 +111,12 @@ class ImageGenerationWorkflow:
             print(f"[{self.name}] Executing node {i+1}/{len(self.nodes)}: {node.node_name}")
 
             try:
+                if on_node_start:
+                    try:
+                        on_node_start(node, current_data)
+                    except Exception:
+                        pass
+
                 # 노드 실행
                 # execute()는 base.py의 BaseNode에 정의됨
                 # 내부에서 validate_inputs() -> process() -> 메타데이터 업데이트 수행
@@ -116,6 +128,12 @@ class ImageGenerationWorkflow:
                 #   output = {"image": <PIL.Image>, "seed": 42}
                 #   -> current_data = {"prompt": "cafe", "image": <PIL.Image>, "seed": 42}
                 current_data.update(output)
+
+                if on_node_end:
+                    try:
+                        on_node_end(node, current_data)
+                    except Exception:
+                        pass
 
                 # 이 노드의 실행 메타데이터 저장
                 self.execution_metadata.append(node.get_metadata())

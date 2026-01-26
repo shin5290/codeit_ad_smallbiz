@@ -3,17 +3,17 @@
 # 247 Small Business Industries S~E Grade Classification
 # ============================================
 #
-# Version: 1.0.0
-# Updated: 2026-01-20
+# Version: 1.1.0
+# Updated: 2026-01-26
 # Purpose: AI-based ad copy generation with industry-specific keyword strategies
 #
 # Structure:
-# - S Grade: 감성 및 미각 자극, Sensory & Taste Stimulation (4 groups, 70 businesses)
-# - A Grade: 비주얼 변화 및 자기관리, Visual Transformation & Self-Care (4 groups, 50 businesses)
-# - B Grade: 공간 체험 및 교육, Space Experience & Education (3 groups, 45 businesses)
-# - C Grade: 신뢰 기반 전문 서비스, Trust-Based Professional Services (3 groups, 50 businesses)
-# - D Grade: 목적형 소매 및 장비, Purpose-Driven Retail & Equipment (2 groups, 30 businesses)
-# - E Grade: 인프라 및 특수 목적, Infrastructure & Special Purpose (2 groups, 2 businesses)
+# - S Grade: 감성 및 미각 자극, Sensory & Taste Stimulation (6 groups, 53 businesses)
+# - A Grade: 비주얼 변화 및 자기관리, Visual Transformation & Self-Care (4 groups, 41 businesses)
+# - B Grade: 공간 체험 및 교육, Space Experience & Education (3 groups, 46 businesses)
+# - C Grade: 신뢰 기반 전문 서비스, Trust-Based Professional Services (3 groups, 57 businesses)
+# - D Grade: 목적형 소매 및 장비, Purpose-Driven Retail & Equipment (3 groups, 45 businesses)
+# - E Grade: 인프라 및 특수 목적, Infrastructure & Special Purpose (2 groups, 5 businesses)
 #
 # Key Elements:
 # 1. Target Customer (35% impact)
@@ -33,7 +33,7 @@ s_grade:
   name_ko: "S등급 - 감성 및 미각 자극"
   strategy: "Sensory description + Immediate desire stimulation"
   aida_focus: "Attention(Sensory) → Desire(Craving)"
-  total_businesses: 70
+  total_businesses: 53
 
   common_keywords:
     priority_1_sensory: ["crispy", "juicy", "rich", "savory", "creamy", "fresh"]
@@ -55,26 +55,24 @@ s_grade:
   s1_hot_cooking:
     name: "S-1: Hot Cooking & Juicy Emphasis"
     name_ko: "S-1: 고온 조리 및 육즙 강조"
-    count: 19
+    count: 17
     businesses:
       - "Pork BBQ/Braised"
       - "Beef BBQ/Braised"
-      - "Gopchang Hotpot/Grilled"
-      - "Chicken/Duck Grilled"
+      - "Offal Hot Pot/BBQ"
+      - "Chicken/Duck BBQ/Braised"
       - "Fried Chicken"
       - "Pizza"
       - "Burger"
-      - "Malatang/Hotpot"
+      - "Mala Tang/Hot Pot"
       - "Pasta/Steak"
-      - "Western-style Restaurant"
+      - "Western Casual Dining"
       - "Family Restaurant"
-      - "Japanese Curry/Tonkatsu/Rice Bowl"
-      - "Draft Beer Pub"
-      - "Izakaya"
+      - "Japanese Curry/Katsu/Rice Bowl"
       - "Buffet"
       - "Cafeteria"
       - "Chinese Restaurant"
-      - "Japanese Noodles"
+      - "Japanese Noodle"
       - "Vietnamese Restaurant"
 
     keyword_priorities:
@@ -85,17 +83,17 @@ s_grade:
       price_8: ["20% off", "free delivery", "extra serving free"]
 
     keyword_priorities_ko:
-      sensory_35: ["겉은 바삭, 속은 촉촉한", "육즙이 흐르는", "짭조름하게 양념한"]
+      sensory_35: ["겉은 바삭, 속은 촉촉한", "육즙이 흐르는", "짭조름하게 양념한", "감각적"]
       temperature_25: ["갓 구운", "뜨끈뜨끈한", "주문 즉시 조리"]
       immediacy_20: ["지금 주문", "오늘만", "한정 수량"]
-      context_12: ["야식으로", "회식 메뉴로", "혼술 안주로"]
-      price_8: ["20% 할인", "배달비 무료", "곱빼기 서비스"]
+      context_12: ["야식으로", "회식 메뉴로", "혼술 안주로", "기념일", "특별한 날"]
+      price_8: ["20% 할인", "배달비 무료", "곱빼기 서비스", "고급"]
 
-    brand_voice: "friendly and sensory, appetite-stimulating tone"
-    brand_voice_ko: "친근하고 감각적인, 식욕을 자극하는 톤"
+    brand_voice: "warm and indulgent, appetite-stimulating tone"
+    brand_voice_ko: "따뜻하고 탐닉적인, 감각을 자극하는 톤"
 
-    cta: ["Order Now", "Order on delivery app", "Call to order"]
-    cta_ko: ["지금 주문", "배달앱에서 주문", "전화 주문"]
+    cta: ["Order Now", "Order on delivery app", "Call to order", "Reserve Now"]
+    cta_ko: ["지금 주문", "배달앱에서 주문", "전화 주문", "지금 예약"]
 
     exclude_keywords: ["healthy", "diet", "low-calorie"]
     exclude_keywords_ko: ["건강", "다이어트", "저칼로리"]
@@ -131,6 +129,7 @@ s_grade:
       - "겉바속촉 치킨, 30분 안에. 주문 즉시 튀기는 갓 나온 치킨!"
       - "숯불에 구운 육즙 가득 삼겹살. 오늘만 20% 할인!"
       - "갓 구운 피자 30분 배달. 치즈 쭉쭉 늘어나는 오리지널"
+      - "특별한 날, 감각을 깨우는 스테이크 코스를 경험하세요!"
 
     korean_keywords:
       - 삼겹살
@@ -150,9 +149,6 @@ s_grade:
       - 라멘
       - 우동
       - 이자카야
-      - 술집
-      - 펍
-      - 맥주
       - 뷔페
       - 중식당
       - 돼지구이
@@ -182,9 +178,6 @@ s_grade:
       - 일식카레
       - 덮밥
       - 규동
-      - 생맥주
-      - 생맥주전문점
-      - 요리주점
       - 구내식당
       - 중국집
       - 짜장면
@@ -200,7 +193,6 @@ s_grade:
       - 갓구운
       - 겉바속촉
       - 고깃집
-      - 정육식당
       - 숙성고기
       - 한우
       - 프리미엄고기
@@ -213,34 +205,34 @@ s_grade:
     name_ko: "S-2: 신선도 및 색감 강조"
     count: 8
     businesses:
-      - "Sashimi Restaurant"
-      - "Seafood Grilled/Steamed"
-      - "Pufferfish Specialty"
-      - "Japanese Sushi/Sashimi"
+      - "Raw Fish Restaurant"
+      - "Seafood BBQ/Steamed"
+      - "Pufferfish Restaurant"
+      - "Japanese Sashimi/Sushi"
       - "Seafood Retail"
-      - "Dried Seafood/Salted Fish"
+      - "Dried Fish/Fermented Seafood Retail"
       - "Butcher Shop"
-      - "Vegetables/Fruits Retail"
+      - "Vegetable/Fruit Retail"
 
     keyword_priorities:
       freshness_40: ["arrived this morning", "direct from source", "fresh"]
       premium_25: ["premium", "special selection", "artisan crafted"]
       visual_20: ["translucent", "glistening", "vibrant colors"]
       scarcity_10: ["today only", "limited stock", "seasonal menu"]
-      health_5: ["protein-rich", "omega-3", "low calorie"]
+      health_5: ["protein-rich", "low calorie"]
 
     keyword_priorities_ko:
-      freshness_40: ["오늘 아침 입고", "산지 직송", "싱싱한"]
-      premium_25: ["프리미엄", "특선", "장인의 손길"]
+      freshness_40: ["오늘 아침 입고", "산지 직송", "신선한", "직수입"]
+      premium_25: ["프리미엄", "특선", "장인의 손길", "최고의 품질"]
       visual_20: ["투명한", "윤기 나는", "생생한 색감"]
       scarcity_10: ["당일 한정", "소량 입고", "계절 메뉴"]
-      health_5: ["단백질", "오메가3", "저칼로리"]
+      health_5: ["단백질", "저칼로리"]
 
-    brand_voice: "trustworthy and premium tone"
-    brand_voice_ko: "신뢰감 있고 고급스러운 톤"
+    brand_voice: "warm and inviting, premium tone"
+    brand_voice_ko: "따뜻하고 초대하는, 고급스러운 톤"
 
-    cta: ["Reserve by phone", "Visit us", "Order today"]
-    cta_ko: ["전화 예약", "방문", "오늘 주문"]
+    cta: ["Reserve by phone", "Visit us", "Order today", "Try it now"]
+    cta_ko: ["전화 예약", "방문", "오늘 주문", "지금 맛보세요"]
 
     exclude_keywords: ["cheap", "fast", "budget"]
     exclude_keywords_ko: ["저렴", "빠른", "싼"]
@@ -276,6 +268,7 @@ s_grade:
       - "부산서 오늘 아침 올라온 회. 투명하고 쫄깃한 식감, 특별한 날엔 특별하게"
       - "매일 새벽 도축 국내산 한우. 신선도가 다른 우리 동네 정육점"
       - "산지 직송 싱싱한 제철 과일. 오늘 아침 수확한 신선함 그대로"
+      - "신선한 노르웨이 연어를 지금 맛보세요! 최고의 품질을 경험해보세요."
 
     korean_keywords:
       - 회
@@ -332,29 +325,19 @@ s_grade:
   s3_emotional:
     name: "S-3: Emotional & Soft Texture"
     name_ko: "S-3: 감성 및 부드러운 질감"
-    count: 21
+    count: 11
     businesses:
-      - "Cafe"
-      - "Bakery/Donuts"
+      - "Cafe/Coffee Shop"
+      - "Bakery/Donut Shop"
       - "Ice Cream/Shaved Ice"
       - "Ice Cream Discount Store"
-      - "Rice Cake/Traditional Sweets"
+      - "Rice Cake/Korean Sweets"
       - "Toast/Sandwich/Salad"
       - "Supermarket"
       - "Convenience Store"
-      - "General Retail"
       - "Water/Beverage Retail"
       - "Milk Retail"
-      - "Liquor Store"
-      - "Ice Retail"
-      - "Grain/Flour Retail"
-      - "Health Supplement Store"
-      - "Cosmetics Store"
-      - "Pharmacy"
-      - "Art Gallery Retail"
-      - "Souvenir Shop"
-      - "Bookstore"
-      - "Stationery/Art Supplies"
+      - "Other Fast Food"
 
     keyword_priorities:
       emotional_35: ["time for myself", "sweet comfort", "happy moment"]
@@ -431,10 +414,6 @@ s_grade:
       - 샐러드
       - 편의점
       - 슈퍼마켓
-      - 약국
-      - 화장품
-      - 문구
-      - 서점
       - 커피숍
       - 커피전문점
       - 스페셜티커피
@@ -451,6 +430,7 @@ s_grade:
       - 아이스크림전문점
       - 젤라또
       - 빙수전문점
+      - 아이스크림할인점
       - 샐러드전문점
       - 주스바
       - 스무디
@@ -460,82 +440,49 @@ s_grade:
       - 음료판매점
       - 우유배달
       - 생수판매
-      - 주류판매점
-      - 와인샵
-      - 얼음판매
-      - 쌀가게
-      - 곡물판매
-      - 건강식품
-      - 건강기능식품
-      - 영양제
-      - 화장품가게
-      - 코스메틱
-      - 뷰티숍
-      - 드럭스토어
-      - 갤러리
-      - 아트샵
-      - 기념품가게
-      - 토산품
-      - 책방
-      - 독립서점
-      - 문구점
-      - 미술용품
-      - 학용품
-      - 필기구
+      - 간이음식점
+      - 테이크아웃
       - 인스타감성
       - 포토존
       - 감성카페
 
   # ============================================
-  # S-4: Neat Arrangement & Variety
+  # S-4: Neat Korean Home-style Cooking
   # ============================================
-  s4_neat_variety:
-    name: "S-4: Neat Arrangement & Variety"
-    name_ko: "S-4: 정갈함과 다채로움"
-    count: 22
+  s4_korean_homestyle:
+    name: "S-4: Neat Korean Home-style Cooking"
+    name_ko: "S-4: 정갈한 한식과 상차림"
+    count: 9
     businesses:
-      - "Korean Set Menu/Traditional Meal"
-      - "Soup/Stew Restaurant"
-      - "Jokbal/Bossam"
+      - "Korean Set Meal"
+      - "Soup/Stew"
+      - "Pig Feet/Bossam"
       - "Korean Pancake"
-      - "Noodles/Kalguksu"
-      - "Cold Noodles"
-      - "Other Korean Restaurants"
-      - "General Pub"
-      - "Club/Bar"
-      - "Other Japanese Restaurants"
-      - "Other Western Restaurants"
-      - "Other Southeast Asian"
-      - "Unclassified Foreign Restaurants"
-      - "Kimbap/Dumplings/Snacks"
-      - "Other Quick Service Restaurants"
-      - "Side Dishes/Groceries"
-      - "Tobacco/E-cigarette Store"
-      - "Thread/Textile Products"
-      - "Musical Instruments Store"
-      - "Music/Video Retail"
-      - "Other Specialty Retail"
-      - "Music/Video Rental"
+      - "Korean Noodle"
+      - "Cold Noodle"
+      - "Other Korean Restaurant"
+      - "Kimbap/Dumpling/Snack"
+      - "Side Dish/Grocery Retail"
 
     keyword_priorities:
       homestyle_35: ["mom's cooking", "like home", "with care"]
-      variety_25: ["variety", "pick and choose", "abundant spread"]
-      healthy_20: ["clean", "hygienic", "local ingredients"]
-      convenience_15: ["ready to eat", "easy", "takeout available"]
+      variety_25: ["variety", "abundant spread", "15 side dishes"]
+      healthy_20: ["clean", "local ingredients", "daily made"]
+      warmth_15: ["warm", "comfort food", "family meal"]
       value_5: ["generous portions", "affordable"]
 
     keyword_priorities_ko:
-      homestyle_35: ["엄마 손맛", "집밥 같은", "정성"]
-      variety_25: ["여러 가지", "골라 먹는", "풍성한 상차림"]
+      homestyle_35: ["엄마 손맛", "집밥 같은", "정성", "족발", "보쌈"]
+      variety_25: ["여러 가지", "골라 먹는", "풍성한 상차림", "부침개", "막걸리"]
       healthy_20: ["깔끔한", "위생적", "국산 재료"]
-      convenience_15: ["바로 먹는", "간편하게", "포장 가능"]
+      convenience_15: ["바로 먹는", "간편하게", "포장 가능", "비 오는 날"]
       value_5: ["푸짐하게", "부담 없이"]
 
-    brand_voice: "warm and trustworthy tone"
-    brand_voice_ko: "따뜻하고 믿음직한 톤"
+    brand_voice: "warm and industry-specific tone"
+    brand_voice_ko: "따뜻하면서도 업종 특화된 톤"
 
-    cta: ["Visit store", "Call to order", "Takeout order"]
-    cta_ko: ["매장 방문", "전화 주문", "포장 주문"]
+    cta: ["Visit store", "Call to order", "Takeout order", "Order now"]
+    cta_ko: ["매장 방문", "전화 주문", "포장 주문", "지금 배달"]
 
     exclude_keywords: ["mass-produced", "factory-made"]
     exclude_keywords_ko: ["대량생산", "공장제"]
@@ -571,6 +518,7 @@ s_grade:
       - "엄마 손맛 그대로, 매일 15가지 국산 반찬. 오늘의 집밥, 여기서 완성"
       - "새벽에 만드는 정성 가득 반찬. 위생적이고 깔끔한 우리 동네 반찬"
       - "쫄깃하고 부드러운 족발. 야식으로, 술안주로, 엄마 손맛 그대로"
+      - "비 오는 날, 부침개와 막걸리! 지금 바로 주문하세요"
 
     korean_keywords:
       - 한식
@@ -586,8 +534,6 @@ s_grade:
       - 만두
       - 떡볶이
       - 반찬
-      - 일식
-      - 양식
       - 한정식
       - 가정식
       - 집밥
@@ -615,30 +561,205 @@ s_grade:
       - 막국수
       - 밀면
       - 기타한식
-      - 호프집
-      - 술집
-      - 포차
-      - 횟집
-      - 단란주점
-      - 클럽
-      - 나이트
-      - 주점
-      - 레스토랑
-      - 뷔페
-      - 브런치
       - 반찬가게
       - 밑반찬
       - 분식집
-      - 라면
-      - 우동
-      - 짜장
-      - 중화요리
-      - 곱창김밥
+      - 뚝배기
       - 정갈한
-      - 다채로운
       - 담백한
       - 건강한
       - 영양가
+      - 엄마손맛
+      - 국산재료
+
+  # ============================================
+  # S-5: Global Variety
+  # ============================================
+  s5_global_variety:
+    name: "S-5: Global Variety"
+    name_ko: "S-5: 글로벌 다채로움"
+    count: 4
+    businesses:
+      - "Other Japanese Restaurant"
+      - "Other Western Restaurant"
+      - "Other Southeast Asian Restaurant"
+      - "Unclassified Foreign Restaurant"
+
+    keyword_priorities:
+      exotic_35: ["authentic local taste", "traditional recipe", "just like abroad"]
+      variety_30: ["new taste", "unique", "special experience"]
+      experience_20: ["taste journey", "culinary adventure", "explore flavors"]
+      authenticity_10: ["original", "genuine", "imported ingredients"]
+      convenience_5: ["nearby", "easy access"]
+
+    keyword_priorities_ko:
+      exotic_35: ["현지 그대로", "정통 레시피", "해외 현지 맛"]
+      variety_30: ["색다른 맛", "새로운", "특별한 경험"]
+      experience_20: ["맛 여행", "미식 탐험", "맛의 발견"]
+      authenticity_10: ["정통", "오리지널", "수입 재료"]
+      convenience_5: ["가까운", "찾기 쉬운"]
+
+    brand_voice: "exotic and curiosity-stimulating tone"
+    brand_voice_ko: "이국적이고 호기심을 자극하는 톤"
+
+    cta: ["Visit us", "See menu", "Reserve now"]
+    cta_ko: ["방문하기", "메뉴 보기", "지금 예약"]
+
+    exclude_keywords: ["fusion", "korean-style", "modified"]
+    exclude_keywords_ko: ["퓨전", "한국식", "변형"]
+
+    prompt_template:
+      role: "{business_type} new customer attraction copywriter"
+      target: "20-40s foodies, enjoying new taste exploration"
+      pain_points: ["bored of same food", "want authentic foreign taste"]
+      product_features: ["authentic local recipe", "imported ingredients", "exotic atmosphere"]
+      voice: "exotic and curiosity-stimulating"
+      action: "visit or reserve"
+      length: "SNS post 60 chars"
+      required_keywords: ["authentic", "local", "new taste", "original"]
+      exclude: ["fusion", "korean-style"]
+
+    prompt_template_ko:
+      role: "{business_type} 신규 고객 유치 카피라이터"
+      target: "20-40대 푸디, 새로운 맛 탐험 즐기는 층"
+      pain_points: ["매일 같은 음식 질림", "정통 외국 음식 먹고 싶음"]
+      product_features: ["현지 정통 레시피", "수입 재료", "이국적 분위기"]
+      voice: "이국적이고 호기심을 자극하는 톤"
+      action: "방문 또는 예약"
+      length: "SNS 포스팅용 60자"
+      required_keywords: ["정통", "현지", "색다른 맛", "오리지널"]
+      exclude: ["퓨전", "한국식"]
+
+    example_copies:
+      - "Authentic Bangkok taste! From Som Tam to Tom Yum Kung, full Thai flavors"
+      - "Experience real Mediterranean! Imported olive oil, fresh pasta special"
+      - "Taste trip to India! Naan baked in tandoor, authentic curry lineup"
+
+    example_copies_ko:
+      - "방콕 현지 그대로! 쏨땀부터 똠얌꿍까지, 입안 가득 태국의 맛"
+      - "진짜 지중해를 경험하세요! 수입 올리브유, 생면 파스타 스페셜"
+      - "인도로 맛여행! 탄두리에서 구운 난, 정통 커리 라인업"
+
+    korean_keywords:
+      - 이국적
+      - 외국음식
+      - 기타일식
+      - 기타양식
+      - 동남아식
+      - 외국식음식점
+      - 태국음식
+      - 인도음식
+      - 터키음식
+      - 멕시칸
+      - 지중해음식
+      - 아시안푸드
+      - 퓨전음식
+      - 세계음식
+      - 현지맛
+      - 정통
+      - 색다른
+      - 맛여행
+      - 미식탐험
+      - 쏨땀
+      - 똠얌꿍
+      - 팟타이
+      - 카레
+      - 난
+      - 탄두리
+
+  # ============================================
+  # S-6: Nightlife & Party Mood
+  # ============================================
+  s6_nightlife:
+    name: "S-6: Nightlife & Party Mood"
+    name_ko: "S-6: 화려한 무드와 야간 감성"
+    count: 4
+    businesses:
+      - "Draft Beer Specialty"
+      - "Gastropub"
+      - "General Bar"
+      - "Dance Bar"
+
+    keyword_priorities:
+      atmosphere_40: ["hotspot", "vibe restaurant", "trendy place"]
+      energy_25: ["exciting", "fun", "lively"]
+      social_20: ["with friends", "tonight", "after work"]
+      specialties_10: ["signature", "best seller", "special"]
+      convenience_5: ["late night", "24 hours", "private room"]
+
+    keyword_priorities_ko:
+      atmosphere_40: ["핫플", "분위기 맛집", "트렌디한"]
+      energy_25: ["신나는", "즐거운", "활기찬"]
+      social_20: ["친구들과", "오늘 밤", "퇴근 후"]
+      specialties_10: ["시그니처", "베스트", "스페셜"]
+      convenience_5: ["야간", "24시간", "룸"]
+
+    brand_voice: "lively and trendy tone, party atmosphere"
+    brand_voice_ko: "활기차고 트렌디한 톤, 파티 분위기"
+
+    cta: ["Reserve now", "Visit tonight", "Call us"]
+    cta_ko: ["예약하기", "지금 방문", "전화 문의"]
+
+    exclude_keywords: ["quiet", "alone", "calm"]
+    exclude_keywords_ko: ["조용한", "혼자", "차분한"]
+
+    prompt_template:
+      role: "{business_type} nightlife promotion copywriter"
+      target: "20-30s, enjoying nightlife after work/weekend"
+      pain_points: ["where to go tonight", "want exciting atmosphere"]
+      product_features: ["trendy interior", "signature drinks", "fun vibe"]
+      voice: "lively and trendy, party atmosphere"
+      action: "reserve or visit"
+      length: "SNS story 40 chars"
+      required_keywords: ["hotspot", "vibe", "tonight", "fun", "trendy"]
+      exclude: ["quiet", "alone"]
+
+    prompt_template_ko:
+      role: "{business_type} 야간 영업 홍보 카피라이터"
+      target: "20-30대, 퇴근 후/주말 밤 유흥 즐기는 층"
+      pain_points: ["오늘 밤 어디 갈지", "신나는 분위기 원함"]
+      product_features: ["트렌디한 인테리어", "시그니처 음료", "재미있는 분위기"]
+      voice: "활기차고 트렌디한 톤, 파티 분위기"
+      action: "예약 또는 방문"
+      length: "SNS 스토리용 40자"
+      required_keywords: ["핫플", "분위기", "오늘 밤", "신나는", "트렌디"]
+      exclude: ["조용한", "혼자"]
+
+    example_copies:
+      - "After work beer time! Awesome vibe draft beer spot, tonight here"
+      - "Weekend party starts here🎉 Trendy club, best DJ lineup"
+      - "Sing all night! Coin karaoke 24hrs open, latest songs updated"
+
+    example_copies_ko:
+      - "퇴근 후 맥주 한 잔! 분위기 끝내주는 생맥주 전문점, 오늘 밤 여기서"
+      - "주말 파티는 여기서 시작🎉 트렌디한 클럽, 최고의 DJ 라인업"
+      - "밤새 노래하자! 코인노래방 24시간 오픈, 최신곡 업데이트"
+
+    korean_keywords:
+      - 생맥주전문점
+      - 요리주점
+      - 일반유흥주점
+      - 무도유흥주점
+      - 펍
+      - 바
+      - 클럽
+      - 칵테일
+      - 맥주
+      - 야식
+      - 분위기맛집
+      - 핫플
+      - 야간
+      - 파티
+      - 유흥
+      - 퇴근후
+      - 주말밤
+      - DJ
+      - 시그니처칵테일
+      - 생맥주
+      - 수제맥주
+      - 크래프트비어
+      - 안주
+      - 호프집
 
 # ============================================
 # A Grade: Visual Transformation & Self-Care
@@ -649,7 +770,7 @@ a_grade:
   name_ko: "A등급 - 비주얼 변화 및 자기관리"
   strategy: "Change/Results + Emotional empathy"
   aida_focus: "Interest(Empathy) → Desire(Transformation)"
-  total_businesses: 50
+  total_businesses: 41
 
   common_keywords:
     priority_1_change: ["become", "transform", "different"]
@@ -671,13 +792,14 @@ a_grade:
   a1_beauty:
     name: "A-1: Person-Centered Beauty & Aesthetics"
     name_ko: "A-1: 인물 중심 뷰티 및 에스테틱"
-    count: 5
+    count: 6
     businesses:
       - "Hair Salon"
-      - "Skin Care Salon"
+      - "Skin Care Clinic"
       - "Dermatology/Urology Clinic"
       - "Plastic Surgery Clinic"
       - "Nail Salon"
+      - "Cosmetics Retail"
 
     keyword_priorities:
       transformation_40: ["silky flowing hair", "clear skin", "changed impression"]
@@ -786,6 +908,12 @@ a_grade:
       - 변신
       - 예뻐지다
       - 자신감
+      - 화장품
+      - 화장품가게
+      - 코스메틱
+      - 뷰티숍
+      - 스킨케어
+      - 메이크업
 
   # ============================================
   # A-2: Body Transformation & Wellness
@@ -795,10 +923,10 @@ a_grade:
     name_ko: "A-2: 신체 변화 및 웰니스"
     count: 6
     businesses:
-      - "Gym"
+      - "Gym/Fitness Center"
       - "Yoga/Pilates Studio"
       - "Taekwondo/Martial Arts"
-      - "General Sports Facility"
+      - "Multi-sports Facility"
       - "Body Shape/Weight Management"
       - "Massage/Spa"
 
@@ -905,10 +1033,6 @@ a_grade:
       - 스포츠마사지
       - 아로마마사지
       - 경락마사지
-      - 찜질방
-      - 사우나
-      - 온천
-      - 목욕탕
       - 건강관리
       - 운동센터
       - 몸매관리
@@ -920,28 +1044,23 @@ a_grade:
   a3_fashion:
     name: "A-3: Fashion & Style Items"
     name_ko: "A-3: 패션 및 스타일 아이템"
-    count: 23
+    count: 18
     businesses:
       - "Men's Clothing Retail"
       - "Women's Clothing Retail"
       - "Children's Clothing Retail"
-      - "Hanbok Store"
+      - "Hanbok Retail"
       - "Other Clothing Retail"
-      - "Bedding/Curtains Store"
-      - "Accessories/Fashion Items"
-      - "Wig Store"
-      - "Shoes Store"
-      - "Bag Store"
-      - "Watch/Jewelry Store"
-      - "Eyewear Store"
-      - "Camera/Optical Equipment"
-      - "Photo Studio"
-      - "Interior Design Service"
-      - "Product Design Service"
-      - "Visual Design Service"
+      - "Bedding/Curtain Retail"
+      - "Wig Retail"
+      - "Shoes Retail"
+      - "Bag Retail"
+      - "Interior Design"
+      - "Product Design"
+      - "Visual Design"
       - "Fashion/Textile Design"
       - "Clothing Rental"
-      - "Clothing/Bedding Alterations"
+      - "Clothing/Bedding Repair"
       - "Leather/Bag/Shoe Repair"
       - "Wedding Hall"
       - "Wedding Consulting"
@@ -1101,24 +1220,19 @@ a_grade:
   a4_delicate_care:
     name: "A-4: Delicate Care & Emotional Items"
     name_ko: "A-4: 섬세한 케어 및 감성 소품"
-    count: 16
+    count: 11
     businesses:
-      - "Florist"
-      - "Pet Store/Pet Supplies"
-      - "Veterinary Clinic"
-      - "Toy Store"
-      - "Sports Equipment Store"
-      - "Bicycle Shop"
-      - "Furniture Store"
-      - "Kitchen/Home Goods"
-      - "Public Bath/Sauna"
-      - "Laundry Service"
-      - "Self-Service Laundry"
-      - "Watch/Jewelry/Instrument Repair"
-      - "Music Academy"
-      - "Art Academy"
-      - "Other Art/Sports Education"
-      - "Recreation Education"
+      - "Flower Shop"
+      - "Pet/Pet Supplies Retail"
+      - "Veterinary Hospital"
+      - "Furniture Retail"
+      - "Kitchen/Home Goods Retail"
+      - "Health Supplement Retail"
+      - "Accessories/Sundries Retail"
+      - "Watch/Jewelry Retail"
+      - "Eyeglasses/Lens Retail"
+      - "Camera/Optical Equipment Retail"
+      - "Photo Studio"
 
     keyword_priorities:
       detail_40: ["delicate", "meticulous", "heartfelt"]
@@ -1181,17 +1295,8 @@ a_grade:
       - 꽃
       - 펫샵
       - 동물병원
-      - 장난감
-      - 스포츠용품
-      - 자전거
       - 가구
       - 주방용품
-      - 목욕탕
-      - 사우나
-      - 세탁
-      - 수선
-      - 악기
-      - 미술학원
       - 꽃배달
       - 화원
       - 꽃꽂이
@@ -1208,19 +1313,6 @@ a_grade:
       - 수의사
       - 펫병원
       - 24시동물병원
-      - 완구점
-      - 키즈완구
-      - 보드게임
-      - 레고
-      - 스포츠매장
-      - 운동기구
-      - 골프용품
-      - 등산용품
-      - 낚시용품
-      - 캠핑용품
-      - 자전거매장
-      - 자전거수리
-      - 전기자전거
       - 가구점
       - 가구매장
       - 침대
@@ -1233,21 +1325,35 @@ a_grade:
       - 프라이팬
       - 그릇
       - 식기
-      - 대중목욕탕
-      - 찜질
-      - 한증막
-      - 세탁소
-      - 드라이클리닝
-      - 빨래방
-      - 셀프빨래
-      - 코인세탁
-      - 악기점
-      - 기타
-      - 피아노
-      - 드럼
-      - 바이올린
-      - 음악학원
-      - 미술학원
+      - 건강보조식품
+      - 건강기능식품
+      - 영양제
+      - 비타민
+      - 오메가3
+      - 프로바이오틱스
+      - 액세서리
+      - 잡화
+      - 패션잡화
+      - 헤어액세서리
+      - 시계
+      - 귀금속
+      - 주얼리
+      - 금은방
+      - 반지
+      - 목걸이
+      - 안경
+      - 안경원
+      - 렌즈
+      - 선글라스
+      - 콘택트렌즈
+      - 카메라
+      - 광학기기
+      - 사진관
+      - 사진스튜디오
+      - 프로필사진
+      - 증명사진
+      - 웨딩사진
+      - 가족사진
       - 공예
       - 섬세한
       - 감성
@@ -1284,25 +1390,26 @@ b_grade:
   # ============================================
   b1_learning:
     name: "B-1: Learning & Focus"
-    name_ko: "B-1: 학습/몰입"
-    count: 16
+    name_ko: "B-1: 학습 및 몰입"
+    count: 17
     businesses:
-      - "Entrance Exam/Academic Academy"
+      - "College Prep/Academic Academy"
       - "Foreign Language Academy"
-      - "Professional Exam/Civil Service Academy"
+      - "Professional Certificate Academy"
       - "Social Education Facility"
       - "Employee Training Center"
       - "Driving School"
-      - "Technical/Vocational Training"
+      - "Other Technical/Vocational Training"
       - "Computer Academy"
-      - "Other Education Institutions"
+      - "Other Education Institution"
       - "Education Consulting"
-      - "Education Support Services"
+      - "Other Education Support Service"
       - "Reading Room/Study Cafe"
       - "Youth Training Facility"
-      - "Dormitory/Goshiwon"
-      - "Other Accommodation"
-      - "Comic Cafe"
+      - "Comic Book Cafe"
+      - "Music Academy"
+      - "Art Academy"
+      - "Other Art/Sports Education"
 
     keyword_priorities:
       goal_achievement_35: ["grade improvement", "pass", "focus boost"]
@@ -1369,8 +1476,6 @@ b_grade:
       - 컴퓨터
       - 독서실
       - 스터디카페
-      - 기숙사
-      - 고시원
       - 입시학원
       - 대입
       - 수능
@@ -1412,11 +1517,21 @@ b_grade:
       - 독서카페
       - 청소년수련
       - 청소년센터
-      - 원룸
-      - 하숙
       - 만화카페
       - 만화방
       - 웹툰카페
+      - 음악학원
+      - 피아노학원
+      - 기타학원
+      - 드럼학원
+      - 바이올린학원
+      - 보컬학원
+      - 미술학원
+      - 미술교습소
+      - 입시미술
+      - 그림
+      - 취미미술
+      - 예술학원
       - 집중
       - 몰입
       - 학습
@@ -1428,28 +1543,18 @@ b_grade:
   # ============================================
   b2_leisure:
     name: "B-2: Leisure & Stay"
-    name_ko: "B-2: 여가/스테이"
-    count: 19
+    name_ko: "B-2: 여행 및 숙박"
+    count: 9
     businesses:
       - "Hotel/Resort"
-      - "Motel/Inn"
+      - "Inn/Motel"
       - "Pension"
       - "Camping/Glamping"
-      - "PC Room"
-      - "Karaoke"
-      - "Video Room"
-      - "Electronic Game Room"
-      - "Other Entertainment Venues"
-      - "Fishing Operation"
-      - "Water/Marine Leisure"
-      - "Lottery Sales"
-      - "Go/Chess Game Operation"
-      - "Other Entertainment Services"
-      - "Sports/Recreation Equipment Rental"
-      - "Other Personal/Household Rental"
+      - "Dormitory/Goshiwon"
+      - "Public Bath/Sauna"
       - "Travel Agency"
-      - "Travel Support/Booking Services"
-      - "Copy Shop"
+      - "Other Travel Support Service"
+      - "Other Accommodation"
 
     keyword_priorities:
       escape_35: ["healing", "rest", "escape", "recharge"]
@@ -1513,10 +1618,6 @@ b_grade:
       - 펜션
       - 캠핑
       - 글램핑
-      - PC방
-      - 노래방
-      - 찜질방
-      - 낚시
       - 여행사
       - 호텔예약
       - 숙박
@@ -1535,40 +1636,19 @@ b_grade:
       - 캠핑장
       - 오션뷰
       - 마운틴뷰
-      - 피씨방
-      - 피시방
-      - 게임방
-      - VR게임
-      - 코인노래방
-      - 가라오케
-      - DVD방
-      - 비디오방
-      - 오락실
-      - 게임센터
-      - 낚시터
-      - 바다낚시
-      - 민물낚시
-      - 선상낚시
-      - 수상레저
-      - 요트
-      - 제트스키
-      - 서핑
-      - 복권
-      - 로또
-      - 바둑
-      - 장기
-      - 기원
-      - 레저장비대여
-      - 스키장비
-      - 보드장비
-      - 렌탈샵
+      - 기숙사
+      - 고시원
+      - 원룸
+      - 하숙
+      - 목욕탕
+      - 사우나
+      - 찜질방
+      - 대중목욕탕
+      - 한증막
       - 여행예약
       - 패키지여행
       - 자유여행
       - 항공권
-      - 복사
-      - 인쇄
-      - 출력
       - 힐링
       - 휴식
       - 재충전
@@ -1579,19 +1659,28 @@ b_grade:
   # ============================================
   b3_sports:
     name: "B-3: Sports & Activities"
-    name_ko: "B-3: 스포츠/활동"
-    count: 10
+    name_ko: "B-3: 스포츠 및 활동"
+    count: 19
     businesses:
       - "Swimming Pool"
       - "Bowling Alley"
-      - "Billiards Hall"
-      - "Golf Driving Range"
+      - "Billiard Hall"
+      - "Golf Practice Range"
       - "Tennis Court"
       - "Table Tennis Hall"
-      - "Other Sports Facilities"
-      - "Squash/Racquetball Court"
-      - "Exhibition/Convention Services"
-      - "Other Personal/Household Repair"
+      - "Other Sports Facility"
+      - "Squash/Racketball Court"
+      - "Sports/Recreation Equipment Rental"
+      - "Karaoke"
+      - "Video Room"
+      - "Arcade"
+      - "PC Cafe"
+      - "Other Entertainment Venue"
+      - "Water/Marine Leisure"
+      - "Other Entertainment Service"
+      - "Fishing Spot"
+      - "Lottery Sales"
+      - "Board Game Venue"
 
     keyword_priorities:
       facility_quality_40: ["latest facilities", "spacious", "comfortable"]
@@ -1658,40 +1747,74 @@ b_grade:
       - 실내수영장
       - 수영강습
       - 아쿠아로빅
-      - 워터에어로빅
       - 볼링
-      - 볼링레슨
+      - 볼링레인
       - 당구
       - 포켓볼
-      - 3쿠션
       - 4구
+      - 3구
       - 골프연습장
       - 스크린골프
-      - 골프레슨
-      - 골프아카데미
+      - 인도어골프
       - 드라이빙레인지
+      - 골프레슨
       - 테니스장
-      - 테니스레슨
       - 테니스코트
+      - 테니스레슨
       - 탁구장
-      - 탁구클럽
+      - 탁구레슨
+      - 기타스포츠
+      - 스포츠시설
       - 스쿼시
       - 라켓볼
-      - 배드민턴
-      - 스포츠센터
-      - 종합체육관
-      - 실내체육관
-      - 전시
-      - 컨벤션
-      - 행사대행
-      - 이벤트
-      - 수리
-      - A/S
       - 최신시설
+      - 넓은
       - 쾌적한
       - 실력향상
-      - 레슨
-      - 강습
+      - 재미
+      - 가까운
+      - 주차편리
+      - 프로레슨
+      - PC방
+      - 노래방
+      - 낚시
+      - 낚시터
+      - 바다낚시
+      - 민물낚시
+      - 선상낚시
+      - 수상레저
+      - 요트
+      - 제트스키
+      - 서핑
+      - 복권
+      - 로또
+      - 바둑
+      - 장기
+      - 기원
+      - 피씨방
+      - 게임방
+      - 인터넷카페
+      - 노래연습장
+      - 코인노래방
+      - 비디오방
+      - 전자게임장
+      - 오락실
+      - 게임센터
+      - 기타오락장
+      - 낚시터
+      - 바다낚시
+      - 민물낚시
+      - 수상레저
+      - 해양레저
+      - 요트
+      - 제트스키
+      - 복권
+      - 로또
+      - 바둑
+      - 장기
+      - 체스
+      - 보드게임
+      - 레크리에이션용품
 
 # ============================================
 # C Grade: Trust-Based Professional Services
@@ -1702,7 +1825,7 @@ c_grade:
   name_ko: "C등급 - 신뢰 기반 전문 서비스"
   strategy: "Trust/Expertise + Problem solving"
   aida_focus: "Interest(Problem empathy) → Desire(Expert solution)"
-  total_businesses: 50
+  total_businesses: 57
 
   common_keywords:
     priority_1_expertise: ["experience", "certified", "expert"]
@@ -1724,26 +1847,34 @@ c_grade:
   c1_office:
     name: "C-1: Professional Office Services"
     name_ko: "C-1: 전문 사무"
-    count: 18
+    count: 26
     businesses:
       - "Real Estate Agency"
       - "Lawyer"
       - "Patent Attorney"
       - "Judicial Scrivener"
-      - "Administrative Scrivener"
-      - "Labor Attorney"
-      - "Other Legal Services"
+      - "Administrative Agent"
+      - "Certified Labor Attorney"
+      - "Other Legal Service"
       - "Certified Public Accountant"
       - "Tax Accountant"
-      - "Other Accounting Services"
+      - "Other Accounting Service"
       - "Advertising Agency"
-      - "Outdoor/Exhibition Advertising"
+      - "Outdoor/Exhibition Ad Agency"
       - "Ad Media Sales"
-      - "Advertising Design/Production"
-      - "Other Advertising Services"
-      - "Market Research/Opinion Polling"
+      - "Ad Design/Production"
+      - "Other Advertising Service"
+      - "Market/Opinion Research"
       - "Management Consulting"
-      - "Other Office Support Services"
+      - "Other Office Support Service"
+      - "Employment Agency"
+      - "Temporary/Day Labor Supply"
+      - "Permanent Labor/HR Service"
+      - "Copy Service"
+      - "Exhibition/Convention Service"
+      - "Business Card/Signage Production"
+      - "Translation/Interpretation"
+      - "Business/IP Brokerage"
 
     keyword_priorities:
       expert_experience_40: ["20 years experience", "specialized lawyer", "certified accountant"]
@@ -1850,10 +1981,26 @@ c_grade:
       - 경영컨설팅
       - 경영자문
       - 사무대행
+      - 고용알선
+      - 인력공급
+      - 파견업
+      - 인력파견
+      - 헤드헌팅
+      - 복사
+      - 인쇄
+      - 출력
+      - 전시대행
+      - 컨벤션
+      - 행사대행
+      - 명함제작
+      - 간판제작
+      - 번역
+      - 통역
+      - 번역서비스
+      - 사업중개
       - 전문가
       - 경력
       - 신뢰
-      - 안전
       - 상담
 
   # ============================================
@@ -1861,25 +2008,27 @@ c_grade:
   # ============================================
   c2_medical:
     name: "C-2: Medical & Healthcare"
-    name_ko: "C-2: 의료/케어"
-    count: 16
+    name_ko: "C-2: 의료 및 케어"
+    count: 18
     businesses:
       - "General Hospital"
       - "Hospital"
       - "Dental Hospital"
       - "Oriental Medicine Hospital"
       - "Nursing Hospital"
-      - "Internal Medicine/Pediatrics"
+      - "Internal Medicine/Pediatrics Clinic"
       - "Surgery Clinic"
-      - "Neurology/Psychiatry"
-      - "Ophthalmology"
-      - "Otolaryngology"
-      - "Obstetrics/Gynecology"
-      - "Other Clinics"
+      - "Neurology/Psychiatry Clinic"
+      - "Ophthalmology Clinic"
+      - "ENT Clinic"
+      - "OB/GYN Clinic"
+      - "Other Clinic"
       - "Dental Clinic"
       - "Oriental Medicine Clinic"
-      - "Radiology/Pathology Lab"
-      - "Similar Medical Services"
+      - "Radiology/Pathology Clinic"
+      - "Alternative Medicine"
+      - "Pharmacy"
+      - "Medical Equipment Retail"
 
     keyword_priorities:
       specialist_35: ["specialist", "MD PhD", "extensive clinical experience"]
@@ -2000,31 +2149,40 @@ c_grade:
       - 치료
       - 수술
       - 통증
+      - 약국
+      - 약사
+      - 처방전
+      - 의약품
+      - 조제약
+      - 일반약
+      - 의료기기
+      - 의료용품
+      - 혈압계
+      - 체온계
+      - 휠체어
+      - 보청기
 
   # ============================================
   # C-3: Technical & Construction Services
   # ============================================
   c3_technical:
     name: "C-3: Technical & Construction Services"
-    name_ko: "C-3: 기술/시공"
-    count: 16
+    name_ko: "C-3: 기술 및 시공"
+    count: 13
     businesses:
       - "Auto Repair Shop"
       - "Car Wash"
       - "Motorcycle Repair"
-      - "Architectural Design Services"
+      - "Architectural Design Service"
       - "Urban Planning/Landscape Design"
       - "Building/Civil Engineering"
       - "Environmental Engineering"
-      - "Other Engineering Services"
-      - "Facility Maintenance Services"
-      - "Building General Cleaning"
-      - "Industrial Equipment Cleaning"
-      - "Pest Control/Disinfection"
+      - "Other Engineering Service"
+      - "Facility Maintenance Service"
+      - "Building Cleaning Service"
+      - "Industrial/Transport Cleaning"
+      - "Disinfection/Pest Control"
       - "Landscape Maintenance"
-      - "Business Card/Signage Production"
-      - "Translation/Interpretation"
-      - "Business/IP Brokerage"
 
     keyword_priorities:
       technical_skill_35: ["skilled", "professional technique", "meticulous work"]
@@ -2089,8 +2247,6 @@ c_grade:
       - 인테리어시공
       - 청소
       - 소독
-      - 번역
-      - 통역
       - 카센터
       - 정비소
       - 자동차수리
@@ -2134,17 +2290,6 @@ c_grade:
       - 조경관리
       - 수목관리
       - 정원관리
-      - 명함
-      - 간판
-      - 현수막
-      - 제작
-      - 번역서비스
-      - 통역서비스
-      - 영어번역
-      - 중국어번역
-      - 일본어번역
-      - 사업인수
-      - 중개
       - 기술
       - 시공
       - 견적
@@ -2159,7 +2304,7 @@ d_grade:
   name_ko: "D등급 - 목적형 소매 및 장비"
   strategy: "Function/Benefits + Reasonable price"
   aida_focus: "Attention(Stock/Price) → Action(Immediate purchase)"
-  total_businesses: 30
+  total_businesses: 46
 
   common_keywords:
     priority_1_stock: ["in stock", "same-day shipping", "immediate installation"]
@@ -2180,25 +2325,22 @@ d_grade:
   # ============================================
   d1_equipment:
     name: "D-1: Heavy Equipment & Parts"
-    name_ko: "D-1: 중장비/부품"
-    count: 16
+    name_ko: "D-1: 중장비 및 부품"
+    count: 13
     businesses:
       - "Tire Retail"
       - "Auto Parts Retail"
-      - "Motorcycle Parts Retail"
-      - "Hardware/Tools Store"
-      - "Wallpaper/Flooring Store"
-      - "Construction Materials"
-      - "Other Building Materials"
-      - "Electrical/Lighting Equipment"
-      - "Livestock Feed Retail"
+      - "Motorcycle/Parts Retail"
+      - "Hardware/Tool Retail"
+      - "Wallpaper/Flooring Retail"
+      - "Construction Material Retail"
+      - "Other Construction Material Retail"
+      - "Electrical/Lighting Retail"
       - "Construction Equipment Rental"
-      - "Industrial Equipment Rental"
-      - "Transportation Equipment Rental"
+      - "Other Industrial Equipment Rental"
+      - "Other Transport Equipment Rental"
       - "Home Fuel Retail"
-      - "Medical Equipment Retail"
-      - "Used Goods Store"
-      - "Packaging/Filling Services"
+      - "Packaging/Charging Service"
 
     keyword_priorities:
       stock_immediacy_35: ["in stock", "same-day shipping", "immediate installation"]
@@ -2262,9 +2404,6 @@ d_grade:
       - 공구
       - 건축자재
       - 전기용품
-      - 사료
-      - 중고
-      - 의료기기
       - 타이어판매
       - 타이어교체
       - 금호타이어
@@ -2283,6 +2422,7 @@ d_grade:
       - 벽지
       - 장판
       - 바닥재
+      - 마루
       - 인테리어자재
       - 건설자재
       - 레미콘
@@ -2296,9 +2436,6 @@ d_grade:
       - 배선
       - 스위치
       - 콘센트
-      - 축산사료
-      - 동물사료
-      - 배합사료
       - 건설장비대여
       - 포크레인
       - 굴삭기
@@ -2307,13 +2444,14 @@ d_grade:
       - 산업장비대여
       - 운송장비대여
       - 레카
-      - 의료장비
-      - 재활기기
-      - 휠체어
+      - 가정용연료
+      - 등유
+      - 프로판
+      - 포장
+      - 충전
       - 당일출고
       - 재고보유
       - 정품
-      - 저렴한
 
   # ============================================
   # D-2: General Appliances & Devices
@@ -2325,18 +2463,18 @@ d_grade:
     businesses:
       - "Computer/Software Retail"
       - "Mobile Phone Retail"
-      - "Home Appliances Store"
-      - "Office Equipment Store"
-      - "Computer/Laptop Repair"
-      - "Mobile Phone Repair"
-      - "Appliance Repair"
+      - "Home Appliance Retail"
+      - "Office Equipment Retail"
+      - "Computer/Laptop/Printer Repair"
       - "Computer/Office Equipment Rental"
-      - "Employment Agency"
-      - "Temporary Staffing"
-      - "HR/Staffing Services"
+      - "Mobile Phone/Telecom Repair"
+      - "Home Appliance Repair"
       - "Car Rental"
-      - "Personal/Household Repair"
-      - "Personal/Household Rental"
+      - "Other Personal/Home Goods Repair"
+      - "Other Personal/Home Goods Rental"
+      - "Laundry"
+      - "Self-service Laundromat"
+      - "Second-hand Goods Retail"
 
     keyword_priorities:
       latest_specs_35: ["latest model", "high specs", "new product"]
@@ -2401,7 +2539,6 @@ d_grade:
       - 사무기기
       - 수리
       - 렌탈
-      - 인력사무소
       - 컴퓨터판매
       - 노트북
       - 데스크탑
@@ -2439,19 +2576,164 @@ d_grade:
       - 컴퓨터렌탈
       - 사무기기렌탈
       - 복사기렌탈
-      - 직업소개소
-      - 인력파견
-      - 인재파견
-      - 채용대행
-      - 헤드헌팅
       - 렌터카
       - 자동차렌트
       - 장기렌트
       - 단기렌트
+      - 세탁소
+      - 드라이클리닝
+      - 빨래방
+      - 셀프빨래
+      - 코인세탁
+      - 중고매장
+      - 중고거래
+      - 중고물품
+      - 리사이클
       - 가전수리점
       - 최신모델
       - 특가
       - A/S
+
+  # ============================================
+  # D-3: Hobby & Lifestyle Retail
+  # ============================================
+  d3_hobby_lifestyle:
+    name: "D-3: Hobby & Lifestyle Retail"
+    name_ko: "D-3: 취미 및 라이프스타일 소매"
+    count: 19
+    businesses:
+      - "Musical Instrument Retail"
+      - "Record/Video Retail"
+      - "Record/Video Rental"
+      - "Tobacco/E-cigarette Retail"
+      - "Thread/Textile Retail"
+      - "Liquor Retail"
+      - "Art Retail"
+      - "Souvenir Shop"
+      - "Bookstore"
+      - "Stationery/Art Supplies Retail"
+      - "Toy Retail"
+      - "Sports Equipment Retail"
+      - "Bicycle Retail"
+      - "Watch/Jewelry/Instrument Repair"
+      - "Recreation Education"
+      - "Other General Retail"
+      - "Other Specialty Retail"
+      - "Grain/Flour Retail"
+      - "Animal Feed Retail"
+
+    keyword_priorities:
+      taste_35: ["my own", "collection", "unique"]
+      quality_30: ["curated", "premium", "selected"]
+      rarity_20: ["limited edition", "rare", "hard to find"]
+      expertise_10: ["expert advice", "recommendation"]
+      convenience_5: ["in stock", "available"]
+
+    keyword_priorities_ko:
+      taste_35: ["나만의", "컬렉션", "유니크한"]
+      quality_30: ["엄선된", "프리미엄", "선별된"]
+      rarity_20: ["한정판", "레어템", "구하기 힘든"]
+      expertise_10: ["전문가 조언", "추천"]
+      convenience_5: ["재고 보유", "구매 가능"]
+
+    brand_voice: "friendly and emotional tone"
+    brand_voice_ko: "친근하고 감성적인 톤"
+
+    cta: ["Visit store", "Order online", "Check stock"]
+    cta_ko: ["매장 방문", "온라인 주문", "재고 문의"]
+
+    exclude_keywords: ["mass-produced", "cheap", "generic"]
+    exclude_keywords_ko: ["대량", "저가", "일반"]
+
+    prompt_template:
+      role: "{business_type} hobbyist customer copywriter"
+      target: "20-50s, enjoying hobby/collection/culture"
+      pain_points: ["hard to find quality items", "want expert advice"]
+      product_features: ["curated selection", "expert staff", "unique items"]
+      voice: "friendly and emotional"
+      action: "visit store or order online"
+      length: "store sign 35 chars"
+      required_keywords: ["my own", "collection", "curated", "unique"]
+      exclude: ["mass-produced", "cheap"]
+
+    prompt_template_ko:
+      role: "{business_type} 취미 고객 카피라이터"
+      target: "20-50대, 취미/수집/문화생활 즐기는 층"
+      pain_points: ["좋은 물건 찾기 어려움", "전문가 조언 원함"]
+      product_features: ["엄선된 선택", "전문 스탭", "유니크한 아이템"]
+      voice: "친근하고 감성적인 톤"
+      action: "매장 방문 또는 온라인 주문"
+      length: "매장 사인용 35자"
+      required_keywords: ["나만의", "컬렉션", "엄선된", "유니크"]
+      exclude: ["대량", "저가"]
+
+    example_copies:
+      - "For music lovers, your space. Curated LP and instrument collection"
+      - "Time to expand your collection! Limited edition figures in stock"
+      - "Unique gifts that express your taste. Curated souvenir selection"
+
+    example_copies_ko:
+      - "음악을 사랑하는 당신을 위한 공간. 엄선된 LP와 악기 컬렉션"
+      - "컬렉션을 늘릴 시간! 한정판 피규어 재고 입고"
+      - "당신의 취향을 표현하는 특별한 선물. 엄선된 기념품 셀렉션"
+
+    korean_keywords:
+      - 악기점
+      - 악기소매
+      - 기타
+      - 피아노
+      - 바이올린
+      - 음반
+      - LP
+      - 비디오
+      - 음반대여
+      - 담배
+      - 전자담배
+      - 실
+      - 섬유
+      - 원단
+      - 주류소매
+      - 와인샵
+      - 양주
+      - 위스키
+      - 예술품
+      - 갤러리
+      - 기념품
+      - 기념품점
+      - 서점
+      - 책방
+      - 독립서점
+      - 문구점
+      - 문구
+      - 화방
+      - 미술용품
+      - 학용품
+      - 필기구
+      - 장난감
+      - 완구점
+      - 피규어
+      - 운동용품
+      - 스포츠용품
+      - 자전거
+      - 자전거판매
+      - 시계수리
+      - 귀금속수리
+      - 악기수리
+      - 레크리에이션
+      - 취미
+      - 컬렉션
+      - 빈티지
+      - 희귀템
+      - 한정판
+      - 곡물
+      - 쌀
+      - 잡곡
+      - 밀가루
+      - 곡분
+      - 사료
+      - 축산사료
+      - 동물사료
+      - 배합사료
 
 # ============================================
 # E Grade: Infrastructure & Special Purpose
@@ -2462,7 +2744,7 @@ e_grade:
   name_ko: "E등급 - 인프라 및 특수 목적"
   strategy: "Accessibility/Necessity + Honesty"
   aida_focus: "Attention(Location) → Action(Immediate visit)"
-  total_businesses: 2
+  total_businesses: 5
 
   common_keywords:
     priority_1_location: ["right by IC", "5 min from station", "easy to find"]
@@ -2483,11 +2765,12 @@ e_grade:
   # ============================================
   e1_infrastructure:
     name: "E-1: Convenience & Infrastructure"
-    name_ko: "E-1: 편의/인프라"
-    count: 2
+    name_ko: "E-1: 편의 및 인프라"
+    count: 3
     businesses:
       - "Gas Station"
       - "Gas Charging Station"
+      - "Ice Retail"
 
     keyword_priorities:
       location_40: ["right by IC", "5 min from station", "easy to find"]
@@ -2570,17 +2853,22 @@ e_grade:
       - 고속도로주유소
       - 기름값
       - 저렴한주유소
+      - 얼음
+      - 얼음판매
+      - 얼음배달
+      - 각얼음
+      - 식용얼음
 
   # ============================================
   # E-2: Etiquette & Ceremony
   # ============================================
   e2_ceremony:
     name: "E-2: Etiquette & Ceremony"
-    name_ko: "E-2: 예절/의례"
+    name_ko: "E-2: 예절 및 의례"
     count: 2
     businesses:
       - "Funeral Hall"
-      - "Crematorium/Cemetery/Charnel House"
+      - "Crematorium/Cemetery/Ossuary"
 
     keyword_priorities:
       dignity_respect_40: ["solemn", "respectful", "honoring"]

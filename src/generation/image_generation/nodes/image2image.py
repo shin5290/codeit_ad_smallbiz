@@ -16,9 +16,13 @@ from typing import Dict, Any, Optional
 import torch
 from PIL import Image
 
+from src.utils.logging import get_logger
+
 from .base import BaseNode
 from ..config import aspect_ratio_templates
 from ..shared_cache import get_i2i_pipeline, flush_shared_cache
+
+logger = get_logger(__name__)
 
 # ==============================================================================
 # ★ 전역 상태 관리 (공유 캐시 사용)
@@ -56,7 +60,7 @@ class Image2ImageNode(BaseNode):
 
     def load_pipeline(self):
         """공유 캐시를 사용하여 I2I 파이프라인 로드"""
-        print(f"[{self.node_name}] Loading I2I pipeline (shared cache)...")
+        logger.info(f"[{self.node_name}] Loading I2I pipeline (shared cache)...")
         return get_i2i_pipeline(self.device)
 
     def get_generator_device(self, pipe):
@@ -94,7 +98,7 @@ class Image2ImageNode(BaseNode):
             # 입력 이미지 리사이즈
             reference_image = reference_image.resize((width, height), Image.Resampling.LANCZOS)
 
-            print(f"[{self.node_name}] Input: {width}x{height}, strength={strength}")
+            logger.info(f"[{self.node_name}] Input: {width}x{height}, strength={strength}")
 
             # 파이프라인 로드
             pipe = self.load_pipeline()
@@ -108,7 +112,7 @@ class Image2ImageNode(BaseNode):
 
             generator = torch.Generator(device=exec_device).manual_seed(seed)
 
-            print(f"[{self.node_name}] Generating I2I ({width}x{height}, seed={seed}, strength={strength})...")
+            logger.info(f"[{self.node_name}] Generating I2I ({width}x{height}, seed={seed}, strength={strength})...")
 
             # I2I 생성
             with torch.no_grad():
@@ -127,7 +131,7 @@ class Image2ImageNode(BaseNode):
             # 주기적 메모리 정리 (5회마다)
             _EXECUTION_COUNT += 1
             if _EXECUTION_COUNT % 5 == 0:
-                print(f"[{self.node_name}] 🧹 Periodic Memory Cleanup (Count: {_EXECUTION_COUNT})")
+                logger.info(f"[{self.node_name}] 🧹 Periodic Memory Cleanup (Count: {_EXECUTION_COUNT})")
                 gc.collect()
                 torch.cuda.empty_cache()
 

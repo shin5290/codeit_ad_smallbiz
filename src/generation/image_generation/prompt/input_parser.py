@@ -29,6 +29,8 @@ try:
 except ImportError:
     OPENAI_AVAILABLE = False
 
+from src.utils.logging import get_logger
+
 
 class InputParser:
     """
@@ -79,6 +81,8 @@ Example output:
 
         self.client = OpenAI(api_key=api_key)
         self.model = model
+
+        self.logger = get_logger(__name__)
 
     def parse(
         self,
@@ -137,10 +141,11 @@ Example output:
 
         except json.JSONDecodeError as e:
             # JSON 파싱 실패 시 기본 구조 반환
+            self.logger.error(f"⚠️ JSON 파싱 실패, 기본 구조 반환: {e}")
             return self._fallback_parse(korean_input, style)
         except Exception as e:
             # API 호출 실패 시 기본 구조 반환
-            print(f"⚠️ GPT API 호출 실패: {e}")
+            self.logger.error(f"⚠️ GPT API 호출 실패, 기본 구조 반환: {e}")
             return self._fallback_parse(korean_input, style)
 
     def _fallback_parse(self, korean_input: str, style: str) -> Dict[str, str]:

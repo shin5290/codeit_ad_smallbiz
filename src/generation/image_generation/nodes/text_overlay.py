@@ -9,8 +9,12 @@ from typing import Dict, Any, Tuple
 from PIL import Image, ImageDraw, ImageFilter
 import copy
 
+from src.utils.logging import get_logger
+
 from .base import BaseNode
 from ..tools.font_loader import load_font
+
+logger = get_logger(__name__)
 
 
 class TextOverlayNode(BaseNode):
@@ -71,10 +75,10 @@ class TextOverlayNode(BaseNode):
 
         # layout_spec이 없으면 원본 이미지 그대로 반환
         if not layout_spec:
-            print(f"[{self.node_name}] ⏭️  No layout_spec provided, skipping text overlay")
+            logger.info(f"[{self.node_name}] ⏭️  No layout_spec provided, skipping text overlay")
             return {"image": image}
 
-        print(f"[{self.node_name}] Applying text overlay...")
+        logger.info(f"[{self.node_name}] Applying text overlay...")
 
         # 이미지 복사 (원본 보존)
         canvas = image.copy()
@@ -82,10 +86,10 @@ class TextOverlayNode(BaseNode):
         # 각 레이어를 순차적으로 렌더링
         layers = layout_spec.get("layers", [])
         for i, layer in enumerate(layers):
-            print(f"   Rendering layer {i+1}/{len(layers)}: \"{layer.get('text', '')}\"")
+            logger.info(f"   Rendering layer {i+1}/{len(layers)}: \"{layer.get('text', '')}\"")
             canvas = self._render_layer(canvas, layer)
 
-        print(f"[{self.node_name}] ✅ Text overlay complete")
+        logger.info(f"[{self.node_name}] ✅ Text overlay complete")
 
         return {"image": canvas}
 
@@ -207,14 +211,17 @@ class TextOverlayNode(BaseNode):
         if canvas.mode != "RGBA":
             canvas = canvas.convert("RGBA")
 
-        # 텍스트 레이어 생성 (투명 배경)
+        # Separate layers for shadow and main text to avoid blurring text/box
+        shadow_layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+        shadow_draw = ImageDraw.Draw(shadow_layer)
+
         text_layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(text_layer)
+        text_draw = ImageDraw.Draw(text_layer)
 
         # 1. Background Box
         bg_box = effects.get("background_box", {})
         if bg_box.get("enabled", False):
-            self._draw_background_box(draw, text, position, font, bg_box)
+            self._draw_background_box(text_draw, text, position, font, bg_box)
 
         # 2. Shadow
         shadow = effects.get("shadow", {})
@@ -228,31 +235,33 @@ class TextOverlayNode(BaseNode):
             shadow_pos = (position[0] + offset_x, position[1] + offset_y)
 
             # 그림자 렌더링
-            draw.text(shadow_pos, text, font=font, fill=shadow_color)
+            shadow_draw.text(shadow_pos, text, font=font, fill=shadow_color)
 
             # 블러 적용
             if blur > 0:
-                text_layer = text_layer.filter(ImageFilter.GaussianBlur(radius=blur // 2))
+                shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=blur // 2))
 
-        # 3. Stroke (외곽선)
+        # 3. Main Text with Stroke (외곽선)
         stroke_spec = effects.get("stroke", {})
         if stroke_spec.get("enabled", False):
             stroke_width = stroke_spec.get("width", 2)
             stroke_color = self._rgba_tuple(stroke_spec["color"])
 
-            draw.text(
+            # Stroke + Fill을 동시에 렌더링 (PIL 내부에서 stroke를 먼저 그린 후 fill)
+            text_draw.text(
                 position,
                 text,
                 font=font,
-                fill=stroke_color,
+                fill=text_color,
                 stroke_width=stroke_width,
                 stroke_fill=stroke_color
             )
+        else:
+            # Stroke 없으면 일반 텍스트만
+            text_draw.text(position, text, font=font, fill=text_color)
 
-        # 4. Main Text
-        draw.text(position, text, font=font, fill=text_color)
-
-        # 텍스트 레이어를 캔버스에 합성
+        # Composite in order: shadow -> text
+        canvas = Image.alpha_composite(canvas, shadow_layer)
         canvas = Image.alpha_composite(canvas, text_layer)
 
         return canvas

@@ -32,6 +32,13 @@ export PYTHONNOUSERSITE=1
 # 앱 디렉토리 이동
 cd ~/codeit_ad_smallbiz
 
+# .env 로드 (환경변수 export)
+if [ -f .env ]; then
+  set -a
+  source .env
+  set +a
+fi
+
 # 서버 실행
 exec python -m uvicorn main:app \
   --host 0.0.0.0 \
