@@ -1,28 +1,40 @@
 """
 광고 문구 생성 모듈
 작성자: 배현석
-버전: 1.0
+버전: 1.1 (신승목, 로깅 추가)
 """
 
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from src.generation.text_generation.prompt_manager import PromptTemplateManager
+from src.utils.logging import get_logger
+
+logger = get_logger(__name__)
 load_dotenv()
 
 
 class TextGenerator:
     """광고 문구 생성 클래스"""
-    
-    def __init__(self):
-        """초기화: OpenAI 클라이언트 설정"""
+
+    def __init__(self, use_industry_config: bool = True):
+        """
+        초기화: OpenAI 클라이언트 설정
+
+        Args:
+            use_industry_config (bool): True이면 PromptTemplateManager를 사용하여
+                                        업종별 최적화된 프롬프트 생성
+        """
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다.")
-        
+
         self.client = OpenAI(api_key=api_key)
         self.model = "gpt-4o-mini"
-    
+        self.use_industry_config = use_industry_config
+        self.prompt_manager = PromptTemplateManager()
+
     def generate_ad_copy(self, user_input, tone="warm", max_length=100, chat_history=None, industry=None):
         """
         광고 문구 생성
@@ -39,16 +51,31 @@ class TextGenerator:
                 예: "따뜻한 겨울, 새로운 맛"
         """
 
-        print(f"📝 광고 문구 생성 중...")
-        print(f"   입력: {user_input}")
-        print(f"   톤: {tone}, 최대 {max_length}자, 업종: {industry or 'general'}")
+        logger.info("📝 광고 문구 생성 중...")
+        logger.info(f"   입력: {user_input}")
+        logger.info(f"   톤: {tone}, 최대 {max_length}자, 업종: {industry or 'general'}")
+        logger.info(f"   업종 설정 사용: {self.use_industry_config}")
         try:
-            # 1. 시스템 프롬프트 선택 (대화 히스토리와 업종 정보 포함)
-            system_prompt = self._get_system_prompt(tone, max_length, chat_history, industry)
+            # 업종별 설정 사용 시 PromptTemplateManager 활용
+            if self.use_industry_config and self.prompt_manager:
+                prompts = self.prompt_manager.get_ad_copy_prompt(
+                    user_input=user_input,
+                    tone=tone,
+                    max_length=max_length,
+                    industry=industry
+                )
+                system_prompt = prompts["system_prompt"]
+                user_prompt = prompts["user_prompt"]
+                # 자동 감지된 업종 정보 출력
+                detected_industry = prompts.get("industry", industry)
+                logger.info(f"   감지된 업종: {detected_industry}")
+            else:
+                # 1. 시스템 프롬프트 선택 (대화 히스토리와 업종 정보 포함)
+                system_prompt = self._get_system_prompt(tone, max_length, chat_history, industry)
 
-            # 2. 사용자 프롬프트 구성
-            user_prompt = self._build_user_prompt(user_input, max_length, chat_history)
-            
+                # 2. 사용자 프롬프트 구성
+                user_prompt = self._build_user_prompt(user_input, max_length, chat_history)
+
             # 3. GPT API 호출
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -59,23 +86,23 @@ class TextGenerator:
                 temperature=0.7,
                 max_tokens=100
             )
-            
+
             # 4. 응답 추출
             ad_copy = response.choices[0].message.content.strip()
-            
+
             # 5. 후처리
             ad_copy = self._postprocess(ad_copy, max_length)
-            
-            print(f"✅ 생성 완료: {ad_copy}")
+
+            logger.info(f"✅ 생성 완료: {ad_copy}")
             return ad_copy
-            
+
         except Exception as e:
-            print(f"❌ 오류 발생: {e}")
+            logger.error(f"❌ 오류 발생: {e}")
             return self._get_fallback_copy()
-    
+
     def _get_system_prompt(self, tone, max_length, chat_history=None, industry=None):
         """톤, 대화 히스토리, 업종에 따른 시스템 프롬프트 반환"""
-        
+
         base_prompt = f"""당신은 소상공인을 위한 전문 광고 카피라이터입니다.
 짧고 임팩트 있는 광고 문구를 만들어주세요.
 
@@ -85,16 +112,16 @@ class TextGenerator:
 - 사용자 별다른 요청 없을시 무조건 한국어로 작성
 - 사용자 요청시 요청한 언어로 작성
 - 광고 문구 1개만 생성"""
-        
+
         tone_styles = {
             "warm": "따뜻하고 감성적인 톤으로 작성하세요. 편안하고 아늑한 느낌을 주세요.",
             "professional": "전문적이고 신뢰감 있는 톤으로 작성하세요. 격식 있고 세련된 느낌을 주세요.",
             "friendly": "친근하고 편안한 톤으로 작성하세요. 대화하듯 자연스러운 느낌을 주세요.",
             "energetic": "활기차고 역동적인 톤으로 작성하세요. 열정적이고 긍정적인 느낌을 주세요."
         }
-        
+
         tone_guide = tone_styles.get(tone, tone_styles["warm"])
-        
+
         # 업종별 가이드라인 추가 (30개)
         industry_guides = {
             # 1-10: 기존 업종
@@ -108,7 +135,7 @@ class TextGenerator:
             "nail_salon": "네일샵은 '섬세함', '아름다운 디테일', '감각', '자기 표현'을 강조하세요. 손끝의 예술과 케어를 표현합니다.",
             "flower_shop": "꽃집은 '감성', '특별한 날', '마음 전달', '아름다움', '자연'을 강조하세요. 꽃의 의미와 감동을 살립니다.",
             "laundry": "세탁소는 '깨끗함', '편리함', '신뢰', '전문 케어'를 강조하세요. 옷의 수명 연장과 안심을 전합니다.",
-            
+
             # 11-20: 추가 생활 서비스
             "convenience_store": "편의점은 '편리함', '24시간', '빠른 해결', '일상 필수'를 강조하세요. 언제나 가까운 곳에서의 편의성을 전합니다.",
             "pharmacy": "약국은 '건강', '전문 상담', '신뢰', '정확함', '케어'를 강조하세요. 건강 지킴이로서의 전문성을 표현합니다.",
@@ -120,7 +147,7 @@ class TextGenerator:
             "pc_cafe": "PC방은 '게임', '몰입', '편안함', '최신 시설', '친구와 함께'를 강조하세요. 게임 환경과 즐거움을 표현합니다.",
             "karaoke": "노래방은 '스트레스 해소', '즐거움', '추억', '자유로움', '신나는 시간'을 강조하세요. 노래를 통한 힐링과 즐거움을 전합니다.",
             "academy": "학원은 '성적 향상', '전문 강사', '체계적 학습', '미래 준비', '성공'을 강조하세요. 교육의 질과 성과를 표현합니다.",
-            
+
             # 21-30: 전문 서비스 및 기타
             "yoga": "요가/필라테스는 '균형', '유연성', '힐링', '건강한 몸과 마음', '명상'을 강조하세요. 몸과 마음의 조화를 표현합니다.",
             "massage": "마사지/스파는 '힐링', '릴랙스', '피로 회복', '프리미엄 케어', '재충전'을 강조하세요. 깊은 휴식과 회복을 전합니다.",
@@ -133,11 +160,11 @@ class TextGenerator:
             "interior": "인테리어는 '공간 변신', '맞춤 디자인', '감각', '실용성과 미학', '꿈의 공간'을 강조하세요. 공간의 완전한 변화를 표현합니다.",
             "cleaning_service": "청소/이사는 '깨끗함', '편리함', '전문성', '신뢰', '새로운 시작'을 강조하세요. 청결과 편의성을 전합니다.",
         }
-        
+
         industry_guide = ""
         if industry and industry in industry_guides:
             industry_guide = f"\n\n업종 특화 가이드라인:\n{industry_guides[industry]}"
-        
+
         # 대화 히스토리 컨텍스트 추가
         history_context = ""
         if chat_history:
@@ -146,12 +173,12 @@ class TextGenerator:
                 role = msg.get('role', 'unknown')
                 content = (msg.get('content') or '')[:150]  # 150자로 제한
                 history_context += f"- {role}: {content}\n"
-        
+
         return f"{base_prompt}\n\n톤 앤 매너:\n{tone_guide}{industry_guide}{history_context}"
-    
+
     def _build_user_prompt(self, user_input, max_length, chat_history=None):
         """사용자 프롬프트 구성"""
-        
+
         # 대화 맥락이 있으면 누적 요구사항 정리
         context_note = ""
         if chat_history and len(chat_history) > 1:
@@ -167,25 +194,25 @@ class TextGenerator:
 - 감성적이면서도 명확한 메시지 전달
 
 광고 문구:"""
-    
+
     def _postprocess(self, text, max_length):
         """텍스트 후처리"""
-        
+
         # 1. 불필요한 문자 제거
         text = text.replace("1. ", "").replace("2. ", "").replace("- ", "")
         text = text.replace('"', '').replace("'", "").replace('「', '').replace('」', '')
         text = text.strip()
-        
+
         # 2. 길이 제한
         if len(text) > max_length:
             text = text[:max_length].strip()
-        
+
         # 3. 빈 문자열 체크
         if not text:
             return self._get_fallback_copy()
-        
+
         return text
-    
+
     def _get_fallback_copy(self):
         """GPT 실패 시 기본 문구 반환"""
         return "특별한 순간을 함께하세요"
@@ -196,9 +223,9 @@ if __name__ == "__main__":
     print("=" * 60)
     print("📝 TextGenerator 테스트")
     print("=" * 60)
-    
+
     generator = TextGenerator()
-    
+
     # 테스트 케이스들
     test_cases = [
         {
@@ -214,20 +241,20 @@ if __name__ == "__main__":
             "tone": "professional"
         }
     ]
-    
+
     for i, test in enumerate(test_cases, 1):
         print(f"\n{'='*60}")
         print(f"테스트 {i}")
         print(f"{'='*60}")
-        
+
         result = generator.generate_ad_copy(
             user_input=test["input"],
             tone=test["tone"]
         )
-        
+
         print(f"\n결과: '{result}'")
         print(f"길이: {len(result)}자")
-    
+
     print(f"\n{'='*60}")
     print("✅ 모든 테스트 완료!")
     print(f"{'='*60}")
