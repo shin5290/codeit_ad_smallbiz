@@ -160,12 +160,15 @@ def update_user(db: Session, current_user, update: schemas.UpdateUserRequest):
     if not verify_password(update.current_password, current_user.login_pw):
         raise HTTPException(400, "현재 비밀번호가 올바르지 않습니다.")
 
-    updated = process_db.update_user(
-        db=db,
-        user=current_user,
-        name=update.name if update.name is not None else None,
-        new_login_pw=update.new_password if update.new_password else None,
-    )
+    try:
+        updated = process_db.update_user(
+            db=db,
+            user=current_user,
+            name=update.name if update.name is not None else None,
+            new_login_pw=update.new_password if update.new_password else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
     return updated
 
 
@@ -618,7 +621,9 @@ async def handle_chat_message_stream(
     intent = intent_result.get("intent", "consulting")
     
     # Intent 분석 결과에서 생성 파라미터 추출
-    generation_type = intent_result.get("generation_type") or "image"
+    generation_type = intent_result.get("generation_type")
+    if intent != "consulting":
+        generation_type = generation_type or "image"
     aspect_ratio = intent_result.get("aspect_ratio")
     style = intent_result.get("style")
     industry = intent_result.get("industry")

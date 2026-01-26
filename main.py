@@ -14,6 +14,7 @@ from src.backend.routers import admin, auth, chat
 from src.utils.image import get_image_file_response
 from src.utils.logging import setup_logging, get_logger
 from src.generation.image_generation.preload import start_model_preload
+from src.backend.rag_preload import start_rag_preload
 
 
 # 로깅 설정
@@ -28,6 +29,10 @@ async def lifespan(app: FastAPI):
     # 이미지 생성 모델 preload (GPU에 미리 올려둠)
     logger.info("Starting model preload in background...")
     start_model_preload(device="cuda")
+
+    # 상담 RAG preload (벡터스토어/임베딩 모델)
+    logger.info("Starting RAG preload in background...")
+    start_rag_preload()
     logger.info("Server startup complete!")
 
     yield
