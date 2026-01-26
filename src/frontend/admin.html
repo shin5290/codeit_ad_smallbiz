@@ -6,331 +6,15 @@
     <title>관리자 페이지</title>
     <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon.png">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
-    <style>
-        :root {
-            color-scheme: light;
+    <script>
+        try {
+            const savedView = sessionStorage.getItem('admin_view');
+            document.documentElement.dataset.view = savedView === 'generations' ? 'generations' : 'users';
+        } catch {
+            document.documentElement.dataset.view = 'users';
         }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            font-family: 'IBM Plex Sans KR', 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
-            background: #f5f6f8;
-            color: #1f2937;
-        }
-
-        .layout {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        .sidebar {
-            width: 240px;
-            background: #1f2937;
-            color: #f9fafb;
-            display: flex;
-            flex-direction: column;
-            padding: 24px 18px;
-            gap: 18px;
-        }
-
-        .brand {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: #f9fafb;
-        }
-
-        .nav {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .nav button {
-            border: none;
-            background: transparent;
-            color: #d1d5db;
-            padding: 10px 12px;
-            border-radius: 8px;
-            text-align: left;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .nav button.active,
-        .nav button:hover {
-            background: #374151;
-            color: #fff;
-        }
-
-        .sidebar-footer {
-            margin-top: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .sidebar-footer button {
-            border: none;
-            background: #111827;
-            color: #f9fafb;
-            padding: 10px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        .content {
-            flex: 1;
-            padding: 32px 36px 48px;
-        }
-
-        .content h2 {
-            margin: 0 0 16px;
-            font-size: 1.2rem;
-        }
-
-        .panel {
-            background: #fff;
-            border-radius: 16px;
-            padding: 18px 20px;
-            box-shadow: 0 6px 20px rgba(17, 24, 39, 0.08);
-        }
-
-        .panel + .panel {
-            margin-top: 18px;
-        }
-
-        .toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-
-        .toolbar .left,
-        .toolbar .right {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        button.primary {
-            background: #4f46e5;
-            color: #fff;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        button.secondary {
-            background: #e5e7eb;
-            color: #1f2937;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        button.danger {
-            background: #ef4444;
-            color: #fff;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.92rem;
-        }
-
-        thead {
-            background: #f3f4f6;
-        }
-
-        th,
-        td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #e5e7eb;
-            text-align: left;
-            vertical-align: top;
-        }
-
-        th {
-            font-weight: 600;
-            color: #374151;
-        }
-
-        .table-scroll {
-            overflow-x: auto;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 999px;
-            font-size: 0.75rem;
-            background: #eef2ff;
-            color: #4338ca;
-        }
-
-        .thumb {
-            width: 56px;
-            height: 56px;
-            object-fit: cover;
-            border-radius: 8px;
-            border: 1px solid #e5e7eb;
-            cursor: pointer;
-        }
-
-        details {
-            cursor: pointer;
-        }
-
-        details summary {
-            color: #4f46e5;
-            font-weight: 600;
-        }
-
-        details .detail-text {
-            margin-top: 8px;
-            white-space: pre-wrap;
-            line-height: 1.5;
-            background: #f9fafb;
-            border-radius: 8px;
-            padding: 10px;
-        }
-
-        .filters {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 10px;
-        }
-
-        .filters label {
-            font-size: 0.8rem;
-            color: #6b7280;
-        }
-
-        .filters input,
-        .filters select {
-            width: 100%;
-            padding: 8px 10px;
-            border-radius: 8px;
-            border: 1px solid #d1d5db;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .pagination {
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-            margin-top: 12px;
-            align-items: center;
-        }
-
-        .status-text {
-            font-size: 0.9rem;
-            color: #6b7280;
-        }
-
-        .login-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 50;
-        }
-
-        .login-panel {
-            width: 320px;
-            background: #fff;
-            border-radius: 16px;
-            padding: 24px;
-            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.2);
-        }
-
-        .login-panel h3 {
-            margin-top: 0;
-        }
-
-        .login-panel input {
-            width: 100%;
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #d1d5db;
-            margin-bottom: 10px;
-        }
-
-        .login-panel button {
-            width: 100%;
-            padding: 10px;
-            border: none;
-            border-radius: 8px;
-            background: #4f46e5;
-            color: #fff;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        #image-modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-        }
-
-        #image-modal img {
-            max-width: 80vw;
-            max-height: 80vh;
-            border-radius: 16px;
-        }
-
-        #image-modal.hidden {
-            display: none;
-        }
-
-        @media (max-width: 960px) {
-            .layout {
-                flex-direction: column;
-            }
-
-            .sidebar {
-                width: 100%;
-                flex-direction: row;
-                align-items: center;
-                justify-content: space-between;
-                padding: 16px;
-            }
-
-            .nav {
-                flex-direction: row;
-            }
-
-            .content {
-                padding: 20px;
-            }
-        }
-    </style>
+    </script>
+    <link rel="stylesheet" href="/static/admin.css">
 </head>
 
 <body>
@@ -353,8 +37,41 @@
                         <h2>회원목록</h2>
                         <span id="userCount" class="status-text"></span>
                     </div>
-                    <div class="right">
-                        <button id="deleteUsersBtn" class="danger">선택 삭제</button>
+                </div>
+                <div class="panel" style="background:#f9fafb; box-shadow:none; margin-bottom: 15px;">
+                    <div class="filters">
+                        <div class="search-type">
+                            <select id="userSearchTypeSelect" aria-label="검색 타입">
+                                <option value="login_id">사용자 ID</option>
+                                <option value="user_id">USER ID</option>
+                                <option value="created_at">가입일</option>
+                                <option value="role">권한</option>
+                                <option value="name">이름</option>
+                            </select>
+                        </div>
+                        <div class="search-field" data-search-scope="user" data-search-type="login_id">
+                            <input type="text" id="userFilterLoginId" placeholder="예: admin" aria-label="사용자 ID">
+                        </div>
+                        <div class="search-field hidden" data-search-scope="user" data-search-type="user_id">
+                            <input type="number" id="userFilterUserId" placeholder="예: 1" aria-label="user ID">
+                        </div>
+                        <div class="search-field hidden" data-search-scope="user" data-search-type="name">
+                            <input type="text" id="userFilterName" placeholder="예: 홍길동" aria-label="이름">
+                        </div>
+                        <div class="search-field hidden" data-search-scope="user" data-search-type="created_at">
+                            <input type="date" id="userFilterCreatedDate" aria-label="가입일">
+                        </div>
+                        <div class="search-field hidden" data-search-scope="user" data-search-type="role">
+                            <select id="userFilterRole" aria-label="권한">
+                                <option value="">전체</option>
+                                <option value="admin">admin</option>
+                                <option value="user">user</option>
+                            </select>
+                        </div>
+                        <div class="search-actions">
+                            <button id="searchUsersBtn" class="primary">검색</button>
+                            <button id="resetUsersBtn" class="secondary">초기화</button>
+                        </div>
                     </div>
                 </div>
                 <div class="table-scroll">
@@ -362,15 +79,26 @@
                         <thead>
                             <tr>
                                 <th><input type="checkbox" id="selectAllUsers"></th>
-                                <th>login_id</th>
-                                <th>user_id</th>
-                                <th>name</th>
+                                <th>사용자 ID</th>
+                                <th>USER ID</th>
+                                <th>이름</th>
                                 <th>가입일</th>
                                 <th>권한</th>
                             </tr>
                         </thead>
                         <tbody id="userTableBody"></tbody>
                     </table>
+                </div>
+                <div class="table-footer">
+                    <button id="deleteUsersBtn" class="danger">선택 삭제</button>
+                    <div class="pagination">
+                        <button id="userPrevPageBtn" class="secondary">이전</button>
+                        <div class="status-text">
+                            <input type="number" id="userPageInput" class="page-input" min="1" step="1" aria-label="회원목록 페이지 이동">
+                            <span id="userPageInfo"></span>
+                        </div>
+                        <button id="userNextPageBtn" class="secondary">다음</button>
+                    </div>
                 </div>
             </section>
 
@@ -380,41 +108,41 @@
                         <h2>생성이력</h2>
                         <span id="generationCount" class="status-text"></span>
                     </div>
-                    <div class="right">
-                        <button id="searchGenerationsBtn" class="primary">검색</button>
-                        <button id="resetGenerationsBtn" class="secondary">초기화</button>
-                    </div>
                 </div>
 
-                <div class="panel" style="background:#f9fafb; box-shadow:none;">
+                <div class="panel" style="background:#f9fafb; box-shadow:none; margin-bottom: 15px;">
                     <div class="filters">
-                        <div>
-                            <label>사용자 ID</label>
-                            <input type="number" id="filterUserId" placeholder="예: 1">
+                        <div class="search-type">
+                            <select id="searchTypeSelect" aria-label="검색 타입">
+                                <option value="login_id">사용자 ID</option>
+                                <option value="user_id">user ID</option>
+                                <option value="session_id">세션 ID</option>
+                                <option value="content_type">생성 타입</option>
+                                <option value="created_at">생성 날짜</option>
+                            </select>
                         </div>
-                        <div>
-                            <label>아이디</label>
-                            <input type="text" id="filterLoginId" placeholder="예: admin">
+                        <div class="search-field" data-search-scope="generation" data-search-type="login_id">
+                            <input type="text" id="filterLoginId" placeholder="예: admin" aria-label="사용자 ID">
                         </div>
-                        <div>
-                            <label>세션 ID</label>
-                            <input type="text" id="filterSessionId" placeholder="session_id">
+                        <div class="search-field hidden" data-search-scope="generation" data-search-type="user_id">
+                            <input type="number" id="filterUserId" placeholder="예: 1" aria-label="user ID">
                         </div>
-                        <div>
-                            <label>타입</label>
-                            <select id="filterContentType">
+                        <div class="search-field hidden" data-search-scope="generation" data-search-type="session_id">
+                            <input type="text" id="filterSessionId" placeholder="session_id" aria-label="세션 ID">
+                        </div>
+                        <div class="search-field hidden" data-search-scope="generation" data-search-type="content_type">
+                            <select id="filterContentType" aria-label="생성 타입">
                                 <option value="">전체</option>
                                 <option value="image">image</option>
                                 <option value="text">text</option>
                             </select>
                         </div>
-                        <div>
-                            <label>시작 날짜</label>
-                            <input type="date" id="filterStartDate">
+                        <div class="search-field hidden" data-search-scope="generation" data-search-type="created_at">
+                            <input type="date" id="filterCreatedDate" aria-label="생성 날짜">
                         </div>
-                        <div>
-                            <label>종료 날짜</label>
-                            <input type="date" id="filterEndDate">
+                        <div class="search-actions">
+                            <button id="searchGenerationsBtn" class="primary">검색</button>
+                            <button id="resetGenerationsBtn" class="secondary">초기화</button>
                         </div>
                     </div>
                 </div>
@@ -423,21 +151,11 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>ID</th>
-                                <th>사용자/세션</th>
-                                <th>content_type</th>
-                                <th>input_text</th>
-                                <th>output_text</th>
-                                <th>prompt</th>
-                                <th>input_image</th>
-                                <th>output_image</th>
-                                <th>generation_method</th>
-                                <th>style</th>
-                                <th>industry</th>
-                                <th>seed</th>
-                                <th>strength</th>
-                                <th>aspect_ratio</th>
-                                <th>created_at</th>
+                                <th class="nowrap">사용자</th>
+                                <th>입력</th>
+                                <th>생성</th>
+                                <th>메타 데이터</th>
+                                <th>생성 날짜</th>
                             </tr>
                         </thead>
                         <tbody id="generationTableBody"></tbody>
@@ -445,7 +163,10 @@
                 </div>
                 <div class="pagination">
                     <button id="prevPageBtn" class="secondary">이전</button>
-                    <span id="pageInfo" class="status-text"></span>
+                    <div class="status-text">
+                        <input type="number" id="pageInput" class="page-input" min="1" step="1" aria-label="페이지 이동">
+                        <span id="pageInfo"></span>
+                    </div>
                     <button id="nextPageBtn" class="secondary">다음</button>
                 </div>
             </section>
@@ -463,302 +184,31 @@
     </div>
 
     <div id="image-modal" class="hidden" onclick="closeImageModal()">
+        <span class="close-modal">&times;</span>
         <img id="modal-image" src="" alt="preview">
     </div>
 
-    <script>
-        const API_BASE = window.location.origin;
-        const limit = 5;
-        let currentPage = 1;
-        let totalPages = 1;
-        let isReady = false;
+    <div id="text-modal" class="hidden">
+        <div class="text-modal-panel">
+            <div class="text-modal-header">
+                <h3 id="text-modal-title">텍스트 상세</h3>
+                <button type="button" class="text-modal-close" id="text-modal-close">닫기</button>
+            </div>
+            <div id="text-modal-content" class="text-modal-content"></div>
+        </div>
+    </div>
 
-        const userTableBody = document.getElementById('userTableBody');
-        const userCount = document.getElementById('userCount');
-        const generationTableBody = document.getElementById('generationTableBody');
-        const generationCount = document.getElementById('generationCount');
-        const pageInfo = document.getElementById('pageInfo');
-        const loginOverlay = document.getElementById('loginOverlay');
-        const loginError = document.getElementById('loginError');
+    <div id="user-modal" class="hidden">
+        <div class="text-modal-panel">
+            <div class="text-modal-header">
+                <h3 id="user-modal-title">사용자 정보</h3>
+                <button type="button" class="text-modal-close" id="user-modal-close">닫기</button>
+            </div>
+            <div id="user-modal-list" class="user-modal-content"></div>
+        </div>
+    </div>
 
-        function escapeHtml(str) {
-            return String(str ?? "")
-                .replaceAll("&", "&amp;")
-                .replaceAll("<", "&lt;")
-                .replaceAll(">", "&gt;")
-                .replaceAll('"', "&quot;")
-                .replaceAll("'", "&#039;");
-        }
-
-        async function safeJson(res) {
-            try {
-                return await res.json();
-            } catch {
-                return {};
-            }
-        }
-
-        function showLogin(message) {
-            loginOverlay.classList.remove('hidden');
-            loginError.textContent = message || "관리자 계정으로 로그인하세요.";
-        }
-
-        function hideLogin() {
-            loginOverlay.classList.add('hidden');
-            loginError.textContent = "";
-        }
-
-        function setActiveView(view) {
-            document.querySelectorAll('.nav button').forEach((btn) => {
-                btn.classList.toggle('active', btn.dataset.view === view);
-            });
-            document.getElementById('view-users').classList.toggle('hidden', view !== 'users');
-            document.getElementById('view-generations').classList.toggle('hidden', view !== 'generations');
-        }
-
-        async function fetchUsers() {
-            const res = await fetch(`${API_BASE}/admin/users?limit=200&offset=0`, {
-                credentials: 'include',
-            });
-            if (!res.ok) {
-                const data = await safeJson(res);
-                showLogin(data.detail || "관리자 권한이 필요합니다.");
-                return;
-            }
-
-            const data = await safeJson(res);
-            const users = data.users || [];
-            userTableBody.innerHTML = '';
-            users.forEach((user) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td><input type="checkbox" class="user-check" data-user-id="${user.user_id}"></td>
-                    <td>${escapeHtml(user.login_id)}</td>
-                    <td>${user.user_id}</td>
-                    <td>${escapeHtml(user.name)}</td>
-                    <td>${new Date(user.created_at).toLocaleString()}</td>
-                    <td>${user.is_admin ? '<span class="badge">admin</span>' : 'user'}</td>
-                `;
-                userTableBody.appendChild(row);
-            });
-            userCount.textContent = `총 ${data.total || 0}명`;
-            document.getElementById('selectAllUsers').checked = false;
-            hideLogin();
-            isReady = true;
-        }
-
-        function buildDetailCell(text) {
-            if (!text) return '-';
-            const safe = escapeHtml(text);
-            return `
-                <details>
-                    <summary>보기</summary>
-                    <div class="detail-text">${safe}</div>
-                </details>
-            `;
-        }
-
-        function buildImageCell(image) {
-            if (!image || !image.file_hash) return '-';
-            const url = `${API_BASE}/images/${image.file_hash}`;
-            return `<img class="thumb" src="${url}" onclick="openImageModal('${url}')">`;
-        }
-
-        async function fetchGenerations() {
-            const params = new URLSearchParams();
-            params.set('page', String(currentPage));
-            params.set('limit', String(limit));
-
-            const userId = document.getElementById('filterUserId').value;
-            const loginId = document.getElementById('filterLoginId').value;
-            const sessionId = document.getElementById('filterSessionId').value;
-            const contentType = document.getElementById('filterContentType').value;
-            const startDate = document.getElementById('filterStartDate').value;
-            const endDate = document.getElementById('filterEndDate').value;
-
-            if (userId) params.set('user_id', userId);
-            if (loginId) params.set('login_id', loginId);
-            if (sessionId) params.set('session_id', sessionId);
-            if (contentType) params.set('content_type', contentType);
-            if (startDate) params.set('start_date', startDate);
-            if (endDate) params.set('end_date', endDate);
-
-            const res = await fetch(`${API_BASE}/admin/generations?${params.toString()}`, {
-                credentials: 'include',
-            });
-            if (!res.ok) {
-                const data = await safeJson(res);
-                showLogin(data.detail || "관리자 권한이 필요합니다.");
-                return;
-            }
-
-            const data = await safeJson(res);
-            const items = data.items || [];
-            generationTableBody.innerHTML = '';
-
-            items.forEach((item) => {
-                const row = document.createElement('tr');
-                const userLabel = item.login_id
-                    ? `${escapeHtml(item.login_id)} (${escapeHtml(item.name || '')})`
-                    : 'guest';
-                row.innerHTML = `
-                    <td>${item.id}</td>
-                    <td>
-                        ${userLabel}<br>
-                        <span class="status-text">${escapeHtml(item.session_id)}</span>
-                    </td>
-                    <td>${escapeHtml(item.content_type)}</td>
-                    <td>${buildDetailCell(item.input_text)}</td>
-                    <td>${buildDetailCell(item.output_text)}</td>
-                    <td>${buildDetailCell(item.prompt)}</td>
-                    <td>${buildImageCell(item.input_image)}</td>
-                    <td>${buildImageCell(item.output_image)}</td>
-                    <td>${escapeHtml(item.generation_method || '-')}</td>
-                    <td>${escapeHtml(item.style || '-')}</td>
-                    <td>${escapeHtml(item.industry || '-')}</td>
-                    <td>${item.seed ?? '-'}</td>
-                    <td>${item.strength ?? '-'}</td>
-                    <td>${escapeHtml(item.aspect_ratio || '-')}</td>
-                    <td>${new Date(item.created_at).toLocaleString()}</td>
-                `;
-                generationTableBody.appendChild(row);
-            });
-
-            const total = data.total || 0;
-            totalPages = Math.max(1, Math.ceil(total / limit));
-            generationCount.textContent = `총 ${total}건`;
-            pageInfo.textContent = `${currentPage} / ${totalPages}`;
-            hideLogin();
-            isReady = true;
-        }
-
-        async function deleteSelectedUsers() {
-            const checked = Array.from(document.querySelectorAll('.user-check:checked'));
-            const ids = checked.map((el) => Number(el.dataset.userId));
-            if (!ids.length) {
-                alert('삭제할 사용자를 선택하세요.');
-                return;
-            }
-            if (!confirm(`선택한 ${ids.length}명을 삭제하시겠습니까?`)) return;
-
-            const res = await fetch(`${API_BASE}/admin/users/delete`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ user_ids: ids }),
-            });
-
-            const data = await safeJson(res);
-            if (!res.ok) {
-                alert(data.detail || '삭제에 실패했습니다.');
-                return;
-            }
-
-            if (data.skipped_ids && data.skipped_ids.length) {
-                alert(`삭제 제외: ${data.skipped_ids.join(', ')}`);
-            }
-            await fetchUsers();
-        }
-
-        async function handleLogin() {
-            const loginId = document.getElementById('loginId').value;
-            const loginPw = document.getElementById('loginPw').value;
-            if (!loginId || !loginPw) {
-                loginError.textContent = '아이디와 비밀번호를 입력하세요.';
-                return;
-            }
-
-            const body = new URLSearchParams();
-            body.set('username', loginId);
-            body.set('password', loginPw);
-
-            const res = await fetch(`${API_BASE}/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                credentials: 'include',
-                body,
-            });
-
-            if (!res.ok) {
-                const data = await safeJson(res);
-                loginError.textContent = data.detail || '로그인 실패';
-                return;
-            }
-
-            hideLogin();
-            await fetchUsers();
-            await fetchGenerations();
-        }
-
-        async function handleLogout() {
-            await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
-            showLogin('로그아웃되었습니다.');
-        }
-
-        function resetFilters() {
-            document.getElementById('filterUserId').value = '';
-            document.getElementById('filterLoginId').value = '';
-            document.getElementById('filterSessionId').value = '';
-            document.getElementById('filterContentType').value = '';
-            document.getElementById('filterStartDate').value = '';
-            document.getElementById('filterEndDate').value = '';
-            currentPage = 1;
-            fetchGenerations();
-        }
-
-        function openImageModal(url) {
-            const modal = document.getElementById('image-modal');
-            const img = document.getElementById('modal-image');
-            img.src = url;
-            modal.classList.remove('hidden');
-        }
-
-        function closeImageModal() {
-            const modal = document.getElementById('image-modal');
-            modal.classList.add('hidden');
-        }
-
-        document.querySelectorAll('.nav button').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                setActiveView(btn.dataset.view);
-                if (btn.dataset.view === 'generations' && isReady) {
-                    fetchGenerations();
-                }
-            });
-        });
-
-        document.getElementById('selectAllUsers').addEventListener('change', (event) => {
-            document.querySelectorAll('.user-check').forEach((checkbox) => {
-                checkbox.checked = event.target.checked;
-            });
-        });
-
-        document.getElementById('deleteUsersBtn').addEventListener('click', deleteSelectedUsers);
-        document.getElementById('searchGenerationsBtn').addEventListener('click', () => {
-            currentPage = 1;
-            fetchGenerations();
-        });
-        document.getElementById('resetGenerationsBtn').addEventListener('click', resetFilters);
-        document.getElementById('prevPageBtn').addEventListener('click', () => {
-            if (currentPage > 1) {
-                currentPage -= 1;
-                fetchGenerations();
-            }
-        });
-        document.getElementById('nextPageBtn').addEventListener('click', () => {
-            if (currentPage < totalPages) {
-                currentPage += 1;
-                fetchGenerations();
-            }
-        });
-        document.getElementById('loginBtn').addEventListener('click', handleLogin);
-        document.getElementById('logoutBtn').addEventListener('click', handleLogout);
-
-        window.addEventListener('load', async () => {
-            await fetchUsers();
-            await fetchGenerations();
-        });
-    </script>
+    <script src="/static/admin.js" defer></script>
 </body>
 
 </html>

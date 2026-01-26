@@ -16,12 +16,35 @@ def require_admin(current_user=Depends(services.get_current_user)):
 
 @router.get("/users", response_model=schemas.AdminUserListResponse)
 def list_users(
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(15, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    user_id: int | None = Query(None),
+    login_id: str | None = Query(None),
+    name: str | None = Query(None),
+    is_admin: bool | None = Query(None),
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
     db: Session = Depends(process_db.get_db),
     current_user=Depends(require_admin),
 ):
-    users, total = process_db.list_users(db, limit=limit, offset=offset)
+    start_at = None
+    end_at = None
+    if start_date:
+        start_at = datetime.combine(start_date, datetime.min.time())
+    if end_date:
+        end_at = datetime.combine(end_date, datetime.min.time()) + timedelta(days=1)
+
+    users, total = process_db.list_users(
+        db,
+        limit=limit,
+        offset=offset,
+        user_id=user_id,
+        login_id=login_id,
+        name=name,
+        is_admin=is_admin,
+        start_at=start_at,
+        end_at=end_at,
+    )
     return {"users": users, "total": total}
 
 
@@ -87,7 +110,8 @@ def list_generations(
             session_id=gen.session_id,
             before_at=gen.created_at,
         )
-        input_text = latest_input.content if latest_input else gen.input_text
+        raw_input_text = latest_input.content if latest_input else None
+        refined_input_text = gen.input_text
 
         result_items.append(
             schemas.AdminGenerationItem(
@@ -97,7 +121,8 @@ def list_generations(
                 login_id=user.login_id if user else None,
                 name=user.name if user else None,
                 content_type=gen.content_type,
-                input_text=input_text,
+                input_text=raw_input_text,
+                refined_input_text=refined_input_text,
                 output_text=gen.output_text,
                 prompt=gen.prompt,
                 input_image=(

@@ -1,4 +1,4 @@
-import os, logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request, HTTPException
@@ -10,9 +10,12 @@ from uvicorn.logging import AccessFormatter, DefaultFormatter
 
 import src.backend.process_db as process_db
 import src.backend.services as services
-from src.backend.routers import admin as admin_router, auth, chat
+from src.backend.routers import admin, auth, chat
 from src.utils.image import get_image_file_response
 from src.utils.logging import setup_logging, get_logger
+from src.generation.image_generation.preload import start_model_preload
+from src.backend.rag_preload import start_rag_preload
+
 
 # 로깅 설정
 setup_logging()
@@ -20,8 +23,20 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # DB 초기화
     process_db.init_db()
+
+    # 이미지 생성 모델 preload (GPU에 미리 올려둠)
+    logger.info("Starting model preload in background...")
+    start_model_preload(device="cuda")
+
+    # 상담 RAG preload (벡터스토어/임베딩 모델)
+    logger.info("Starting RAG preload in background...")
+    start_rag_preload()
+    logger.info("Server startup complete!")
+
     yield
+    
 
 app = FastAPI(lifespan=lifespan)
 
@@ -39,19 +54,19 @@ app.mount(
     StaticFiles(directory="src/frontend/static"),
     name="static",
 )
-
-app.include_router(admin_router.router) # 관리자 기능
+current_dir = os.path.dirname(os.path.abspath(__file__))
+app.include_router(admin.router) # 관리자 기능
 
 @app.get("/")
 async def read_index():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(current_dir, "src", "frontend", "test.html")
+    file_path = os.path.join(current_dir, "src", "frontend", "main.html")
     return FileResponse(file_path, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/admin")
-async def read_admin():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+async def read_admin(current_user=Depends(services.get_current_user_optional)):
+    if not current_user or not getattr(current_user, "is_admin", False):
+        return RedirectResponse(url="/", status_code=302)
     file_path = os.path.join(current_dir, "src", "frontend", "admin.html")
     return FileResponse(file_path, headers={"Cache-Control": "no-store"})
 
@@ -60,12 +75,15 @@ app.include_router(auth.router) # 인증 및 사용자 관리
 app.include_router(chat.router) # 챗봇 및 대화 관리
 
 
-
-
 # 이미지 서빙
 @app.get("/images/{file_hash}")
-def get_image(file_hash: str, db: Session = Depends(process_db.get_db)):
+def get_image(
+    file_hash: str,
+    request: Request,
+    size: str | None = None,
+    db: Session = Depends(process_db.get_db),
+):
     """
     “파일 경로”를 “URL”로 바꿔주는 이미지 서빙
     """
-    return get_image_file_response(db, file_hash)
+    return get_image_file_response(db, file_hash, request=request, size=size)

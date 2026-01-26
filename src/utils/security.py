@@ -6,14 +6,21 @@ from src.utils.config import settings
 
 # bcrypt 알고리즘을 사용하도록 설정
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto") 
+_MAX_BCRYPT_PASSWORD_BYTES = 72
 
 def hash_password(password: str) -> str:
     """비밀번호를 해시화(암호화)"""
+    if len(password.encode("utf-8")) > _MAX_BCRYPT_PASSWORD_BYTES:
+        raise ValueError("비밀번호는 72바이트 이하로 입력해주세요.")
     return pwd_context.hash(password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """입력된 비밀번호와 DB의 해시값을 비교"""
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except ValueError:
+        # bcrypt backend rejects >72 byte passwords; treat as mismatch.
+        return False
 
 
 def create_access_token(user_id: int, extra: dict | None = None) -> str:

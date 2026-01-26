@@ -17,10 +17,13 @@ if sys.platform == 'win32':
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 import os
+
 import json
 from dotenv import load_dotenv
 from openai import OpenAI
+
 from .config_loader import industry_config
+from src.utils.logging import get_logger
 
 load_dotenv()
 
@@ -36,6 +39,8 @@ class PromptTemplateManager:
 
         self.client = OpenAI(api_key=api_key)
         self.model = "gpt-5-mini"
+
+        self.logger = get_logger(__name__)
 
     def generate_detailed_prompt(self, user_input: str, style: str = "realistic") -> dict:
         """
@@ -56,15 +61,15 @@ class PromptTemplateManager:
                 "industry": "detected industry"
             }
         """
-        print(f"\n{'='*80}")
-        print(f"🎨 상세 프롬프트 생성 중... (GPT Direct)")
-        print(f"   입력: {user_input}")
-        print(f"{'='*80}")
+        self.logger.info(f"\n{'='*80}")
+        self.logger.info(f"🎨 상세 프롬프트 생성 중... (GPT Direct)")
+        self.logger.info(f"   입력: {user_input}")
+        self.logger.info(f"{'='*80}")
 
         try:
             # 1. 업종 자동 감지
             industry = self._detect_industry(user_input)
-            print(f"   감지된 업종: {industry}")
+            self.logger.info(f"   감지된 업종: {industry}")
 
             # 2. GPT 시스템 프롬프트 (상세 프롬프트 생성용)
             system_prompt = self._get_system_prompt_for_detailed_generation()
@@ -121,11 +126,11 @@ Remember:
             negative = prompt_data.get("negative", "")
             detected_style = prompt_data.get("style", style)
 
-            print(f"\n✅ 프롬프트 생성 완료!")
-            print(f"   Style: {detected_style}")
-            print(f"   Positive: {len(positive)} chars")
-            print(f"   Negative: {len(negative)} chars")
-            print(f"{'='*80}\n")
+            self.logger.info(f"\n✅ 프롬프트 생성 완료!")
+            self.logger.info(f"   Style: {detected_style}")
+            self.logger.info(f"   Positive: {len(positive)} chars")
+            self.logger.info(f"   Negative: {len(negative)} chars")
+            self.logger.info(f"{'='*80}\n")
 
             return {
                 "positive": positive,
@@ -135,12 +140,12 @@ Remember:
             }
 
         except Exception as e:
-            print(f"❌ 상세 프롬프트 생성 오류: {e}")
+            self.logger.error(f"❌ 상세 프롬프트 생성 오류: {e}")
             import traceback
             traceback.print_exc()
 
             # Fallback: 기본 키워드 추출 방식으로
-            print("⚠️  Fallback: 기본 키워드 추출 방식 사용")
+            self.logger.error("⚠️  Fallback: 기본 키워드 추출 방식 사용")
             return self._fallback_prompt_generation(user_input, style)
 
     def _get_system_prompt_for_detailed_generation(self) -> str:
@@ -219,7 +224,7 @@ Input: "카페 신메뉴 딸기라떼 홍보"
             return "\n".join(keywords)
 
         except Exception as e:
-            print(f"⚠️ 참고 키워드 로드 실패: {e}")
+            self.logger.error(f"⚠️ 참고 키워드 로드 실패: {e}")
             return "No reference keywords available."
 
     def _fallback_prompt_generation(self, user_input: str, style: str) -> dict:
@@ -264,13 +269,13 @@ Input: "카페 신메뉴 딸기라떼 홍보"
                 }
         """
         
-        print(f"🔍 키워드 추출 중...")
-        print(f"   입력: {user_input}")
+        self.logger.info(f"🔍 키워드 추출 중...")
+        self.logger.info(f"   입력: {user_input}")
         
         try:
             # 1. 업종 자동 감지
             industry = self._detect_industry(user_input)
-            print(f"   감지된 업종: {industry}")
+            self.logger.info(f"   감지된 업종: {industry}")
             
             # 2. 시스템 프롬프트 (키워드 추출용)
             system_prompt = self._get_system_prompt_for_extraction(industry)
@@ -298,12 +303,12 @@ Input: "카페 신메뉴 딸기라떼 홍보"
             
             keywords = json.loads(result)
             
-            print(f"✅ 추출 완료: {keywords}")
+            self.logger.info(f"✅ 추출 완료: {keywords}")
             
             return keywords
             
         except Exception as e:
-            print(f"❌ 오류 발생: {e}")
+            self.logger.error(f"❌ 오류 발생: {e}")
             import traceback
             traceback.print_exc()
             # Fallback: 빈 딕셔너리 반환
@@ -485,21 +490,21 @@ JSON:"""
             }
         """
 
-        print(f"\n{'='*80}")
-        print(f"🎨 이미지 프롬프트 생성 파이프라인 시작")
-        print(f"{'='*80}")
+        self.logger.info(f"\n{'='*80}")
+        self.logger.info(f"🎨 이미지 프롬프트 생성 파이프라인 시작")
+        self.logger.info(f"{'='*80}")
 
         try:
             # 1. 영어 키워드 추출
             keywords = self.extract_keywords_english(user_input)
 
             if not keywords:
-                print("⚠️  키워드 추출 실패, 기본값 사용")
+                self.logger.info("⚠️  키워드 추출 실패, 기본값 사용")
                 keywords = {"product": "item"}
 
             # 2. 업종 자동 감지
             industry = self._detect_industry(user_input)
-            print(f"   업종: {industry}")
+            self.logger.info(f"   업종: {industry}")
 
             # 3. PromptGenerator로 프롬프트 생성
             from .config_loader import PromptGenerator
@@ -513,10 +518,10 @@ JSON:"""
                 apply_weights=False
             )
 
-            print(f"\n✅ 프롬프트 생성 완료!")
-            print(f"   Positive: {len(result['positive'])} chars")
-            print(f"   Negative: {len(result['negative'])} chars")
-            print(f"{'='*80}\n")
+            self.logger.info(f"\n✅ 프롬프트 생성 완료!")
+            self.logger.info(f"   Positive: {len(result['positive'])} chars")
+            self.logger.info(f"   Negative: {len(result['negative'])} chars")
+            self.logger.info(f"{'='*80}\n")
 
             return {
                 "positive": result["positive"],
@@ -525,7 +530,7 @@ JSON:"""
             }
 
         except Exception as e:
-            print(f"❌ 프롬프트 생성 오류: {e}")
+            self.logger.error(f"❌ 프롬프트 생성 오류: {e}")
             import traceback
             traceback.print_exc()
 
@@ -536,7 +541,6 @@ JSON:"""
                 "industry": "general"
             }
 
-
 # ============================================
 # 유틸리티 함수
 # ============================================
@@ -545,6 +549,7 @@ def clean_input(text):
     """
     입력 텍스트 정제 - surrogate 문자 제거
     """
+    logger = get_logger(__name__)
     if not text:
         return ""
 
@@ -553,7 +558,7 @@ def clean_input(text):
         cleaned = ''.join(char for char in cleaned if char.isprintable() or char in '\n\t ')
         return cleaned.strip()
     except Exception as e:
-        print(f"⚠️  입력 정제 중 오류: {e}")
+        logger.error(f"⚠️  입력 정제 중 오류: {e}")
         return ''.join(char for char in text if ord(char) < 128).strip()
 
 
