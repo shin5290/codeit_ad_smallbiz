@@ -69,7 +69,8 @@ class SaveImageNode(BaseNode):
 
         Args:
             inputs: {
-                "image": PIL.Image  # 필수
+                "image": PIL.Image,             # 필수
+                "origin_filename": str | None   # 선택: 원본 파일명 (오버레이 결과 저장 시)
             }
 
         Returns:
@@ -79,6 +80,7 @@ class SaveImageNode(BaseNode):
             }
         """
         image: Image.Image = inputs["image"]
+        origin_filename = inputs.get("origin_filename", None)
 
         # JPEG는 RGBA를 지원하지 않으므로 RGB로 변환
         if self.format.upper() == "JPEG" and image.mode == "RGBA":
@@ -93,7 +95,12 @@ class SaveImageNode(BaseNode):
         image_bytes = buffer.getvalue()
 
         # 2. 해시 기반 파일명 생성
-        filename = hashlib.sha256(image_bytes).hexdigest()
+        # origin_filename이 있으면 (텍스트 오버레이 결과) 그걸 사용
+        # 없으면 (원본 이미지) 새로 생성
+        if origin_filename is not None:
+            filename = origin_filename
+        else:
+            filename = hashlib.sha256(image_bytes).hexdigest()
 
         # 3. 서브디렉토리 생성 (처음 2글자로 분산)
         subdir = filename[:2]
@@ -113,10 +120,17 @@ class SaveImageNode(BaseNode):
         # 5. 저장
         image.save(save_path, format=self.format, quality=self.quality)
 
-        return {
+        result = {
             "image_path": str(save_path.absolute()),
             "filename": filename
         }
+
+        # 원본 이미지 저장 시 origin_filename도 함께 반환
+        # (이후 텍스트 오버레이 결과가 같은 파일명 사용 가능)
+        if self.is_origin:
+            result["origin_filename"] = filename
+
+        return result
 
     def get_required_inputs(self) -> list:
         return ["image"]
