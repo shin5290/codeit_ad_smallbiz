@@ -64,12 +64,38 @@
 06_build_vectorstore.py → data/vectorstore/chroma_db/
 ```
 
-**Retrieval 평가 결과 (multilingual-e5-large):**
-| 메트릭 | Vector Only | + Reranker |
-|--------|-------------|------------|
-| Recall@1 | 0.8533 | 0.8733 |
-| Recall@3 | 0.9033 | 0.9333 |
-| MRR | 0.8858 | 0.9060 |
+**RAG 검색 성능 평가 결과 (v5.9, 200개 쿼리):**
+| 메트릭 | Baseline (Dense E5) | 비고 |
+|--------|---------------------|------|
+| **Recall@1** | **63.0%** | Top 1 정답률 |
+| **Recall@5** | **88.5%** | Top 5 정답률 ✅ |
+| **Recall@10** | **94.0%** | Top 10 정답률 ✅ |
+| **MRR** | **73.6%** | 평균 순위 |
+| **Success Rate** | **98.0%** | 답변 생성 가능률 ✅ |
+| **Answer Quality** | **3.98/5** | LLM-as-Judge 평가 |
+
+**실험한 개선 방법 (모두 실패):**
+- Metadata Filtering: R@5 하락 (88.5% → 79.5%)
+- Hybrid Search (BM25+E5): 성능 저하 (R@1 -45%)
+- BGE Reranker: Latency 80배 증가 (0.27초 → 22.85초)
+- Query Rewriting: 성능 저하 (R@5 -6.2%)
+
+**최종 결정**: Baseline (Dense E5 only) 채택 → Simple is Best
+
+**End-to-End 시스템 평가 결과 (200개 쿼리):**
+| 메트릭 | 결과 | 비고 |
+|--------|------|------|
+| **Intent 정확도** | **91.5%** | 라우팅 정확도 ✅ |
+| **비용** | **$0.0016/쿼리** | 월 1만 쿼리 $16 ✅ |
+| **Latency** | **8.5초** | 개선 필요 ⚠️ (목표: 2-3초) |
+| **Self-Refine 효율** | **36% 개선** | 25% 쿼리만 적용 |
+
+**Route 분포:**
+- doc_rag (사례 검색): 60.5%
+- marketing_counsel (전략 조언): 39.0%
+- trend_web (웹 검색): 0.5%
+
+> 상세 평가 결과: [evaluation/results/eval_summary.md](evaluation/results/eval_summary.md)
 
 **LLM-as-a-Judge 평가 결과 (프롬프트 엔지니어링):**
 | 항목 | 최종 점수 | 설명 |
@@ -275,13 +301,13 @@ uvicorn main:app --host 0.0.0.0 --port 9000
 
 - [x] Phase 1: 데이터 수집 (592개 매장)
 - [x] Phase 2: 문서 생성 및 최적화
-- [x] Phase 3: Retrieval 평가 (R@1 = 0.8533)
+- [x] Phase 3: Retrieval 평가 (Baseline 채택)
 - [x] Phase 4: Chroma 벡터스토어 구축
 - [x] Phase 5: LangChain RAG 기본 구현
 - [x] Phase 6: LangChain Agent 구현
-- [x] Phase 7: Self-Refine 체인 (실험 완료)
+- [x] Phase 7: Self-Refine 체인 (조건부 적용)
 - [x] Phase 8: FastAPI 연동 및 라우팅 정리 (SSE 포함)
-- [ ] Phase 9: 평가 및 최적화
+- [x] **Phase 9: 종합 평가 완료** (RAG + End-to-End)
 
 ---
 
@@ -301,40 +327,66 @@ uvicorn main:app --host 0.0.0.0 --port 9000
 
 ```
 chat_bot/
-├── README.md
-├── RAG_구축_체크리스트.md
-├── chat_bot_기획.md
+├── README.md                     # 이 파일
 ├── requirements.txt
 ├── __init__.py
+│
 ├── config/                       # 설정
 │   └── settings.py
+│
 ├── data/                         # 데이터 파이프라인
 │   ├── 01_crawl_naver.py         # 네이버 플레이스 크롤링
 │   ├── 02_split_data.py          # 데이터 정제/분리
 │   ├── 03_build_documents_v5.py  # 문서 생성
-│   ├── 06_build_vectorstore.py   # Chroma 벡터스토어 생성 (output: data/vectorstore/)
-│   ├── processed/                # 처리된 문서/코어 데이터
-│   └── vectorstore/              # 생성된 Chroma DB (출력)
-├── evaluation/                   # 평가 스크립트/결과
-│   ├── 04_evaluate_embeddings.py
-│   ├── 05_evaluate_reranker.py
-│   ├── build_responses.py
-│   ├── evaluate_prompts.py
+│   ├── 06_build_vectorstore.py   # Chroma 벡터스토어 생성
+│   ├── processed/                # 처리된 문서 (documents_v5.jsonl)
+│   └── vectorstore/              # Chroma DB (chroma_db/)
+│
+├── docs/                         # 문서
+│   └── EMBEDDING_OPTIMIZATION.md # 임베딩 최적화 기록
+│
+├── evaluation/                   # 평가 시스템
+│   ├── 01_generate_queries.py    # 평가 쿼리 생성
+│   ├── 02_evaluate_recall.py     # Recall@K 평가
+│   ├── 03_evaluate_hybrid_reranker.py
+│   ├── 04_evaluate_advanced_metrics.py
+│   ├── 05_evaluate_query_rewriting.py
+│   ├── 06_end_to_end_eval.py     # End-to-End 시스템 평가
+│   ├── README.md                 # 평가 가이드
+│   ├── FINAL_EVALUATION_RESULTS.md  # RAG 평가 결과
 │   └── results/
-├── rag/                          # RAG 시스템
-│   ├── chain.py                  # LangChain RAG 체인
-│   └── prompts.py                # 프롬프트/의도 분류
-├── agent/                        # LangChain Agent
-│   └── agent.py
-├── refine/                       # Self-Refine 실험
-│   └── self_refine.py
-├── api/                          # FastAPI 서버 초안
+│       ├── queries_final.json    # 평가 쿼리 200개
+│       ├── end_to_end_results.json
+│       └── eval_summary.md       # 종합 평가 요약
+│
+├── rag/                          # RAG 시스템 (LangChain)
+│   ├── chain.py                  # SmallBizRAG 클래스
+│   └── prompts.py                # IntentRouter, UserContext
+│
+├── agent/                        # Agent 시스템 (LangChain)
+│   └── agent.py                  # TrendAgent, SmallBizConsultant
+│
+├── refine/                       # Self-Refine (조건부 적용)
+│   └── self_refine.py            # SelfRefiner 클래스
+│
+├── api/                          # FastAPI 연동
 │   └── endpoints.py
-└── core/                         # 추후 확장용 (현재 비워둠)
+│
+└── core/                         # 확장용 (비워둠)
 ```
 
 ---
 
-**작성일:** 2025-01-17
-**담당자:** 배현석
-**Framework:** LangChain + Chroma + FastAPI (SSE)
+## 📊 프로젝트 요약
+
+**기간**: 2026-01-20 ~ 2026-01-27 (1주)
+**담당자**: 배현석
+**Framework**: LangChain + Chroma + FastAPI (SSE)
+
+**핵심 성과**:
+- RAG 검색 정확도: Recall@5 **88.5%**
+- Intent 라우팅 정확도: **91.5%**
+- 운영 비용: 월 1만 쿼리 **$16** (매우 저렴)
+- 평가 완료: 200개 쿼리 종합 테스트
+
+**최종 업데이트**: 2026-01-27
