@@ -49,9 +49,9 @@ CRITIQUE_SYSTEM = """당신은 소상공인 마케팅 상담 답변을 평가하
 ## 평가 기준 (각 0~10점)
 
 1) **구체성 (specificity)**
-   - 숫자가 있는가? (빈도, 예산, 기간, 목표치)
    - 실행 가능한 구체적 액션인가?
-   - 0점: 추상적 조언만 / 10점: 모든 항목에 숫자 2개 이상
+   - 숫자는 **원문에 근거가 있을 때만** 긍정 평가 (근거 없는 숫자 추가는 감점)
+   - 0점: 추상적 조언만 / 10점: 모든 항목이 구체적
 
 2) **근거 (evidence)**
    - 출처가 명시되어 있는가? (매장명, 지역, 웹 링크)
@@ -67,6 +67,10 @@ CRITIQUE_SYSTEM = """당신은 소상공인 마케팅 상담 답변을 평가하
    - 요청된 섹션을 따랐는가?
    - 간결하고 읽기 쉬운가?
    - 0점: 구조 없음 / 10점: 완벽한 구조
+
+## 주의
+- **새로운 숫자/예산/성과 수치 추가를 제안하지 말 것**
+- 출처가 없으면 "근거 부족"으로 지적하되, 임의 수치 추가를 권하지 말 것
 
 ## 출력 형식 (JSON만 출력)
 ```json
@@ -107,11 +111,12 @@ REFINE_SYSTEM = """당신은 소상공인 마케팅 상담 답변을 개선하�
 
 ## 개선 규칙
 1) 지적된 문제점을 모두 수정
-2) 숫자가 부족하면 추가 (빈도, 예산, 기간)
-3) 출처가 부족하면 기존 사례에서 추가
+2) **새로운 숫자/예산/성과 수치 추가 금지** (원문에 있는 수치만 유지)
+3) 출처가 부족하면 **원문에 있는 출처만 재정리** (새 출처 생성 금지)
 4) 결과 보장 표현 제거 ("반드시" → "~할 수 있습니다")
 5) 평점/별점 언급 제거
 6) 원래 답변의 핵심 내용은 유지
+7) 출처가 없으면 "출처: 제공된 자료에서 확인 불가"로 명시
 
 ## 출력
 개선된 답변만 출력하세요. 설명이나 메타 정보 없이 바로 답변 내용만."""
@@ -237,6 +242,26 @@ class SelfRefiner:
         response = self.llm.invoke(messages)
         return response.content
 
+    @staticmethod
+    def _should_refine(answer: str) -> bool:
+        """
+        조건부 리파인: 명확한 품질 이슈가 있을 때만 실행
+        - 출처 누락
+        - 결과 보장 표현 포함
+        - 너무 짧은 답변
+        """
+        if not answer:
+            return False
+        text = answer.strip()
+        if len(text) < 200:
+            return True
+        if "출처" not in text:
+            return True
+        forbidden = ["반드시", "확실히", "100%"]
+        if any(k in text for k in forbidden):
+            return True
+        return False
+
     def run(
         self,
         question: str,
@@ -262,6 +287,18 @@ class SelfRefiner:
         current_answer = initial_answer
         critique_history = []
 
+        if not self._should_refine(initial_answer):
+            return {
+                "question": question,
+                "initial_answer": initial_answer,
+                "final_answer": initial_answer,
+                "refined": False,
+                "used": False,
+                "iterations": 0,
+                "final_score": None,
+                "critique_history": [],
+            }
+
         for iteration in range(self.max_iterations):
             if self.verbose:
                 print(f"\n--- Self-Refine Iteration {iteration + 1} ---")
@@ -284,6 +321,7 @@ class SelfRefiner:
                     "initial_answer": initial_answer,
                     "final_answer": current_answer,
                     "refined": iteration > 0,
+                    "used": True,
                     "iterations": iteration + 1,
                     "final_score": avg_score,
                     "critique_history": critique_history,
@@ -304,6 +342,7 @@ class SelfRefiner:
             "initial_answer": initial_answer,
             "final_answer": current_answer,
             "refined": True,
+            "used": True,
             "iterations": self.max_iterations,
             "final_score": final_critique.get("avg_score", 0),
             "critique_history": critique_history,
