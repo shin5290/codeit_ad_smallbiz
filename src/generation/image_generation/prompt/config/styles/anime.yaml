@@ -1,10 +1,10 @@
 # ============================================
 # Anime Style Template
-# 애니메이션 스타일 (Animagine XL 3.1)
+# 애니메이션 스타일 (Z-Image Turbo)
 # ============================================
 
 style_name: "anime"
-model: "Animagine XL 3.1"
+model: "Z-Image Turbo"
 
 # 프롬프트 시작 문구
 prefix: "anime style illustration of"

@@ -1,10 +1,10 @@
 # ============================================
 # Realistic Style Template
-# 실사 스타일 (RealVisXL V4.0)
+# 실사 스타일 (Z-Image Turbo)
 # ============================================
 
 style_name: "realistic"
-model: "RealVisXL V4.0"
+model: "Z-Image Turbo"
 
 # 프롬프트 시작 문구
 prefix: "Professional commercial photography of"

@@ -1,10 +1,10 @@
 # ============================================
 # Semi-Realistic Style Template
-# 반실사 스타일 (BSS Equinox)
+# 반실사 스타일 (Z-Image Turbo)
 # ============================================
 
 style_name: "semi_realistic"
-model: "BSS Equinox"
+model: "Z-Image Turbo"
 
 # 프롬프트 시작 문구
 prefix: "Highly detailed digital artwork of"

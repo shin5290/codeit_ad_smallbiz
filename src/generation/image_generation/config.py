@@ -1,6 +1,6 @@
 """
 Image Generation Configuration
-SDXL 기반 이미지 생성을 위한 설정 파일
+이미지 생성 모듈을 위한 설정 파일 (현재 Z-Image Turbo 사용)
 """
 
 from dataclasses import dataclass
@@ -9,14 +9,14 @@ from typing import Optional, Tuple
 
 @dataclass
 class ModelConfig:
-    """모델 관련 설정"""
+    """모델 관련 설정 (Legacy, 현재 미사용)"""
 
-    # SDXL 모델 설정
-    MODEL_TYPE: str = "sdxl"
-    MODEL_ID: str = "SG161222/RealVisXL_V4.0"
+    # Legacy 설정 - 현재는 shared_cache.py에서 직접 ZIT 모델 로드
+    MODEL_TYPE: str = "legacy"
+    MODEL_ID: str = "legacy"
 
-    # VAE 설정 (개선된 VAE 사용)
-    VAE_ID: str = "madebyollin/sdxl-vae-fp16-fix"
+    # Legacy VAE 설정 (현재 미사용, ZIT VAE는 /mnt/models/zit에 별도 위치)
+    VAE_ID: str = "legacy"
 
     # 데이터 타입
     DTYPE: str = "float16"
@@ -30,7 +30,7 @@ class ModelConfig:
 class AspectRatioTemplates:
     """해상도 템플릿 (비율별)"""
 
-    # 비율별 해상도 (SDXL 최적화)
+    # 비율별 해상도
     RATIOS: dict = None
 
     def __post_init__(self):

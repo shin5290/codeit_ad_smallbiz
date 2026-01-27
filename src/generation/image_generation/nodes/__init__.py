@@ -12,7 +12,9 @@ from .prompt_processor import PromptProcessorNode
 from .save_image import SaveImageNode
 from .gpt_layout_analyzer import GPTLayoutAnalyzerNode
 from .text_overlay import TextOverlayNode
-from .controlnet import ControlNetPreprocessorNode, ControlNetLoaderNode
+from .preprocessing import BackgroundRemovalNode
+from .product_layout_analyzer import ProductLayoutAnalyzerNode
+from .postprocessing import BackgroundCompositeNode
 
 __all__ = [
     # Base
@@ -20,13 +22,15 @@ __all__ = [
     # Core Generation Nodes
     "Text2ImageNode",
     "Image2ImageNode",
+    # Preprocessing Nodes
+    "BackgroundRemovalNode",
     # Utility Nodes
     "PromptProcessorNode",
     "SaveImageNode",
-    # Text Overlay Nodes
+    # Layout Analysis Nodes
     "GPTLayoutAnalyzerNode",
+    "ProductLayoutAnalyzerNode",
+    # Postprocessing Nodes
     "TextOverlayNode",
-    # ControlNet (Legacy/SDXL)
-    "ControlNetPreprocessorNode",
-    "ControlNetLoaderNode",
+    "BackgroundCompositeNode",
 ]
