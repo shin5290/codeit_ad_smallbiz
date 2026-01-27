@@ -158,19 +158,24 @@ def generate_and_save_image(
                 emit_progress("background_removal_start", node.node_name)
             elif node.node_name in ("Text2ImageNode", "Image2ImageNode"):
                 emit_progress("image_generation_start", node.node_name)
-            elif node.node_name == "ProductLayoutAnalyzerNode":
+            elif node.node_name in ("ProductLayoutAnalyzerNode", "GPTLayoutAnalyzerNode"):
                 emit_progress("layout_analysis_start", node.node_name)
             elif node.node_name == "BackgroundCompositeNode":
                 emit_progress("composite_start", node.node_name)
             elif node.node_name == "SaveImageNode":
-                emit_progress("image_save_start", node.node_name)
+                if getattr(node, "is_origin", False):
+                    emit_progress("image_save_origin_start", node.node_name)
+                else:
+                    emit_progress("image_save_start", node.node_name)
+            elif node.node_name == "TextOverlayNode":
+                emit_progress("text_overlay_start", node.node_name)
 
         def on_node_end(node, _data) -> None:
             if node.node_name == "PromptProcessorNode":
                 emit_progress("prompt_done", node.node_name)
             elif node.node_name == "BackgroundRemovalNode":
                 emit_progress("background_removal_done", node.node_name)
-            elif node.node_name == "ProductLayoutAnalyzerNode":
+            elif node.node_name in ("ProductLayoutAnalyzerNode", "GPTLayoutAnalyzerNode"):
                 emit_progress("layout_analysis_done", node.node_name)
 
         # 워크플로우 구성
@@ -472,6 +477,8 @@ def generate_product_composite(
                 emit_progress("layout_analysis_start", node.node_name)
             elif node.node_name == "BackgroundCompositeNode":
                 emit_progress("composite_start", node.node_name)
+            elif node.node_name == "SaveImageNode":
+                emit_progress("image_save_start", node.node_name)
 
         def on_node_end(node, _data) -> None:
             if node.node_name == "BackgroundRemovalNode":

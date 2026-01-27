@@ -205,6 +205,13 @@
             }
         }
 
+        function syncMessageMediaLayout(container) {
+            if (!container) return;
+            const rawText = (container.dataset.rawText || "").trim();
+            const hasImage = Boolean(container.querySelector('.image-wrapper img'));
+            container.classList.toggle('has-media', Boolean(rawText) && hasImage);
+        }
+
         function getMessageRole(container) {
             if (!container) return null;
             if (container.classList.contains('assistant')) return 'assistant';
@@ -236,6 +243,7 @@
             Array.from(container.children).forEach((child) => {
                 if (child.tagName === 'IMG') child.remove();
             });
+            syncMessageMediaLayout(container);
         }
 
         function clearMessageActions(container) {
@@ -388,6 +396,7 @@
                 fullUrls.push(fullUrl || thumbUrl);
             });
             setMessageImageUrls(container, fullUrls);
+            syncMessageMediaLayout(container);
             return fullUrls;
         }
 
@@ -1090,6 +1099,7 @@
             setMessageRawText(container, text);
             const content = getMessageContentContainer(container);
             content.innerHTML = renderMessageContent(text);
+            syncMessageMediaLayout(container);
             if (!showCursor) return;
             const cursor = document.createElement('span');
             cursor.className = 'typing-cursor';
@@ -1151,11 +1161,12 @@
         const analysisStepsGeneric = [
             "메시지를 분석중입니다.",
             "요청을 확인중입니다.",
-            "생성 옵션을 정리중입니다.",
+            "필요한 정보를 정리중입니다.",
         ];
         const analysisStepsConsulting = [
-            "상담 내용을 파악중입니다.",
-            "관련 사례를 찾고 있습니다.",
+            "메시지를 분석중입니다.",
+            "관련 문서를 검색중입니다.",
+            "웹 서치 중입니다.",
             "답변을 구성하고 있습니다.",
         ];
         const analysisStepsImage = [
@@ -1173,11 +1184,11 @@
             "문장 길이를 계산중입니다.",
         ];
         const imageProgressSteps = [
-            { percent: 0, message: "이미지 프롬프트를 생성중입니다." },
-            { percent: 70, message: "광고 구성요소를 정리중입니다." },
-            { percent: 92, message: "이미지를 생성중입니다." },
-            { percent: 96, message: "이미지를 저장중입니다." },
-            { percent: 98, message: "이미지를 로드중입니다." },
+            { percent: 0, message: "이미지 프롬프트를 준비중입니다." },
+            { percent: 55, message: "이미지를 생성중입니다." },
+            { percent: 78, message: "텍스트 배치를 분석중입니다." },
+            { percent: 88, message: "텍스트 오버레이를 적용중입니다." },
+            { percent: 95, message: "최종 이미지를 저장중입니다." },
         ];
         const textProgressSteps = [
             { percent: 18, message: "응답 톤을 설정중입니다." },
@@ -1298,6 +1309,7 @@
                 steps,
                 stepIndex: 0,
                 maxPercent: isText ? 92 : 98,
+                generationType: generationType || null,
                 timer: null,
             };
 
@@ -1334,6 +1346,33 @@
             }, 700);
 
             progressState.set(id, state);
+            return state;
+        }
+
+        function ensureGenerationProgress(id, { generationType } = {}) {
+            if (!id) return null;
+            const existing = progressState.get(id);
+            if (existing && existing.mode === "generation") {
+                if (generationType && generationType !== existing.generationType) {
+                    const isText = generationType === "text";
+                    existing.steps = isText ? textProgressSteps : imageProgressSteps;
+                    existing.maxPercent = isText ? 92 : 98;
+                    existing.generationType = generationType;
+                    while (existing.stepIndex < existing.steps.length - 1
+                        && existing.percent >= existing.steps[existing.stepIndex + 1].percent) {
+                        existing.stepIndex += 1;
+                    }
+                    const stepMessage = existing.steps[existing.stepIndex]?.message || "생성 중입니다.";
+                    setProgressView(id, {
+                        message: stepMessage,
+                        percent: existing.percent,
+                        showSpinner: false,
+                        showBar: true,
+                    });
+                }
+                return existing;
+            }
+            return startGenerationProgress(id, { generationType });
         }
 
         function completeProgress(id, { message, delayMs = 250, onComplete } = {}) {
@@ -1343,16 +1382,40 @@
                 return;
             }
             if (state.timer) clearInterval(state.timer);
-            setProgressView(id, {
-                message: message || "완료되었습니다.",
-                percent: 100,
-                showSpinner: false,
-                showBar: state.mode === "generation",
-            });
+            const showBar = state.mode === "generation";
             const finalize = () => {
                 stopProgress(id);
                 if (typeof onComplete === "function") onComplete();
             };
+            if (showBar && state.percent < 90) {
+                const stagedPercent = Math.min(state.maxPercent || 98, Math.max(state.percent + 10, 88));
+                setProgressView(id, {
+                    message: message || "완료되었습니다.",
+                    percent: stagedPercent,
+                    showSpinner: false,
+                    showBar: true,
+                });
+                setTimeout(() => {
+                    setProgressView(id, {
+                        message: message || "완료되었습니다.",
+                        percent: 100,
+                        showSpinner: false,
+                        showBar: true,
+                    });
+                    if (delayMs > 0) {
+                        setTimeout(finalize, Math.max(120, Math.floor(delayMs / 2)));
+                    } else {
+                        finalize();
+                    }
+                }, Math.max(150, delayMs));
+                return;
+            }
+            setProgressView(id, {
+                message: message || "완료되었습니다.",
+                percent: 100,
+                showSpinner: false,
+                showBar,
+            });
             if (delayMs > 0) {
                 setTimeout(finalize, delayMs);
             } else {
@@ -1478,11 +1541,7 @@
                 }
                 if (stage === "generation_update") {
                     clearGenerationFallback();
-                    let state = progressState.get(loadingId);
-                    if (!state || state.mode !== "generation") {
-                        startGenerationProgress(loadingId, { generationType });
-                        state = progressState.get(loadingId);
-                    }
+                    const state = ensureGenerationProgress(loadingId, { generationType });
                     if (state && state.mode === "generation") {
                         const nextPercent = Number.isFinite(payload.percent) ? payload.percent : state.percent;
                         const maxPercent = Number.isFinite(state.maxPercent) ? state.maxPercent : 100;
@@ -1503,14 +1562,14 @@
                 }
                 if (stage === "generating") {
                     clearGenerationFallback();
-                    startGenerationProgress(loadingId, { generationType });
+                    ensureGenerationProgress(loadingId, { generationType });
                     return;
                 }
                 if (!stage) {
                     const message = payload.message || "";
                     if (message.includes("생성") || message.includes("수정")) {
                         clearGenerationFallback();
-                        startGenerationProgress(loadingId, { generationType });
+                        ensureGenerationProgress(loadingId, { generationType });
                         return;
                     }
                 }
@@ -1534,7 +1593,7 @@
                         streamMeta.generationFallbackTimer = setTimeout(() => {
                             const state = progressState.get(loadingId);
                             if (state && state.mode === "analysis") {
-                                startGenerationProgress(loadingId, { generationType: streamMeta.generationType });
+                                ensureGenerationProgress(loadingId, { generationType: streamMeta.generationType });
                             }
                         }, 1200);
                     }

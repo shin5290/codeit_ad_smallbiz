@@ -25,17 +25,49 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 _TEXT_GENERATOR = None  # 싱글톤 인스턴스
 _IMAGE_PROGRESS_HINTS = {
+    "background_removal_start": {
+        "percent": 5,
+        "message": "배경을 분리하는 중입니다.",
+    },
+    "background_removal_done": {
+        "percent": 15,
+        "message": "배경 분리를 완료했습니다.",
+    },
     "prompt_done": {
-        "percent": 70,
-        "message": "이미지 프롬프트 생성을 완료했습니다.",
+        "percent": 25,
+        "message": "이미지 프롬프트를 준비했습니다.",
     },
     "image_generation_start": {
-        "percent": 82,
+        "percent": 55,
         "message": "이미지를 생성중입니다.",
     },
+    "background_generation_start": {
+        "percent": 55,
+        "message": "배경 이미지를 생성중입니다.",
+    },
+    "image_save_origin_start": {
+        "percent": 70,
+        "message": "원본 이미지를 저장중입니다.",
+    },
+    "layout_analysis_start": {
+        "percent": 78,
+        "message": "텍스트 배치를 분석중입니다.",
+    },
+    "layout_analysis_done": {
+        "percent": 82,
+        "message": "텍스트 배치 분석을 완료했습니다.",
+    },
+    "composite_start": {
+        "percent": 86,
+        "message": "이미지를 합성중입니다.",
+    },
+    "text_overlay_start": {
+        "percent": 88,
+        "message": "텍스트 오버레이를 적용중입니다.",
+    },
     "image_save_start": {
-        "percent": 96,
-        "message": "이미지를 저장중입니다.",
+        "percent": 95,
+        "message": "최종 이미지를 저장중입니다.",
     },
 }
 
@@ -341,6 +373,51 @@ def _normalize_modification_typo(text: str) -> str:
     if any(marker in text for marker in utensil_markers):
         return text
     return text.replace("수저해", "수정해")
+
+
+def _detect_dual_generation_request(text: str) -> bool:
+    if not text:
+        return False
+    lowered = text.lower()
+    overlay_markers = [
+        "이미지에", "이미지 위", "이미지위", "사진에", "그림에", "포스터에", "배너에",
+        "사진 위", "그림 위", "포스터 위", "배너 위",
+    ]
+    if any(marker in lowered for marker in overlay_markers):
+        return False
+
+    image_keywords = [
+        "이미지", "사진", "그림", "포스터", "배너", "썸네일", "일러스트",
+        "image", "photo", "picture", "poster", "banner", "thumbnail", "illustration",
+    ]
+    text_keywords = [
+        "문구", "카피", "슬로건", "텍스트", "문장",
+        "copy", "slogan", "text", "caption",
+    ]
+
+    has_image = any(keyword in lowered for keyword in image_keywords)
+    has_text = any(keyword in lowered for keyword in text_keywords)
+    if not (has_image and has_text):
+        return False
+
+    dual_markers = ["둘다", "둘 다", "두개", "두 개", "같이", "한꺼번에", "그리고", "및", "and", "랑", "겸"]
+    if any(marker in lowered for marker in dual_markers):
+        return True
+
+    proximity_pattern = (
+        r"(이미지|사진|그림|포스터|배너|썸네일|image|photo|picture|poster|banner|thumbnail)"
+        r".{0,12}"
+        r"(문구|카피|슬로건|텍스트|문장|copy|slogan|text|caption)"
+    )
+    reverse_pattern = (
+        r"(문구|카피|슬로건|텍스트|문장|copy|slogan|text|caption)"
+        r".{0,12}"
+        r"(이미지|사진|그림|포스터|배너|썸네일|image|photo|picture|poster|banner|thumbnail)"
+    )
+    if re.search(proximity_pattern, lowered) or re.search(reverse_pattern, lowered):
+        return True
+
+    return False
 
 
 def _normalize_industry_label(label: Optional[str]) -> Optional[str]:
@@ -752,6 +829,7 @@ async def handle_chat_message_stream(
     )
     session_key = ingest.session_id
     analysis_message = _normalize_modification_typo(message)
+    dual_request = _detect_dual_generation_request(message)
 
     yield {
         "type": "progress",
@@ -772,6 +850,8 @@ async def handle_chat_message_stream(
     generation_type = intent_result.get("generation_type")
     if intent != "consulting":
         generation_type = generation_type or "image"
+    if dual_request and intent == "generation":
+        generation_type = "image"
     aspect_ratio = intent_result.get("aspect_ratio")
     style = intent_result.get("style")
     industry = intent_result.get("industry")
@@ -910,6 +990,10 @@ async def handle_chat_message_stream(
             "generation_type": generation_type,
         }
 
+        notice_text = None
+        if dual_request and intent == "generation":
+            notice_text = "현재 생성은 이미지 또는 텍스트 중 한 가지씩만 지원하고 있습니다. 이번 요청에서는 이미지를 먼저 생성했습니다."
+
         task = asyncio.create_task(
             _execute_generation_pipeline(
                 db=db,
@@ -924,6 +1008,7 @@ async def handle_chat_message_stream(
                 chat_history=chat_history,
                 generation_history=generation_history,
                 ingest=ingest,
+                assistant_notice=notice_text,
                 progress_callback=progress_callback,
             )
         )
@@ -971,6 +1056,7 @@ async def _execute_generation_pipeline(
     chat_history: Optional[List[Dict]] = None,
     generation_history: Optional[List[Dict]] = None,
     ingest: Optional[IngestResult] = None,
+    assistant_notice: Optional[str] = None,
     progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> Dict:
     """
@@ -1008,6 +1094,12 @@ async def _execute_generation_pipeline(
         generation_history=generation_history,
         progress_callback=progress_callback,
     )
+
+    if assistant_notice:
+        if gen_result.output_text:
+            gen_result.output_text = f"{gen_result.output_text}\n\n{assistant_notice}"
+        else:
+            gen_result.output_text = assistant_notice
 
     # 결과 저장
     persist_generation_result(
