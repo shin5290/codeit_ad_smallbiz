@@ -311,6 +311,7 @@ class LLMOrchestrator:
             "aspect_ratio": "1:1|16:9|9:16|4:3",
             "style": "ultra_realistic|semi_realistic|anime",
             "industry": "cafe|restaurant|fashion|...",
+            "need_rmbg": true|false,
             "strength": 0.0-1.0 or null
         }
         """
@@ -357,6 +358,10 @@ class LLMOrchestrator:
 - 구도/레이아웃 변경: 0.7~0.9
 
 명시적 표현이 없으면 수정 종류의 기본값 사용
+
+## 3.5 배경 제거 요청 감지 (need_rmbg)
+- 사용자가 "배경 제거", "누끼", "배경 없애줘", "투명 배경" 등을 명시하면 need_rmbg: true
+- 그렇지 않으면 need_rmbg: false
 
 ## 4. 플랫폼 감지 및 비율 결정
 플랫폼별 기본 비율:
@@ -434,6 +439,7 @@ class LLMOrchestrator:
   "aspect_ratio": "1:1|16:9|9:16|4:3" or null,
   "style": "ultra_realistic|semi_realistic|anime" or null,
   "industry": "cafe|restaurant|..." or null,
+  "need_rmbg": true|false,
   "strength": 0.0-1.0 or null,
   "text_tone": "warm|professional|friendly|energetic" or null,
   "text_max_length": 10-200 or null
@@ -450,6 +456,7 @@ class LLMOrchestrator:
   "aspect_ratio": "1:1",
   "style": "semi_realistic",
   "industry": "cafe",
+  "need_rmbg": false,
   "strength": null
 }
 
@@ -462,6 +469,7 @@ class LLMOrchestrator:
   "aspect_ratio": "16:9",
   "style": "ultra_realistic",
   "industry": "restaurant",
+  "need_rmbg": false,
   "strength": null
 }
 
@@ -474,6 +482,7 @@ class LLMOrchestrator:
   "aspect_ratio": "9:16",
   "style": "anime",
   "industry": "event",
+  "need_rmbg": false,
   "strength": null
 }
 
@@ -486,6 +495,7 @@ class LLMOrchestrator:
   "aspect_ratio": null,
   "style": null,
   "industry": null,
+  "need_rmbg": false,
   "strength": 0.55
 }
 
@@ -498,6 +508,7 @@ class LLMOrchestrator:
   "aspect_ratio": null,
   "style": null,
   "industry": null,
+  "need_rmbg": false,
   "strength": 0.35
 }
 
@@ -510,6 +521,7 @@ class LLMOrchestrator:
   "aspect_ratio": null,
   "style": null,
   "industry": null,
+  "need_rmbg": false,
   "strength": 0.9
 }
 
@@ -522,6 +534,7 @@ class LLMOrchestrator:
   "aspect_ratio": null,
   "style": null,
   "industry": null,
+  "need_rmbg": false,
   "strength": 0.45
 }
 
@@ -534,6 +547,7 @@ class LLMOrchestrator:
   "aspect_ratio": null,
   "style": null,
   "industry": "cafe",
+  "need_rmbg": false,
   "strength": null,
   "text_tone": "warm",
   "text_max_length": 20
@@ -575,6 +589,7 @@ class LLMOrchestrator:
                     "aspect_ratio": None,
                     "style": None,
                     "industry": None,
+                    "need_rmbg": False,
                     "strength": None,
                     "text_tone": None,
                     "text_max_length": None,
@@ -604,6 +619,7 @@ class LLMOrchestrator:
             style = result.get("style")
             industry = result.get("industry")
             strength = result.get("strength")
+            need_rmbg = result.get("need_rmbg")
             text_tone = result.get("text_tone")
             text_max_length = result.get("text_max_length")
 
@@ -629,6 +645,19 @@ class LLMOrchestrator:
                     strength = None
             if strength is not None and not (0.0 <= strength <= 1.0):
                 strength = None
+
+            if isinstance(need_rmbg, str):
+                normalized = need_rmbg.strip().lower()
+                if normalized in ("true", "yes", "y", "1"):
+                    need_rmbg = True
+                elif normalized in ("false", "no", "n", "0"):
+                    need_rmbg = False
+                else:
+                    need_rmbg = None
+            if isinstance(need_rmbg, (int, float)) and not isinstance(need_rmbg, bool):
+                need_rmbg = bool(need_rmbg)
+            if not isinstance(need_rmbg, bool):
+                need_rmbg = False
 
             if intent == "modification" and gen_type in ("text", None):
                 msg_lower = user_message.lower()
@@ -669,10 +698,12 @@ class LLMOrchestrator:
             if gen_type != "text":
                 text_tone = None
                 text_max_length = None
+            if gen_type != "image":
+                need_rmbg = False
 
             logger.info(
                 f"Intent: {intent}, type: {gen_type}, strength: {strength}, "
-                f"ratio: {aspect_ratio}, style: {style}, industry: {industry}, "
+                f"ratio: {aspect_ratio}, style: {style}, industry: {industry}, need_rmbg: {need_rmbg}, "
                 f"text_tone: {text_tone}, text_max_length: {text_max_length}"
             )
 
@@ -683,6 +714,7 @@ class LLMOrchestrator:
                 "aspect_ratio": aspect_ratio,
                 "style": style,
                 "industry": industry,
+                "need_rmbg": need_rmbg,
                 "strength": strength,
                 "text_tone": text_tone,
                 "text_max_length": text_max_length,
@@ -697,6 +729,7 @@ class LLMOrchestrator:
                 "aspect_ratio": None,
                 "style": None,
                 "industry": None,
+                "need_rmbg": False,
                 "strength": None,
                 "text_tone": None,
                 "text_max_length": None,
@@ -710,6 +743,7 @@ class LLMOrchestrator:
                 "aspect_ratio": None,
                 "style": None,
                 "industry": None,
+                "need_rmbg": False,
                 "strength": None,
                 "text_tone": None,
                 "text_max_length": None,
