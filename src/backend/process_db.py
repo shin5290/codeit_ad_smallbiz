@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker, selectinload
 
@@ -438,6 +438,10 @@ def get_generation_by_session_and_id(
     )
 
 
+# -----------------------------
+# Admin 조회 기능
+# -----------------------------
+
 def get_admin_generation_page(
     db: Session,
     *,
@@ -505,3 +509,200 @@ def get_latest_user_input_before(
     if before_at is not None:
         query = query.filter(models.ChatHistory.created_at <= before_at)
     return query.first()
+
+
+def get_admin_session_page(
+    db: Session,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+    query: Optional[str] = None,
+    user_id: Optional[int] = None,
+    login_id: Optional[str] = None,
+    start_at: Optional[datetime] = None,
+    end_at: Optional[datetime] = None,
+):
+    """
+    관리자용 세션 목록 조회 (필터/페이징)
+    """
+    message_subq = (
+        db.query(
+            models.ChatHistory.session_id.label("session_id"),
+            func.count(models.ChatHistory.id).label("message_count"),
+            func.max(models.ChatHistory.created_at).label("last_message_at"),
+        )
+        .group_by(models.ChatHistory.session_id)
+        .subquery()
+    )
+
+    generation_subq = (
+        db.query(
+            models.GenerationHistory.session_id.label("session_id"),
+            func.count(models.GenerationHistory.id).label("generation_count"),
+        )
+        .group_by(models.GenerationHistory.session_id)
+        .subquery()
+    )
+
+    query_builder = (
+        db.query(
+            models.ChatSession.session_id,
+            models.ChatSession.user_id,
+            models.ChatSession.created_at,
+            models.User.login_id,
+            func.coalesce(message_subq.c.message_count, 0).label("message_count"),
+            message_subq.c.last_message_at.label("last_message_at"),
+            func.coalesce(generation_subq.c.generation_count, 0).label("generation_count"),
+        )
+        .outerjoin(message_subq, models.ChatSession.session_id == message_subq.c.session_id)
+        .outerjoin(generation_subq, models.ChatSession.session_id == generation_subq.c.session_id)
+        .outerjoin(models.User, models.User.user_id == models.ChatSession.user_id)
+    )
+
+    if query:
+        query_builder = query_builder.filter(models.ChatSession.session_id.ilike(f"%{query}%"))
+    if user_id is not None:
+        query_builder = query_builder.filter(models.ChatSession.user_id == user_id)
+    if login_id:
+        query_builder = query_builder.filter(models.User.login_id.ilike(f"%{login_id}%"))
+        
+    # 세션 조회 정렬 및 날짜 필터는 요청에 따라 '생성일(created_at)' 기준으로 수행
+    if start_at is not None:
+        query_builder = query_builder.filter(models.ChatSession.created_at >= start_at)
+    if end_at is not None:
+        query_builder = query_builder.filter(models.ChatSession.created_at < end_at)
+
+    total = query_builder.count()
+    items = (
+        query_builder.order_by(models.ChatSession.created_at.desc(), models.ChatSession.session_id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return items, total
+
+
+def get_admin_session_overview(db: Session, *, session_id: str):
+    """
+    관리자용 세션 요약 정보
+    """
+    row = (
+        db.query(
+            models.ChatSession.session_id,
+            models.ChatSession.user_id,
+            models.ChatSession.created_at,
+            models.User.login_id,
+            func.count(models.ChatHistory.id).label("message_count"),
+            func.max(models.ChatHistory.created_at).label("last_message_at"),
+        )
+        .outerjoin(models.ChatHistory, models.ChatHistory.session_id == models.ChatSession.session_id)
+        .outerjoin(models.User, models.User.user_id == models.ChatSession.user_id)
+        .filter(models.ChatSession.session_id == session_id)
+        .group_by(
+            models.ChatSession.session_id,
+            models.ChatSession.user_id,
+            models.ChatSession.created_at,
+            models.User.login_id,
+        )
+        .first()
+    )
+    return row
+
+
+def get_admin_session_messages(
+    db: Session,
+    *,
+    session_id: str,
+    limit: int = 200,
+    offset: int = 0,
+    query: Optional[str] = None,
+    role: Optional[str] = None,
+    start_at: Optional[datetime] = None,
+    end_at: Optional[datetime] = None,
+    has_image: Optional[bool] = None,
+):
+    """
+    관리자용 세션 메시지 조회 (페이징)
+    """
+    query_builder = (
+        db.query(models.ChatHistory)
+        .filter(models.ChatHistory.session_id == session_id)
+    )
+    
+    if query:
+        query_builder = query_builder.filter(models.ChatHistory.content.ilike(f"%{query}%"))
+
+    if role:
+        query_builder = query_builder.filter(models.ChatHistory.role == role)
+
+    if start_at is not None:
+        query_builder = query_builder.filter(models.ChatHistory.created_at >= start_at)
+    if end_at is not None:
+        query_builder = query_builder.filter(models.ChatHistory.created_at < end_at)
+
+    if has_image is True:
+        query_builder = query_builder.filter(models.ChatHistory.image_id.isnot(None))
+    elif has_image is False:
+        query_builder = query_builder.filter(models.ChatHistory.image_id.is_(None))
+        
+    query_builder = query_builder.options(selectinload(models.ChatHistory.image)).order_by(
+        models.ChatHistory.created_at.desc(), models.ChatHistory.id.desc()
+    )
+    
+    total = query_builder.count()
+    items = query_builder.offset(offset).limit(limit).all()
+    return items, total
+
+
+def search_admin_messages(
+    db: Session,
+    *,
+    query: Optional[str] = None,
+    level: Optional[str] = None,
+    start_at: Optional[datetime] = None,
+    end_at: Optional[datetime] = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """
+    관리자용 채팅 메시지 검색 (필터/페이징)
+    """
+    query_builder = (
+        db.query(
+            models.ChatHistory,
+            models.ChatSession.user_id,
+            models.User.login_id,
+        )
+        .join(models.ChatSession, models.ChatSession.session_id == models.ChatHistory.session_id)
+        .outerjoin(models.User, models.User.user_id == models.ChatSession.user_id)
+    )
+
+    if query:
+        query_builder = query_builder.filter(models.ChatHistory.content.ilike(f"%{query}%"))
+
+    if level:
+        level_key = level.strip().lower()
+        keyword_map = {
+            "error": ["error", "failed", "exception", "traceback", "permission denied", "undefined"],
+            "warn": ["warn", "warning", "deprecated"],
+            "warning": ["warn", "warning", "deprecated"],
+            "critical": ["critical", "fatal", "panic"],
+        }
+        keywords = keyword_map.get(level_key)
+        if keywords:
+            filters = [models.ChatHistory.content.ilike(f"%{kw}%") for kw in keywords]
+            query_builder = query_builder.filter(or_(*filters))
+
+    if start_at is not None:
+        query_builder = query_builder.filter(models.ChatHistory.created_at >= start_at)
+    if end_at is not None:
+        query_builder = query_builder.filter(models.ChatHistory.created_at < end_at)
+
+    total = query_builder.count()
+    items = (
+        query_builder.order_by(models.ChatHistory.created_at.desc(), models.ChatHistory.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return items, total

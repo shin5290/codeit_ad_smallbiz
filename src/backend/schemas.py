@@ -127,3 +127,101 @@ class AdminGenerationPage(BaseModel):
     total: int
     page: int
     limit: int
+
+
+class AdminSessionItem(BaseModel):
+    session_id: str
+    user_id: Optional[int] = None
+    login_id: Optional[str] = None
+    created_at: datetime
+    last_message_at: Optional[datetime] = None
+    message_count: int
+    generation_count: int = 0
+
+
+class AdminSessionPage(BaseModel):
+    items: List[AdminSessionItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class AdminSessionMessage(BaseModel):
+    id: int
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: datetime
+    image: Optional[AdminImageRef] = None
+
+
+class AdminGenerationSummary(BaseModel):
+    id: int
+    content_type: str
+    output_text: Optional[str] = None
+    output_image: Optional[AdminImageRef] = None
+    created_at: datetime
+    task_id: Optional[str] = None
+
+
+class AdminLogHint(BaseModel):
+    date: str
+    file: str
+
+
+class AdminSessionDetail(BaseModel):
+    session_id: str
+    user_id: Optional[int] = None
+    login_id: Optional[str] = None
+    created_at: datetime
+    last_message_at: Optional[datetime] = None
+    message_count: int
+    run_id: Optional[str] = None
+    log_hint: Optional[AdminLogHint] = None
+    messages: List[AdminSessionMessage]
+    generations: List[AdminGenerationSummary]
+
+
+class AdminMessageItem(BaseModel):
+    id: int
+    session_id: str
+    user_id: Optional[int] = None
+    login_id: Optional[str] = None
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: datetime
+
+
+class AdminMessagePage(BaseModel):
+    items: List[AdminMessageItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class AdminLogDatesResponse(BaseModel):
+    dates: List[str]
+
+
+class AdminLogFileItem(BaseModel):
+    name: str
+    size_bytes: int
+    modified_at: datetime
+
+
+class AdminLogFilesResponse(BaseModel):
+    files: List[AdminLogFileItem]
+
+
+class AdminLogTailResponse(BaseModel):
+    lines: List[str]
+
+
+class AdminLogFullResponse(BaseModel):
+    lines: List[str]
+    total_lines: int
+
+
+class AdminCurrentLogResponse(BaseModel):
+    date: Optional[str] = None
+    file: Optional[str] = None
+    run_id: Optional[str] = None
