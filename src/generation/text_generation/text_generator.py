@@ -5,6 +5,8 @@
 """
 
 import os
+import re
+from typing import Optional, Tuple
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -35,7 +37,15 @@ class TextGenerator:
         self.use_industry_config = use_industry_config
         self.prompt_manager = PromptTemplateManager()
 
-    def generate_ad_copy(self, user_input, tone="warm", max_length=100, chat_history=None, industry=None):
+    def generate_ad_copy(
+        self,
+        user_input,
+        tone="warm",
+        max_length=100,
+        chat_history=None,
+        generation_history=None,
+        industry=None,
+    ):
         """
         광고 문구 생성
 
@@ -45,6 +55,7 @@ class TextGenerator:
             tone (str): 톤 앤 매너 ("warm", "professional", "friendly", "energetic")
             max_length (int): 최대 글자 수 (기본 100자)
             chat_history (list): 최근 대화 히스토리 (선택)
+            generation_history (list): 이전 생성 이력 (선택)
             industry (str): 업종 정보 (cafe, restaurant, gym 등, 선택)
         Returns:
             str: 생성된 광고 문구
@@ -56,42 +67,162 @@ class TextGenerator:
         logger.info(f"   톤: {tone}, 최대 {max_length}자, 업종: {industry or 'general'}")
         logger.info(f"   업종 설정 사용: {self.use_industry_config}")
         try:
-            # 업종별 설정 사용 시 PromptTemplateManager 활용
-            if self.use_industry_config and self.prompt_manager:
-                prompts = self.prompt_manager.get_ad_copy_prompt(
-                    user_input=user_input,
-                    tone=tone,
-                    max_length=max_length,
-                    industry=industry
+            length_spec = self._extract_length_expectation(
+                self._merge_length_source_text(user_input)
+            )
+            target_min = length_spec.min_len
+            target_max = length_spec.max_len
+            target_source = length_spec.source
+            wants_long = length_spec.is_long
+
+            safe_max_length = 100
+            if max_length is not None:
+                try:
+                    safe_max_length = int(max_length)
+                except (TypeError, ValueError):
+                    safe_max_length = 100
+            elif target_max is not None:
+                safe_max_length = int(target_max)
+
+            if safe_max_length < 10:
+                safe_max_length = 10
+
+            if target_source in ("range", "approx", "exact") and target_max is not None:
+                if max_length is not None and int(max_length) < target_max:
+                    logger.warning(
+                        "length override: spec length=%s exceeds intent max_length=%s",
+                        target_max,
+                        max_length,
+                    )
+                safe_max_length = max(safe_max_length, target_max)
+
+            if wants_long and target_source != "exact":
+                if max_length is not None and int(max_length) < 600:
+                    logger.warning(
+                        "length override: user wants long-form but intent max_length=%s",
+                        max_length,
+                    )
+                target_max = min(800, max(600, target_max or 0))
+                if target_min is None:
+                    target_min = int(target_max * 0.7)
+                safe_max_length = max(safe_max_length, target_max)
+
+            if not wants_long and target_max is not None and target_max > safe_max_length:
+                logger.warning(
+                    "length conflict: target_max=%s exceeds max_length=%s (source=%s)",
+                    target_max,
+                    safe_max_length,
+                    target_source,
                 )
-                system_prompt = prompts["system_prompt"]
-                user_prompt = prompts["user_prompt"]
-                # 자동 감지된 업종 정보 출력
-                detected_industry = prompts.get("industry", industry)
-                logger.info(f"   감지된 업종: {detected_industry}")
-            else:
-                # 1. 시스템 프롬프트 선택 (대화 히스토리와 업종 정보 포함)
-                system_prompt = self._get_system_prompt(tone, max_length, chat_history, industry)
+                target_max = safe_max_length
 
-                # 2. 사용자 프롬프트 구성
-                user_prompt = self._build_user_prompt(user_input, max_length, chat_history)
+            if target_min is not None and target_min > safe_max_length:
+                logger.warning(
+                    "length conflict: target_min=%s exceeds max_length=%s (source=%s)",
+                    target_min,
+                    safe_max_length,
+                    target_source,
+                )
+                target_min = max(10, int(safe_max_length * 0.9))
 
-            # 3. GPT API 호출
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.7,
-                max_tokens=100
+            min_length = target_min if target_min is not None else max(10, int(safe_max_length * 0.7))
+
+            require_hashtags, hashtag_count = self._detect_hashtag_requirement(
+                user_input=user_input,
+                chat_history=chat_history,
             )
 
-            # 4. 응답 추출
-            ad_copy = response.choices[0].message.content.strip()
+            # 업종별 설정 사용 시 PromptTemplateManager 활용
+            history_context = self._build_history_context(
+                chat_history=chat_history,
+                generation_history=generation_history,
+            )
 
-            # 5. 후처리
-            ad_copy = self._postprocess(ad_copy, max_length)
+            for attempt in range(2):
+                if self.use_industry_config and self.prompt_manager:
+                    prompts = self.prompt_manager.get_ad_copy_prompt(
+                        user_input=user_input,
+                        tone=tone,
+                        max_length=safe_max_length,
+                        industry=industry
+                    )
+                    system_prompt = self._append_length_emphasis(
+                        prompts["system_prompt"], safe_max_length, min_length
+                    )
+                    if require_hashtags:
+                        system_prompt = self._append_hashtag_instruction(
+                            system_prompt, hashtag_count
+                        )
+                    user_prompt = prompts["user_prompt"]
+                    user_prompt = self._append_user_requirements(
+                        user_prompt,
+                        max_length=safe_max_length,
+                        min_length=min_length,
+                        hashtag_count=hashtag_count if require_hashtags else None,
+                    )
+                    if history_context:
+                        user_prompt = f"{user_prompt}\n\n{history_context}"
+                    # 자동 감지된 업종 정보 출력
+                    detected_industry = prompts.get("industry", industry)
+                    logger.info(f"   감지된 업종: {detected_industry}")
+                else:
+                    # 1. 시스템 프롬프트 선택 (대화 히스토리와 업종 정보 포함)
+                    system_prompt = self._get_system_prompt(
+                        tone,
+                        safe_max_length,
+                        chat_history=chat_history,
+                        generation_history=generation_history,
+                        industry=industry,
+                    )
+                    if require_hashtags:
+                        system_prompt = self._append_hashtag_instruction(
+                            system_prompt, hashtag_count
+                        )
+
+                    # 2. 사용자 프롬프트 구성
+                    user_prompt = self._build_user_prompt(
+                        user_input,
+                        safe_max_length,
+                        min_length=min_length,
+                        history_context=history_context,
+                        hashtag_count=hashtag_count if require_hashtags else None,
+                    )
+
+                # 3. GPT API 호출
+                if wants_long:
+                    max_tokens = min(1500, max(900, int(safe_max_length * 2)))
+                else:
+                    max_tokens = min(900, max(120, int(safe_max_length * 1.5)))
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=max_tokens
+                )
+
+                # 4. 응답 추출
+                ad_copy = response.choices[0].message.content.strip()
+
+                # 5. 후처리
+                ad_copy = self._postprocess(ad_copy, safe_max_length)
+
+                too_short = len(ad_copy) < min_length
+                missing_hashtags = require_hashtags and ("#" not in ad_copy)
+                if too_short or missing_hashtags:
+                    logger.debug(
+                        "postprocess check failed (attempt=%s): too_short=%s, missing_hashtags=%s",
+                        attempt + 1,
+                        too_short,
+                        missing_hashtags,
+                    )
+                    if attempt == 0:
+                        continue
+
+                logger.info(f"✅ 생성 완료: {ad_copy}")
+                return ad_copy
 
             logger.info(f"✅ 생성 완료: {ad_copy}")
             return ad_copy
@@ -100,14 +231,22 @@ class TextGenerator:
             logger.error(f"❌ 오류 발생: {e}")
             return self._get_fallback_copy()
 
-    def _get_system_prompt(self, tone, max_length, chat_history=None, industry=None):
+    def _get_system_prompt(
+        self,
+        tone,
+        max_length,
+        chat_history=None,
+        generation_history=None,
+        industry=None,
+    ):
         """톤, 대화 히스토리, 업종에 따른 시스템 프롬프트 반환"""
 
         base_prompt = f"""당신은 소상공인을 위한 전문 광고 카피라이터입니다.
 짧고 임팩트 있는 광고 문구를 만들어주세요.
 
 규칙:
-- {max_length}자 이내 (공백 포함)
+- 반드시 {max_length}자 이내 (공백 포함, 초과 금지)
+- 너무 짧게 쓰지 말고 최소한의 길이를 확보할 것
 - 번호, 특수문자 없이 문구만 작성
 - 사용자 별다른 요청 없을시 무조건 한국어로 작성
 - 사용자 요청시 요청한 언어로 작성
@@ -165,31 +304,43 @@ class TextGenerator:
         if industry and industry in industry_guides:
             industry_guide = f"\n\n업종 특화 가이드라인:\n{industry_guides[industry]}"
 
-        # 대화 히스토리 컨텍스트 추가
-        history_context = ""
-        if chat_history:
-            history_context = "\n\n최근 대화 맥락 (이전 요청사항을 참고하여 개선하세요):\n"
-            for msg in chat_history[-5:]:  # 최근 5개만
-                role = msg.get('role', 'unknown')
-                content = (msg.get('content') or '')[:150]  # 150자로 제한
-                history_context += f"- {role}: {content}\n"
+        history_context = self._build_history_context(
+            chat_history=chat_history,
+            generation_history=generation_history,
+        )
+        history_section = f"\n\n{history_context}" if history_context else ""
 
-        return f"{base_prompt}\n\n톤 앤 매너:\n{tone_guide}{industry_guide}{history_context}"
+        return f"{base_prompt}\n\n톤 앤 매너:\n{tone_guide}{industry_guide}{history_section}"
 
-    def _build_user_prompt(self, user_input, max_length, chat_history=None):
+    def _build_user_prompt(
+        self,
+        user_input,
+        max_length,
+        min_length=None,
+        history_context=None,
+        hashtag_count=None,
+    ):
         """사용자 프롬프트 구성"""
 
-        # 대화 맥락이 있으면 누적 요구사항 정리
-        context_note = ""
-        if chat_history and len(chat_history) > 1:
-            context_note = "\n참고: 위의 대화 맥락에서 사용자가 요청한 수정사항을 모두 반영해주세요."
+        history_note = ""
+        if history_context:
+            history_note = f"\n\n{history_context}"
+
+        requirements = [f"반드시 {max_length}자 이내 (초과 금지)"]
+        if min_length is not None:
+            requirements.append(f"최소 {min_length}자 이상")
+        if hashtag_count is not None:
+            requirements.append(
+                f"해시태그 {hashtag_count}개를 문장 끝에 포함 (각 해시태그는 #으로 시작, 공백으로 구분)"
+            )
+        requirements_text = "\n- ".join(requirements)
 
         return f"""다음 내용으로 광고 문구를 만들어주세요:
 
-{user_input}{context_note}
+{user_input}{history_note}
 
 요구사항:
-- {max_length}자 이내
+- {requirements_text}
 - 광고 문구만 작성 (설명, 번호 등 불필요한 내용 제외)
 - 감성적이면서도 명확한 메시지 전달
 
@@ -205,7 +356,17 @@ class TextGenerator:
 
         # 2. 길이 제한
         if len(text) > max_length:
-            text = text[:max_length].strip()
+            trimmed = text[:max_length]
+            last_space = trimmed.rfind(" ")
+            if last_space >= int(max_length * 0.6):
+                trimmed = trimmed[:last_space]
+            trimmed = trimmed.strip()
+            logger.debug(
+                "postprocess: trimmed from %s to %s chars",
+                len(text),
+                len(trimmed),
+            )
+            text = trimmed
 
         # 3. 빈 문자열 체크
         if not text:
@@ -216,6 +377,145 @@ class TextGenerator:
     def _get_fallback_copy(self):
         """GPT 실패 시 기본 문구 반환"""
         return "특별한 순간을 함께하세요"
+
+    def _append_length_emphasis(self, prompt: str, max_length: int, min_length: int) -> str:
+        return (
+            f"{prompt}\n\n중요: 반드시 {max_length}자 이내로 작성하세요. "
+            f"너무 짧게 쓰지 말고 최소 {min_length}자 이상을 지키세요."
+        )
+
+    def _build_history_context(self, chat_history=None, generation_history=None) -> str:
+        sections = []
+        chat_part = self._format_chat_history(chat_history)
+        if chat_part:
+            sections.append(f"최근 대화 맥락(참고):\n{chat_part}")
+        gen_part = self._format_generation_history(generation_history)
+        if gen_part:
+            sections.append(f"이전에 생성된 문구(참고):\n{gen_part}")
+        return "\n\n".join(sections)
+
+    def _append_hashtag_instruction(self, prompt: str, hashtag_count: int) -> str:
+        return (
+            f"{prompt}\n\n해시태그 규칙: 문장 끝에 해시태그 {hashtag_count}개를 포함하고, "
+            "각 해시태그는 #으로 시작하며 공백으로 구분하세요."
+        )
+
+    def _append_user_requirements(
+        self,
+        user_prompt: str,
+        max_length: int,
+        min_length: int,
+        hashtag_count: Optional[int],
+    ) -> str:
+        requirements = [
+            f"- 반드시 {max_length}자 이내 (초과 금지)",
+            f"- 최소 {min_length}자 이상",
+        ]
+        if hashtag_count:
+            requirements.append(
+                f"- 문장 끝에 해시태그 {hashtag_count}개 포함 (#으로 시작, 공백으로 구분)"
+            )
+        return f"{user_prompt}\n\n요구사항:\n" + "\n".join(requirements)
+
+    def _detect_hashtag_requirement(self, user_input, chat_history=None) -> tuple[bool, int]:
+        combined = " ".join(
+            [user_input or ""]
+            + [msg.get("content", "") for msg in (chat_history or [])[-5:]]
+        )
+        text = combined.lower()
+        if "해시태그" in text or "hash tag" in text or "hashtag" in text or "#" in text:
+            count = self._extract_hashtag_count(combined)
+            return True, count
+        return False, 0
+
+    def _extract_hashtag_count(self, text: str) -> int:
+        match = re.search(r"해시\s*태그\s*(\d+)\s*개|해시태그\s*(\d+)\s*개|해시태그\s*(\d+)", text)
+        if match:
+            for group in match.groups():
+                if group and group.isdigit():
+                    value = int(group)
+                    return max(1, min(value, 10))
+        return 3
+
+    def _extract_length_expectation(self, user_input: str) -> "LengthSpec":
+        if not user_input:
+            return LengthSpec(None, None, "none", False)
+
+        text = user_input.replace(" ", "")
+
+        range_match = re.search(r"(\d{2,4})[~\-](\d{2,4})자", text)
+        if range_match:
+            start = int(range_match.group(1))
+            end = int(range_match.group(2))
+            if start > end:
+                start, end = end, start
+            return LengthSpec(start, end, "range", end >= 400)
+
+        approx_match = re.search(r"약(\d{2,4})자", text)
+        if approx_match:
+            value = int(approx_match.group(1))
+            return LengthSpec(int(value * 0.8), value, "approx", value >= 400)
+
+        exact_match = re.search(r"(\d{2,4})자", text)
+        if exact_match:
+            value = int(exact_match.group(1))
+            return LengthSpec(int(value * 0.8), value, "exact", value >= 400)
+
+        if "길게" in text:
+            return LengthSpec(400, 600, "long", True)
+        if "짧게" in text:
+            return LengthSpec(20, 40, "short", False)
+
+        return LengthSpec(None, None, "none", False)
+
+    def _merge_length_source_text(self, user_input) -> str:
+        return user_input or ""
+
+    def _format_chat_history(self, chat_history, max_items: int = 5, max_len: int = 120) -> str:
+        if not chat_history:
+            return ""
+        lines = []
+        for msg in chat_history[-max_items:]:
+            role = msg.get("role", "unknown")
+            content = " ".join((msg.get("content") or "").split())
+            if not content:
+                continue
+            snippet = content[:max_len]
+            if len(content) > max_len:
+                snippet += "..."
+            lines.append(f"- {role}: {snippet}")
+        return "\n".join(lines)
+
+    def _format_generation_history(
+        self,
+        generation_history,
+        max_items: int = 3,
+        max_len: int = 120,
+    ) -> str:
+        if not generation_history:
+            return ""
+        lines = []
+        for gen in generation_history:
+            if gen.get("content_type") != "text":
+                continue
+            output_text = " ".join((gen.get("output_text") or "").split())
+            if not output_text:
+                continue
+            snippet = output_text[:max_len]
+            if len(output_text) > max_len:
+                snippet += "..."
+            lines.append(f"- {snippet}")
+            if len(lines) >= max_items:
+                break
+        return "\n".join(lines)
+
+
+class LengthSpec:
+    def __init__(self, min_len: Optional[int], max_len: Optional[int], source: str, is_long: bool):
+        self.min_len = min_len
+        self.max_len = max_len
+        self.source = source
+        self.is_long = is_long
 
 
 # 테스트 코드

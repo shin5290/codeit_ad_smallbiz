@@ -403,21 +403,6 @@ class LLMOrchestrator:
 사용자가 명시적으로 스타일을 지정하면 우선 적용
 스타일이 명확하지 않으면 style=null (기본값 사용)
 
-## 6. 텍스트 생성 파라미터 (generation_type=text일 때)
-톤(text_tone): warm|professional|friendly|energetic 중 하나
-- 사용자가 톤을 직접 지정하면 우선 적용
-- "전문적", "신뢰", "격식", "고급" → professional
-- "친근", "편안", "부드럽게" → friendly
-- "활기", "에너지", "역동" → energetic
-- 그 외는 warm
-
-길이(text_max_length): 숫자 (10~200)
-- "한 줄", "짧게", "슬로건", "캐치프레이즈" → 15~30
-- "제목", "헤드라인" → 30~40
-- "소개", "설명", "상세" → 80~120
-- 배너/썸네일 → 15~25, 포스터 → 30~50, 인스타 피드 → 20~40
-- 사용자가 "50자" 등 명시하면 그대로 반영
-
 반드시 JSON 객체만 출력하고, 설명/코드펜스/추가 텍스트는 금지.
 
 ## JSON 응답 형식
@@ -428,9 +413,7 @@ class LLMOrchestrator:
   "aspect_ratio": "1:1|16:9|9:16|4:3" or null,
   "style": "ultra_realistic|semi_realistic|anime" or null,
   "need_rmbg": true|false,
-  "strength": 0.0-1.0 or null,
-  "text_tone": "warm|professional|friendly|energetic" or null,
-  "text_max_length": 10-200 or null
+  "strength": 0.0-1.0 or null
 }
 
 ## 분석 예시
@@ -528,9 +511,7 @@ class LLMOrchestrator:
   "aspect_ratio": null,
   "style": null,
   "need_rmbg": false,
-  "strength": null,
-  "text_tone": "warm",
-  "text_max_length": 20
+  "strength": null
 }
 """
 
@@ -570,8 +551,6 @@ class LLMOrchestrator:
                     "style": None,
                     "need_rmbg": False,
                     "strength": None,
-                    "text_tone": None,
-                    "text_max_length": None,
                 }
 
             # 기본값 처리
@@ -598,9 +577,6 @@ class LLMOrchestrator:
             style = result.get("style")
             strength = result.get("strength")
             need_rmbg = result.get("need_rmbg")
-            text_tone = result.get("text_tone")
-            text_max_length = result.get("text_max_length")
-
             # 유효성 검사
             valid_aspect_ratios = ["1:1", "16:9", "9:16", "4:3"]
             if isinstance(aspect_ratio, str):
@@ -654,33 +630,12 @@ class LLMOrchestrator:
                 elif any(k in msg_lower for k in banner_keywords):
                     aspect_ratio = "16:9"
 
-            valid_tones = ["warm", "professional", "friendly", "energetic"]
-            if isinstance(text_tone, str):
-                text_tone = text_tone.strip()
-            if text_tone not in valid_tones:
-                text_tone = None
-
-            if text_max_length is not None:
-                try:
-                    text_max_length = int(text_max_length)
-                except (TypeError, ValueError):
-                    text_max_length = None
-            if text_max_length is not None:
-                if text_max_length < 10:
-                    text_max_length = 10
-                elif text_max_length > 200:
-                    text_max_length = 200
-
-            if gen_type != "text":
-                text_tone = None
-                text_max_length = None
             if gen_type != "image":
                 need_rmbg = False
 
             logger.info(
                 f"Intent: {intent}, type: {gen_type}, strength: {strength}, "
-                f"ratio: {aspect_ratio}, style: {style}, need_rmbg: {need_rmbg}, "
-                f"text_tone: {text_tone}, text_max_length: {text_max_length}"
+                f"ratio: {aspect_ratio}, style: {style}, need_rmbg: {need_rmbg}"
             )
 
             return {
@@ -691,8 +646,6 @@ class LLMOrchestrator:
                 "style": style,
                 "need_rmbg": need_rmbg,
                 "strength": strength,
-                "text_tone": text_tone,
-                "text_max_length": text_max_length,
             }
 
         except json.JSONDecodeError as e:
@@ -705,8 +658,6 @@ class LLMOrchestrator:
                 "style": None,
                 "need_rmbg": False,
                 "strength": None,
-                "text_tone": None,
-                "text_max_length": None,
             }
         except Exception as e:
             logger.error(f"Intent analysis failed: {e}", exc_info=True)
@@ -718,8 +669,6 @@ class LLMOrchestrator:
                 "style": None,
                 "need_rmbg": False,
                 "strength": None,
-                "text_tone": None,
-                "text_max_length": None,
             }
 
 
@@ -781,16 +730,31 @@ class LLMOrchestrator:
 
 ---
 
-# Task 2: Input Refinement Logic (텍스트 정제)
+# Task 2: Input Refinement Logic (요구사항 정제)
 
-단순히 사용자의 마지막 말만 번역하지 말고, **(기존 문맥 + 새로운 요청)**을 통합하여 완벽한 프롬프트를 만드십시오.
+단순히 사용자의 마지막 말만 번역하지 말고, **(기존 문맥 + 새로운 요청)**을 통합하여 **정제된 요구사항(spec)**을 만드십시오.
 
 1. **상속 (Inheritance):** 선택된 `target_generation_id`의 `input_text`를 베이스로 가져옵니다. (target이 없으면 대화 내 제품 정보가 베이스)
 2. **수정 (Modification):** 사용자의 새로운 요청(추가/삭제/변경)을 반영합니다.
    - "A 빼줘" → A 삭제
    - "B를 C로 바꿔줘" → B를 C로 치환
 3. **구체화 (Specification):** 대명사("그 문구")나 모호한 표현을 구체적인 값으로 치환합니다.
-4. **형식 (Output Format):** 문장 형태보다는, 이미지 생성/광고 문구 생성에 즉시 투입 가능한 **지시문 형태**로 요약합니다.
+4. **형식 (Output Format):** 문장 형태보다는, 이미지 생성/광고 문구 생성에 즉시 투입 가능한 **요구사항 형태**로 요약합니다.
+
+추가 원칙:
+- **현재 사용자 요청이 우선**입니다. 이전 지시사항은 기본값으로만 유지하고, 현재 요청과 충돌하면 제거/수정하십시오.
+- 사용자가 특정 처리(예: 어떤 단계나 효과)를 **하지 않겠다는 의도**를 보이면, 이전에 포함되었더라도 refined_input에서 제외하십시오.
+- 사용자가 그 부분을 **명시적으로 유지/변경**하는 경우에만 refined_input에 남기십시오.
+- 사용자가 **직접 제시한 문구/문장**은 누락하지 말고 refined_input에 **그대로 포함**하십시오.
+- 사용자가 이미지에 텍스트를 넣어달라고 하면, **넣어야 할 정확한 텍스트**를 refined_input에 명확히 반영하십시오.
+- 해당 텍스트가 **현재 메시지에 없고 이전 대화/생성 이력에만 있는 경우**, 문맥(지시어·대명사)을 근거로 **가장 관련 있는 텍스트를 찾아** refined_input에 포함하십시오.
+- refined_input에는 **최종 광고 문구를 완성형으로 작성하지 마십시오.**
+  - 예: "엄마의 정성이..." 같은 완성 문장은 금지
+  - 대신: "문구는 따뜻한 톤, 길게, 해시태그 포함"처럼 **요구사항(spec)**으로 작성
+- 길이 기대치는 사용자의 표현을 사람 기준으로 해석해 포함하십시오.
+  - 예: "길게" → "약 400~600자 수준"
+  - 예: "짧게" → "약 20~40자 수준"
+- 해시태그 요청이 있으면 **문장 끝에 해시태그 N개 포함**을 요구사항에 명시하십시오.
 
 
 ---
@@ -1024,6 +988,12 @@ class ConsultingService:
         recent_conversations: List[Dict],
     ):
         user_context = self._session_contexts.get(session_id)
+        if user_context is None:
+            from src.generation.chat_bot.rag.prompts import UserContext
+
+            user_context = UserContext()
+            self._session_contexts[session_id] = user_context
+
         for msg in recent_conversations:
             if msg.get("role") == "user":
                 content = (msg.get("content") or "").strip()
@@ -1031,8 +1001,8 @@ class ConsultingService:
                     user_context = self.slot_checker.update_context_from_query(
                         content, user_context
                     )
-        if user_context is not None:
-            self._session_contexts[session_id] = user_context
+
+        self._session_contexts[session_id] = user_context
         return user_context
 
     async def _stream_consulting_answer(
@@ -1069,7 +1039,10 @@ class ConsultingService:
         assistant_message = ""
 
         if bot is not None:
-            result = bot.consult(query=message, user_context=None)
+            context = self.build_context(db, session_id, message)
+            recent_conversations = context.get("recent_conversations", [])
+            user_context = self._build_user_context(session_id, recent_conversations)
+            result = bot.consult(query=message, user_context=user_context)
             assistant_message = (result.get("answer") or "").strip() or "무엇을 도와드릴까요?"
             yield {"type": "chunk", "content": assistant_message}
         else:

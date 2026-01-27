@@ -463,8 +463,8 @@ async def generate_contents(
     need_rmbg: Optional[bool] = None,
     is_text_modification: Optional[bool] = None,
     strength: Optional[float] = None,
-    text_tone: Optional[str] = None,
-    text_max_length: Optional[int] = None,
+    chat_history: Optional[List[Dict]] = None,
+    generation_history: Optional[List[Dict]] = None,
     progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> GeneratedContent:
     """
@@ -480,8 +480,8 @@ async def generate_contents(
         need_rmbg: 배경 제거 요청 여부 (이미지 생성용)
         is_text_modification: 텍스트만 수정 요청 여부 (참조용)
         strength: 수정 강도 (0.0~1.0)
-        text_tone: 텍스트 톤 (warm, professional, friendly, energetic)
-        text_max_length: 텍스트 최대 길이 (10~200)
+        chat_history: 대화 히스토리 (텍스트 생성 참고용)
+        generation_history: 생성 히스토리 (텍스트 생성 참고용)
     Returns:
         GeneratedContent: 생성된 광고 콘텐츠
     """
@@ -516,21 +516,11 @@ async def generate_contents(
             logger.info("generate_contents: 텍스트 생성 시작")
             text_gen = get_text_generator()
 
-            safe_max_length = 100
-            if text_max_length is not None:
-                try:
-                    safe_max_length = int(text_max_length)
-                except (TypeError, ValueError):
-                    safe_max_length = 100
-            if safe_max_length < 10:
-                safe_max_length = 10
-            elif safe_max_length > 200:
-                safe_max_length = 200
-
             ad_copy = text_gen.generate_ad_copy(
                 user_input=input_text,
-                tone=text_tone or "warm",
-                max_length=safe_max_length,
+                chat_history=chat_history,
+                generation_history=generation_history,
+                industry=resolved_industry,
             )
 
             output_text = ad_copy
@@ -716,9 +706,6 @@ async def handle_chat_message_stream(
     industry = intent_result.get("industry")
     need_rmbg = intent_result.get("need_rmbg")
     strength = intent_result.get("strength")
-    text_tone = intent_result.get("text_tone")
-    text_max_length = intent_result.get("text_max_length")
-
     yield {
         "type": "meta",
         "session_id": session_key,
@@ -728,8 +715,6 @@ async def handle_chat_message_stream(
         "style": style,
         "industry": industry,
         "strength": strength,
-        "text_tone": text_tone,
-        "text_max_length": text_max_length,
     }
 
     # 3. Consulting 분기
@@ -805,8 +790,8 @@ async def handle_chat_message_stream(
                     need_rmbg=need_rmbg,
                     is_text_modification=is_text_modification,
                     strength=strength,  # Intent에서 결정된 강도 전달
-                    text_tone=text_tone,
-                    text_max_length=text_max_length,
+                    chat_history=chat_history,
+                    generation_history=generation_history,
                     progress_callback=progress_callback,
                 )
             )
@@ -852,8 +837,8 @@ async def handle_chat_message_stream(
                 need_rmbg=need_rmbg,
                 is_text_modification=is_text_modification,
                 strength=strength,
-                text_tone=text_tone,
-                text_max_length=text_max_length,
+                chat_history=chat_history,
+                generation_history=generation_history,
                 ingest=ingest,
                 progress_callback=progress_callback,
             )
@@ -899,8 +884,8 @@ async def _execute_generation_pipeline(
     need_rmbg: Optional[bool] = None,
     is_text_modification: Optional[bool] = None,
     strength: Optional[float] = None,
-    text_tone: Optional[str] = None,
-    text_max_length: Optional[int] = None,
+    chat_history: Optional[List[Dict]] = None,
+    generation_history: Optional[List[Dict]] = None,
     ingest: Optional[IngestResult] = None,
     progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> Dict:
@@ -934,8 +919,8 @@ async def _execute_generation_pipeline(
         need_rmbg=need_rmbg,
         is_text_modification=is_text_modification,
         strength=strength,
-        text_tone=text_tone,
-        text_max_length=text_max_length,
+        chat_history=chat_history,
+        generation_history=generation_history,
         progress_callback=progress_callback,
     )
 
@@ -964,8 +949,8 @@ async def handle_chat_revise(
     need_rmbg: Optional[bool] = None,
     is_text_modification: Optional[bool] = None,
     strength: Optional[float] = None,  # Intent에서 전달받음
-    text_tone: Optional[str] = None,
-    text_max_length: Optional[int] = None,
+    chat_history: Optional[List[Dict]] = None,
+    generation_history: Optional[List[Dict]] = None,
     progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
 ):
     """
@@ -1045,8 +1030,8 @@ async def handle_chat_revise(
         need_rmbg=need_rmbg,
         is_text_modification=is_text_modification,
         strength=updated_params["strength"],
-        text_tone=text_tone,
-        text_max_length=text_max_length,
+        chat_history=chat_history,
+        generation_history=generation_history,
         progress_callback=progress_callback,
     )
 

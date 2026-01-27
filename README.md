@@ -579,9 +579,7 @@ consulting  generation  modification
   "aspect_ratio": "1:1|16:9|9:16|4:3" or null,
   "style": "ultra_realistic|semi_realistic|anime" or null,
   "industry": "cafe|restaurant|..." or null,
-  "strength": 0.0-1.0 or null,
-  "text_tone": "warm|professional|friendly|energetic" or null,
-  "text_max_length": 10-200 or null
+  "strength": 0.0-1.0 or null
 }
 ```
 
@@ -690,4 +688,3 @@ Vercel Dashboard에서 환경 변수 설정:
 ---
 
 **CodeIt 4기 4팀** | 2025-12-29 ~ 2026-01-28
-
