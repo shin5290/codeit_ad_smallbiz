@@ -45,6 +45,7 @@ class TextGenerator:
         chat_history=None,
         generation_history=None,
         industry=None,
+        progress_callback=None,
     ):
         """
         광고 문구 생성
@@ -72,11 +73,14 @@ class TextGenerator:
             resolved_tone = "warm"
 
         logger.info("📝 광고 문구 생성 중...")
+        if progress_callback:
+            try:
+                progress_callback({"event": "text_generation_start"})
+            except Exception:
+                pass
         logger.info(f"   입력: {user_input}")
-        logger.info(
-            f"   톤: {resolved_tone}, 최대 {max_length}자, 업종 힌트: {industry or 'general'}"
-        )
         logger.info(f"   업종 설정 사용: {self.use_industry_config}")
+        logger.info(f"   톤: {resolved_tone}, 최대 {max_length}자")
         try:
             chat_history = self._normalize_history_items(chat_history)
             generation_history = self._normalize_history_items(generation_history)
@@ -151,7 +155,7 @@ class TextGenerator:
                 generation_history=generation_history,
             )
 
-            for attempt in range(2):
+            for attempt in range(1):
                 if self.use_industry_config and self.prompt_manager:
                     prompts = self.prompt_manager.get_ad_copy_prompt(
                         user_input=user_input,
@@ -175,18 +179,17 @@ class TextGenerator:
                     )
                     if history_context:
                         user_prompt = f"{user_prompt}\n\n{history_context}"
-                    # 자동 감지된 업종 정보 출력
-                    detected_industry = prompts.get("industry")
-                    if detected_industry == industry and self.prompt_manager:
-                        detected_from_text = self.prompt_manager.detect_industry(user_input)
-                        if detected_from_text:
-                            logger.info(f"   감지된 업종: {detected_from_text}")
-                            if industry and detected_from_text != industry:
-                                logger.info(f"   업종 힌트: {industry}")
+                    # 자동 감지된 업종 정보 출력 (1회만)
+                    if attempt == 0:
+                        detected_industry = prompts.get("industry")
+                        if detected_industry == industry and self.prompt_manager:
+                            detected_from_text = self.prompt_manager.detect_industry(user_input)
+                            if detected_from_text:
+                                logger.info(f"   감지된 업종: {detected_from_text}")
+                            else:
+                                logger.info(f"   감지된 업종: {detected_industry}")
                         else:
                             logger.info(f"   감지된 업종: {detected_industry}")
-                    else:
-                        logger.info(f"   감지된 업종: {detected_industry}")
                 else:
                     # 1. 시스템 프롬프트 선택 (대화 히스토리와 업종 정보 포함)
                     system_prompt = self._get_system_prompt(
@@ -210,11 +213,22 @@ class TextGenerator:
                         hashtag_count=hashtag_count if require_hashtags else None,
                     )
 
+                if progress_callback:
+                    try:
+                        progress_callback({"event": "text_prompt_ready"})
+                    except Exception:
+                        pass
+
                 # 3. GPT API 호출
                 if wants_long:
                     max_tokens = min(1500, max(900, int(safe_max_length * 2)))
                 else:
                     max_tokens = min(900, max(120, int(safe_max_length * 1.5)))
+                if progress_callback:
+                    try:
+                        progress_callback({"event": "text_request_start"})
+                    except Exception:
+                        pass
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[
@@ -224,29 +238,46 @@ class TextGenerator:
                     temperature=0.7,
                     max_tokens=max_tokens
                 )
+                if progress_callback:
+                    try:
+                        progress_callback({"event": "text_request_done"})
+                    except Exception:
+                        pass
 
                 # 4. 응답 추출
                 ad_copy = response.choices[0].message.content.strip()
 
                 # 5. 후처리
                 ad_copy = self._postprocess(ad_copy, safe_max_length)
+                if progress_callback:
+                    try:
+                        progress_callback({"event": "text_postprocess"})
+                    except Exception:
+                        pass
 
                 too_short = len(ad_copy) < min_length
                 missing_hashtags = require_hashtags and ("#" not in ad_copy)
-                if too_short or missing_hashtags:
+                if missing_hashtags or too_short:
                     logger.debug(
-                        "postprocess check failed (attempt=%s): too_short=%s, missing_hashtags=%s",
-                        attempt + 1,
+                        "postprocess check failed: too_short=%s, missing_hashtags=%s",
                         too_short,
                         missing_hashtags,
-                    )
-                    if attempt == 0:
-                        continue
+                        )
 
-                logger.info(f"✅ 생성 완료: {ad_copy}")
+                logger.debug(f"✅ 생성 완료: {ad_copy}")
+                if progress_callback:
+                    try:
+                        progress_callback({"event": "text_done"})
+                    except Exception:
+                        pass
                 return ad_copy
 
-            logger.info(f"✅ 생성 완료: {ad_copy}")
+            logger.debug(f"✅ 생성 완료: {ad_copy}")
+            if progress_callback:
+                try:
+                    progress_callback({"event": "text_done"})
+                except Exception:
+                    pass
             return ad_copy
 
         except Exception as e:

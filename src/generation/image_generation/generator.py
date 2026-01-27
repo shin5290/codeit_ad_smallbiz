@@ -149,34 +149,27 @@ def generate_and_save_image(
         if storage_dir is None:
             storage_dir = DEFAULT_STORAGE_DIR
 
-        def emit_progress(event: str, node_name: str) -> None:
+        def emit_progress(event: str, payload: Dict[str, Any]) -> None:
             if progress_callback:
-                progress_callback({"event": event, "node": node_name})
+                progress_callback({"event": event, **payload})
+
+        total_nodes = 0
+        current_step = 0
 
         def on_node_start(node, _data) -> None:
-            if node.node_name == "BackgroundRemovalNode":
-                emit_progress("background_removal_start", node.node_name)
-            elif node.node_name in ("Text2ImageNode", "Image2ImageNode"):
-                emit_progress("image_generation_start", node.node_name)
-            elif node.node_name in ("ProductLayoutAnalyzerNode", "GPTLayoutAnalyzerNode"):
-                emit_progress("layout_analysis_start", node.node_name)
-            elif node.node_name == "BackgroundCompositeNode":
-                emit_progress("composite_start", node.node_name)
-            elif node.node_name == "SaveImageNode":
-                if getattr(node, "is_origin", False):
-                    emit_progress("image_save_origin_start", node.node_name)
-                else:
-                    emit_progress("image_save_start", node.node_name)
-            elif node.node_name == "TextOverlayNode":
-                emit_progress("text_overlay_start", node.node_name)
+            nonlocal current_step
+            current_step += 1
+            emit_progress(
+                "workflow_step",
+                {
+                    "node": node.node_name,
+                    "step": current_step,
+                    "total": total_nodes,
+                },
+            )
 
         def on_node_end(node, _data) -> None:
-            if node.node_name == "PromptProcessorNode":
-                emit_progress("prompt_done", node.node_name)
-            elif node.node_name == "BackgroundRemovalNode":
-                emit_progress("background_removal_done", node.node_name)
-            elif node.node_name in ("ProductLayoutAnalyzerNode", "GPTLayoutAnalyzerNode"):
-                emit_progress("layout_analysis_done", node.node_name)
+            return
 
         # 워크플로우 구성
         if reference_image is not None and need_rmbg:
@@ -280,6 +273,8 @@ def generate_and_save_image(
             inputs["seed"] = seed
 
         # 워크플로우 실행
+        total_nodes = len(workflow.nodes)
+        current_step = 0
         result = workflow.run(
             inputs,
             on_node_start=on_node_start,
@@ -295,6 +290,7 @@ def generate_and_save_image(
             "width": result["width"],
             "height": result["height"],
             "style": result.get("detected_style", style),
+            "aspect_ratio": aspect_ratio,
             "industry": result.get("industry"),
             "seed": result.get("seed"),
             "generation_time": generation_time,
@@ -315,6 +311,7 @@ def generate_and_save_image(
             "width": None,
             "height": None,
             "style": style,
+            "aspect_ratio": aspect_ratio,
             "industry": None,
             "seed": seed,
             "generation_time": generation_time,

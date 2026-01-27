@@ -12,6 +12,13 @@ from typing import Any, Optional, List, Dict, AsyncIterator
 from sqlalchemy.orm import Session
 
 from src.utils.image import image_payload 
+from src.utils.intent_keywords import (
+    normalize_modification_typo,
+    should_force_image_modification,
+    normalize_hashtag_placeholder,
+    apply_hashtag_requirements,
+    normalize_industry_label,
+)
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -136,81 +143,6 @@ def _summarize_generation_history(
     return latest + oldest, summary
 
 
-def _normalize_modification_typo(text: str) -> str:
-    if not text:
-        return text
-    if "수저해" not in text:
-        return text
-    utensil_markers = ["수저 추가", "수저 넣", "수저 올려", "수저 그려", "숟가락", "스푼", "젓가락"]
-    if any(marker in text for marker in utensil_markers):
-        return text
-    return text.replace("수저해", "수정해")
-
-
-def _resolve_hashtag_count_from_text(text: str) -> Optional[int]:
-    if not text:
-        return None
-    match = re.search(r"해시\\s*태그\\s*(\\d+)\\s*개|해시태그\\s*(\\d+)\\s*개|해시태그\\s*(\\d+)", text)
-    if not match:
-        match = re.search(r"(\\d+)\\s*개\\s*(?:이상)?\\s*해시태그", text)
-        if not match:
-            return None
-    for group in match.groups():
-        if group and group.isdigit():
-            return int(group)
-    return None
-
-
-def _normalize_hashtag_placeholder(refined_input: str, chat_history: List[Dict], default_count: int = 5) -> str:
-    if not refined_input:
-        return refined_input
-    if "해시태그" not in refined_input:
-        return refined_input
-    placeholder_pattern = r"해시태그\\s*[Nn]\\s*개|해시태그\\s*N개|해시태그\\s*n개"
-    if not re.search(placeholder_pattern, refined_input):
-        return refined_input
-
-    count = None
-    for msg in reversed(chat_history or []):
-        count = _resolve_hashtag_count_from_text(msg.get("content") or "")
-        if count:
-            break
-    if not count:
-        count = default_count
-
-    return re.sub(placeholder_pattern, f"해시태그 {count}개", refined_input)
-
-
-def _extract_recent_hashtag_requirements(chat_history: List[Dict]) -> tuple[Optional[int], List[str]]:
-    if not chat_history:
-        return None, []
-    for msg in reversed(chat_history):
-        text = (msg.get("content") or "").strip()
-        if not text:
-            continue
-        count = _resolve_hashtag_count_from_text(text)
-        tags = re.findall(r"#[0-9A-Za-z가-힣_]+", text)
-        if not count and not tags:
-            continue
-        deduped: List[str] = []
-        seen = set()
-        for tag in tags:
-            if tag not in seen:
-                seen.add(tag)
-                deduped.append(tag)
-        return count, deduped
-    return None, []
-
-
-def _user_disallowed_hashtags(text: str) -> bool:
-    if not text:
-        return False
-    lowered = text.replace(" ", "")
-    if "해시태그" not in lowered and "#" not in lowered:
-        return False
-    return any(token in lowered for token in ("없", "빼", "제외", "말고"))
-
-
 def _looks_like_final_copy(text: str) -> bool:
     if not text:
         return False
@@ -258,41 +190,6 @@ def _extract_business_context(
         snippet = " ".join(content.split())
         return snippet[:max_len]
     return None
-
-
-def _apply_hashtag_requirements(
-    refined_input: str,
-    latest_user_message: str,
-    chat_history: List[Dict],
-) -> str:
-    if not refined_input:
-        return refined_input
-    if _user_disallowed_hashtags(latest_user_message):
-        return refined_input
-
-    history_count, history_tags = _extract_recent_hashtag_requirements(chat_history)
-    if not history_count and not history_tags:
-        return refined_input
-
-    explicit_count = _resolve_hashtag_count_from_text(latest_user_message or "")
-    explicit_tags = re.findall(r"#[0-9A-Za-z가-힣_]+", latest_user_message or "")
-
-    updated = refined_input
-    if history_count and not explicit_count:
-        if re.search(r"해시태그\\s*\\d+\\s*개", updated):
-            updated = re.sub(
-                r"해시태그\\s*\\d+\\s*개",
-                f"해시태그 {history_count}개",
-                updated,
-            )
-        elif "해시태그" in updated:
-            updated = f"{updated} 해시태그 {history_count}개 포함"
-
-    if history_tags and not explicit_tags:
-        if not re.search(r"#[0-9A-Za-z가-힣_]+", updated):
-            updated = f"{updated} 필수 해시태그: {' '.join(history_tags)}"
-
-    return updated
 
 
 def _extract_json_dict(content: Optional[str]) -> Optional[Dict]:
@@ -482,9 +379,26 @@ class LLMOrchestrator:
 - modification: 기존 광고를 수정하고 싶어하는 경우
 - consulting: 광고 제작 방법이나 조언을 구하는 경우
 
+아래는 consulting으로 분류해야 합니다:
+- 마케팅 "플랜/전략/운영 방식/진행 방법/계획"을 요청하는 경우
+- “~어떻게 해야할까?”, “~계획 세워줘”, “~플랜 짜줘”처럼 방향/전략을 묻는 경우
+- 결과물 생성(이미지/문구)보다 **컨설팅 답변**이 우선인 질문
+- 애매하거나 혼합된 경우(전략+생성)에는 consulting을 우선하세요.
+- 확실하지 않으면 consulting으로 분류하고 generation_type은 null로 두세요.
+
+아래는 generation으로 분류합니다:
+- “이미지 만들어줘/생성해줘”, “문구 써줘/카피 작성”처럼 실제 결과물 생성이 목적일 때
+
+※ 단, 기존 이미지에 “텍스트를 써줘/추가해줘/수정해줘”처럼 **이미지 위 텍스트 추가/교체** 요청이 있거나
+   배경 제거/합성/누끼처럼 **이미지 편집 작업**이 포함되면 modification으로 분류하세요.
+
 ## 2. 생성 타입 결정 (intent=generation일 때)
 - image: 이미지/사진/그림/배너/포스터/피드 등 시각적 콘텐츠
 - text: 광고 문구/카피/슬로건만 필요한 경우
+
+## 2.1 생성 타입 결정 (intent=modification일 때)
+- 사용자가 “이미지에 글자 추가/교체”, “배경 제거/합성” 등 **시각적 편집**을 요구하면 generation_type="image"
+- 문구 길이/톤/표현만 바꾸는 요청이라면 generation_type="text"
 
 ## 3. 수정 강도(strength) 감지 (intent=modification일 때)
 사용자의 수정 요청 표현을 분석하여 0.0~1.0 범위의 strength 값을 결정:
@@ -568,7 +482,8 @@ class LLMOrchestrator:
 - 메뉴/서비스 키워드가 있으면 업종으로 일반화합니다. (예: 김치찌개 → restaurant)
 - 업종을 특정할 단서가 없으면 null
 - 출력은 1~2단어의 짧은 라벨만 허용 (장문 금지)
-- 최근 대화가 제공되면 반드시 맥락을 반영해 업종을 추정하세요.
+- 최근 대화가 제공되면 맥락을 반영하되, **최신 사용자 메시지가 기존 업종과 충돌하면 최신 메시지를 우선**하세요.
+- 즉, 사용자가 업종을 변경해 말한 경우에는 이전 업종을 버리고 최신 업종으로 업데이트합니다.
 
 반드시 JSON 객체만 출력하고, 설명/코드펜스/추가 텍스트는 금지.
 
@@ -686,6 +601,19 @@ class LLMOrchestrator:
   "need_rmbg": false,
   "strength": null
 }
+
+입력: "여기에 오픈 이벤트 문구 써줘"
+출력:
+{
+  "intent": "modification",
+  "confidence": 0.9,
+  "generation_type": "image",
+  "aspect_ratio": null,
+  "style": null,
+  "industry": null,
+  "need_rmbg": false,
+  "strength": 0.55
+}
 """
 
         # 최근 대화만 컨텍스트로 사용 (선택적)
@@ -801,13 +729,7 @@ class LLMOrchestrator:
                 need_rmbg = False
 
             if intent == "modification" and gen_type in ("text", None):
-                msg_lower = user_message.lower()
-                image_keywords = [
-                    "image", "photo", "picture", "background", "color", "font", "text",
-                    "이미지", "사진", "그림", "배경", "색상", "색깔", "폰트", "글씨",
-                    "포스터", "배너", "구도", "레이아웃",
-                ]
-                if any(keyword in msg_lower for keyword in image_keywords):
+                if should_force_image_modification(user_message):
                     gen_type = "image"
 
             if aspect_ratio is None:
@@ -821,11 +743,6 @@ class LLMOrchestrator:
 
             if gen_type != "image":
                 need_rmbg = False
-
-            logger.info(
-                f"Intent: {intent}, type: {gen_type}, strength: {strength}, "
-                f"ratio: {aspect_ratio}, style: {style}, need_rmbg: {need_rmbg}"
-            )
 
             return {
                 "intent": intent,
@@ -941,8 +858,9 @@ class LLMOrchestrator:
 - 사용자가 **직접 제시한 문구/문장**은 누락하지 말고 refined_input에 **그대로 포함**하십시오.
 - 사용자가 이미지에 텍스트를 넣어달라고 하면, **넣어야 할 정확한 텍스트**를 refined_input에 명확히 반영하십시오.
 - 해당 텍스트가 **현재 메시지에 없고 이전 대화/생성 이력에만 있는 경우**, 문맥(지시어·대명사)을 근거로 **가장 관련 있는 텍스트를 찾아** refined_input에 포함하십시오.
-- 이전 상담/대화에서 **확정된 규칙(게시 일정, 요일별 포스팅 타입, 해시태그 개수/필수 태그, 지역 등)**이 있으면 refined_input에 반드시 반영하십시오.
-- chat_history에만 있는 수치/요구사항이라도 빠뜨리지 마십시오.
+- 이전 상담/대화에서 **확정된 규칙(게시 일정, 요일별 포스팅 타입, 해시태그 개수/필수 태그, 지역 등)**은
+  **intent=modification이거나 사용자가 명시적으로 이어서 진행한다고 말한 경우에만** refined_input에 반영하십시오.
+- 그렇지 않은 새 생성 요청(generation)에서는 이전 규칙을 자동으로 끌고 오지 마십시오.
 - refined_input에는 **최종 광고 문구를 완성형으로 작성하지 마십시오.**
   - 예: "엄마의 정성이..." 같은 완성 문장은 금지
   - 대신: "문구는 따뜻한 톤, 길게, 해시태그 포함"처럼 **요구사항(spec)**으로 작성
@@ -985,7 +903,7 @@ Output Format (JSON Only)
             if msg.get("role") == "user":
                 latest_user_message = (msg.get("content") or "").strip()
                 break
-        latest_user_message = _normalize_modification_typo(latest_user_message)
+        latest_user_message = normalize_modification_typo(latest_user_message)
         business_context = _extract_business_context(chat_history, latest_user_message)
 
         total_generations = len(generation_history or [])
@@ -1001,6 +919,10 @@ Output Format (JSON Only)
             gen for gen in condensed_generation_history
             if gen.get("output_image") or gen.get("input_image") or gen.get("content_type") == "image"
         ]
+        if intent != "modification":
+            condensed_generation_history = []
+            condensed_image_history = []
+            generation_summary = ""
 
         prompt = f"""
 # 현재 사용자 메시지
@@ -1056,12 +978,13 @@ JSON 형식으로 응답:
                 logger.warning("Refinement JSON parse failed: %s", content.strip())
                 refined_input = content.strip() or latest_user_message
                 if generation_type == "text":
-                    refined_input = _normalize_hashtag_placeholder(refined_input, chat_history)
-                    refined_input = _apply_hashtag_requirements(
-                        refined_input,
-                        latest_user_message,
-                        chat_history,
-                    )
+                    refined_input = normalize_hashtag_placeholder(refined_input, chat_history)
+                    if intent == "modification":
+                        refined_input = apply_hashtag_requirements(
+                            refined_input,
+                            latest_user_message,
+                            chat_history,
+                        )
                 return {
                     "refined_input": refined_input,
                     "target_generation_id": None,
@@ -1186,12 +1109,13 @@ generation_type: {generation_type or "null"}
             if not refined_input:
                 refined_input = latest_user_message
             if generation_type == "text":
-                refined_input = _normalize_hashtag_placeholder(refined_input, chat_history)
-                refined_input = _apply_hashtag_requirements(
-                    refined_input,
-                    latest_user_message,
-                    chat_history,
-                )
+                refined_input = normalize_hashtag_placeholder(refined_input, chat_history)
+                if intent == "modification":
+                    refined_input = apply_hashtag_requirements(
+                        refined_input,
+                        latest_user_message,
+                        chat_history,
+                    )
 
             logger.info(
                 "Refinement: original=%s, refined=%s, target_id=%s",
@@ -1236,6 +1160,7 @@ class ConsultingService:
         self._consultant_bots: Dict[str, Any] = {}
         self.slot_checker = SlotChecker()
         self._session_contexts: Dict[str, UserContext] = {}
+        self._pending_slots: Dict[str, str] = {}
 
     def _get_consultant_bot(self, session_id: str):
         """세션별 SmallBizConsultant 인스턴스 반환 (슬롯 상태 분리)"""
@@ -1303,8 +1228,21 @@ class ConsultingService:
             user_context = UserContext()
             self._session_contexts[session_id] = user_context
 
-        if industry_hint and not user_context.industry:
-            user_context.industry = industry_hint
+        if industry_hint:
+            incoming_industry = normalize_industry_label(industry_hint)
+            current_industry = (
+                normalize_industry_label(user_context.industry)
+                if user_context.industry
+                else None
+            )
+            if current_industry and incoming_industry and current_industry != incoming_industry:
+                user_context.location = None
+                user_context.budget = None
+                user_context.goal = None
+                user_context.platform = None
+                user_context.industry = incoming_industry
+            elif not user_context.industry and incoming_industry:
+                user_context.industry = incoming_industry
 
         for msg in recent_conversations:
             if msg.get("role") == "user":
@@ -1332,9 +1270,52 @@ class ConsultingService:
         user_context = self._build_user_context(
             session_id, recent_conversations, industry_hint
         )
+        pending_slot = self._pending_slots.pop(session_id, None)
+        if pending_slot and message:
+            candidate = (message or "").strip()
+            if pending_slot == "industry" and not user_context.industry:
+                user_context.industry = normalize_industry_label(candidate) or candidate
+            elif pending_slot == "location" and not user_context.location:
+                user_context.location = candidate
+        if not user_context.industry:
+            self._pending_slots[session_id] = "industry"
+            yield self.slot_checker.get_slot_question("industry")
+            return
+        if not user_context.location:
+            self._pending_slots[session_id] = "location"
+            yield self.slot_checker.get_slot_question("location")
+            return
         task = self.rag.prompt_builder.classify_task(message)
         filter_kwargs = self._build_rag_filter(user_context)
         retrieved_docs = self.rag.retrieve(message, k=5, filter=filter_kwargs)
+        if not retrieved_docs and filter_kwargs:
+            fallback_filters: List[Optional[Dict[str, Any]]] = []
+            industry_value = None
+            location_value = None
+            if "$and" in filter_kwargs:
+                for clause in filter_kwargs.get("$and", []):
+                    if "industry" in clause:
+                        industry_value = clause.get("industry")
+                    if "location" in clause:
+                        location_value = clause.get("location")
+            else:
+                industry_value = filter_kwargs.get("industry")
+                location_value = filter_kwargs.get("location")
+
+            if industry_value:
+                fallback_filters.append({"industry": industry_value})
+            if location_value:
+                fallback_filters.append({"location": location_value})
+            fallback_filters.append(None)
+
+            for fallback in fallback_filters:
+                retrieved_docs = self.rag.retrieve(message, k=5, filter=fallback)
+                if retrieved_docs:
+                    logger.info(
+                        "RAG fallback retrieval used filter=%s",
+                        fallback if fallback else "none",
+                    )
+                    break
 
         async for chunk in self.rag.generate_stream(
             query=message,

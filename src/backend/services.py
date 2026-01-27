@@ -14,12 +14,16 @@ from src.generation.image_generation.generator import generate_and_save_image
 from src.generation.image_generation.preload import (
     get_model_load_error,
     is_model_ready,
-    start_model_preload,
     wait_for_model_ready,
 )
 from src.utils.security import verify_password, create_access_token, decode_token
 from src.utils.session import normalize_session_id, ensure_chat_session
 from src.utils.image import save_uploaded_image, load_image_from_payload, image_payload
+from src.utils.intent_keywords import (
+    normalize_modification_typo,
+    detect_dual_generation_request,
+    normalize_industry_label,
+)
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -70,10 +74,72 @@ _IMAGE_PROGRESS_HINTS = {
         "message": "최종 이미지를 저장중입니다.",
     },
 }
+_IMAGE_NODE_LABELS = {
+    "PromptProcessorNode": "프롬프트 생성",
+    "Text2ImageNode": "이미지 생성",
+    "Image2ImageNode": "이미지 생성",
+    "SaveImageNode": "이미지 저장",
+    "GPTLayoutAnalyzerNode": "텍스트 배치 분석",
+    "ProductLayoutAnalyzerNode": "텍스트 배치 분석",
+    "TextOverlayNode": "텍스트 오버레이 적용",
+    "BackgroundRemovalNode": "배경 제거",
+    "BackgroundCompositeNode": "이미지 합성",
+    "RenameKeyNode": "이미지 준비",
+}
+_TEXT_PROGRESS_HINTS = {
+    "text_generation_start": {
+        "percent": 12,
+        "message": "문구 생성을 준비중입니다.",
+    },
+    "text_prompt_ready": {
+        "percent": 32,
+        "message": "프롬프트를 구성중입니다.",
+    },
+    "text_request_start": {
+        "percent": 58,
+        "message": "문구를 생성중입니다.",
+    },
+    "text_request_done": {
+        "percent": 74,
+        "message": "응답을 처리중입니다.",
+    },
+    "text_postprocess": {
+        "percent": 86,
+        "message": "결과를 다듬고 있습니다.",
+    },
+    "text_done": {
+        "percent": 96,
+        "message": "최종 문구를 정리중입니다.",
+    },
+}
 
 
 def _build_generation_progress_payload(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if event.get("event") == "workflow_step":
+        step = event.get("step")
+        total = event.get("total")
+        node = event.get("node")
+        if isinstance(step, int) and isinstance(total, int) and total > 0:
+            percent = int(round((step / total) * 100))
+            label = _IMAGE_NODE_LABELS.get(node, "작업 진행")
+            return {
+                "type": "progress",
+                "stage": "generation_update",
+                "message": label,
+                "percent": percent,
+            }
+    if event.get("event") == "generation_pipeline_start":
+        gen_type = event.get("generation_type")
+        message = "이미지 생성 시작" if gen_type == "image" else "텍스트 생성 시작"
+        return {
+            "type": "progress",
+            "stage": "generation_update",
+            "message": message,
+            "percent": 0,
+        }
     hint = _IMAGE_PROGRESS_HINTS.get(event.get("event"))
+    if not hint:
+        hint = _TEXT_PROGRESS_HINTS.get(event.get("event"))
     if not hint:
         return None
     return {
@@ -364,96 +430,6 @@ def _find_recent_origin_from_history(
     return None
 
 
-def _normalize_modification_typo(text: str) -> str:
-    if not text:
-        return text
-    if "수저해" not in text:
-        return text
-    utensil_markers = ["수저 추가", "수저 넣", "수저 올려", "수저 그려", "숟가락", "스푼", "젓가락"]
-    if any(marker in text for marker in utensil_markers):
-        return text
-    return text.replace("수저해", "수정해")
-
-
-def _detect_dual_generation_request(text: str) -> bool:
-    if not text:
-        return False
-    lowered = text.lower()
-    overlay_markers = [
-        "이미지에", "이미지 위", "이미지위", "사진에", "그림에", "포스터에", "배너에",
-        "사진 위", "그림 위", "포스터 위", "배너 위",
-    ]
-    if any(marker in lowered for marker in overlay_markers):
-        return False
-
-    image_keywords = [
-        "이미지", "사진", "그림", "포스터", "배너", "썸네일", "일러스트",
-        "image", "photo", "picture", "poster", "banner", "thumbnail", "illustration",
-    ]
-    text_keywords = [
-        "문구", "카피", "슬로건", "텍스트", "문장",
-        "copy", "slogan", "text", "caption",
-    ]
-
-    has_image = any(keyword in lowered for keyword in image_keywords)
-    has_text = any(keyword in lowered for keyword in text_keywords)
-    if not (has_image and has_text):
-        return False
-
-    dual_markers = ["둘다", "둘 다", "두개", "두 개", "같이", "한꺼번에", "그리고", "및", "and", "랑", "겸"]
-    if any(marker in lowered for marker in dual_markers):
-        return True
-
-    proximity_pattern = (
-        r"(이미지|사진|그림|포스터|배너|썸네일|image|photo|picture|poster|banner|thumbnail)"
-        r".{0,12}"
-        r"(문구|카피|슬로건|텍스트|문장|copy|slogan|text|caption)"
-    )
-    reverse_pattern = (
-        r"(문구|카피|슬로건|텍스트|문장|copy|slogan|text|caption)"
-        r".{0,12}"
-        r"(이미지|사진|그림|포스터|배너|썸네일|image|photo|picture|poster|banner|thumbnail)"
-    )
-    if re.search(proximity_pattern, lowered) or re.search(reverse_pattern, lowered):
-        return True
-
-    return False
-
-
-def _normalize_industry_label(label: Optional[str]) -> Optional[str]:
-    if not isinstance(label, str):
-        return None
-    cleaned = label.strip()
-    if not cleaned:
-        return None
-    lowered = cleaned.lower()
-    direct = {
-        "cafe",
-        "restaurant",
-        "bakery",
-        "dessert",
-        "bar",
-        "retail",
-        "service",
-    }
-    if lowered in direct:
-        return lowered
-    mapping = {
-        "소매": "retail",
-        "리테일": "retail",
-        "음식점": "restaurant",
-        "식당": "restaurant",
-        "레스토랑": "restaurant",
-        "카페": "cafe",
-        "베이커리": "bakery",
-        "디저트": "dessert",
-        "술집": "bar",
-        "서비스": "service",
-    }
-    for key, value in mapping.items():
-        if key in cleaned:
-            return value
-    return None
 
 
 def _infer_industry_from_history(
@@ -468,12 +444,12 @@ def _infer_industry_from_history(
             continue
         match = re.search(r"업종\s*[:：]\s*([^\n,]+)", content)
         if match:
-            inferred = _normalize_industry_label(match.group(1))
+            inferred = normalize_industry_label(match.group(1))
             if inferred:
                 return inferred
 
     for gen in generation_history or []:
-        inferred = _normalize_industry_label(gen.get("industry"))
+        inferred = normalize_industry_label(gen.get("industry"))
         if inferred:
             return inferred
 
@@ -668,6 +644,7 @@ async def generate_contents(
                 chat_history=chat_history,
                 generation_history=generation_history,
                 industry=resolved_industry,
+                progress_callback=progress_callback,
             )
 
             output_text = ad_copy
@@ -687,11 +664,13 @@ async def generate_contents(
                     "generate_contents: need_rmbg=True but reference_image is None; forcing need_rmbg=False"
                 )
                 effective_need_rmbg = False
+            used_style = style or "ultra_realistic"
+            used_ratio = aspect_ratio or "1:1"
             img_result = await run_in_threadpool(
                 generate_and_save_image,
                 user_input=input_text,
-                style=style or "ultra_realistic",
-                aspect_ratio=aspect_ratio or "1:1",
+                style=used_style,
+                aspect_ratio=used_ratio,
                 industry=resolved_industry,
                 reference_image=reference_image,
                 strength=effective_strength,
@@ -702,6 +681,9 @@ async def generate_contents(
             gen_method = img_result.get("generation_method")
             if not gen_method:
                 gen_method = "i2i" if reference_image is not None else "t2i"
+
+            actual_style = img_result.get("style") or used_style
+            actual_ratio = img_result.get("aspect_ratio") or used_ratio
 
             if img_result["success"]:
                 output_image = {
@@ -728,11 +710,11 @@ async def generate_contents(
         output_image=output_image,
         prompt=gen_prompt,
         generation_method=gen_method,
-        style=style,
+        style=actual_style if generation_type == "image" else None,
         industry=resolved_industry,
         strength=effective_strength if generation_type == "image" else None,
         seed=gen_seed,
-        aspect_ratio=aspect_ratio,
+        aspect_ratio=actual_ratio if generation_type == "image" else None,
     )
 
 
@@ -791,14 +773,6 @@ def persist_generation_result(
             "aspect_ratio": gen.aspect_ratio,
         }
     )
-    db_saved_fields = {
-        "content_type": gen.content_type,
-        "industry": gen.industry,
-        "style": gen.style,
-        "aspect_ratio": gen.aspect_ratio,
-        "strength": gen.strength,
-    }
-    logger.info(f"db_saved_fields={db_saved_fields}")
     return gen_history
 
 
@@ -828,8 +802,8 @@ async def handle_chat_message_stream(
         image=image,
     )
     session_key = ingest.session_id
-    analysis_message = _normalize_modification_typo(message)
-    dual_request = _detect_dual_generation_request(message)
+    analysis_message = normalize_modification_typo(message)
+    dual_request = detect_dual_generation_request(message)
 
     yield {
         "type": "progress",
@@ -890,7 +864,6 @@ async def handle_chat_message_stream(
         return
 
     if generation_type == "image":
-        start_model_preload(device="cuda")
         if not is_model_ready():
             yield {
                 "type": "progress",
@@ -922,9 +895,26 @@ async def handle_chat_message_stream(
     target_generation_id = refinement_result.get("target_generation_id")  # Refinement에서 찾음
     is_text_modification = refinement_result.get("is_text_modification")
 
+    if target_generation_id and intent != "modification":
+        matched = None
+        for gen in generation_history or []:
+            if gen.get("id") == target_generation_id:
+                matched = gen
+                break
+        if matched:
+            target_type = matched.get("content_type")
+            if target_type in ("image", "text"):
+                logger.info(
+                    "override intent to modification based on target_generation_id=%s content_type=%s",
+                    target_generation_id,
+                    target_type,
+                )
+                intent = "modification"
+                generation_type = target_type
+
     progress_queue: Optional[asyncio.Queue] = None
     progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
-    if generation_type == "image":
+    if generation_type in ("image", "text"):
         loop = asyncio.get_running_loop()
         progress_queue = asyncio.Queue()
 
@@ -983,10 +973,14 @@ async def handle_chat_message_stream(
             return
 
         # Generation
+        if generation_type == "image":
+            generation_message = "광고 이미지를 생성하고 있습니다."
+        else:
+            generation_message = "광고 문구를 생성하고 있습니다."
         yield {
             "type": "progress",
             "stage": "generating",
-            "message": f"광고를 생성하고 있습니다. (비율: {aspect_ratio or '기본'})",
+            "message": generation_message,
             "generation_type": generation_type,
         }
 
@@ -1075,9 +1069,16 @@ async def _execute_generation_pipeline(
 
     logger.info(
         f"Generation pipeline: type={generation_type}, "
-        f"ratio={effective_aspect_ratio}, style={effective_style}, industry={industry}, "
-        f"stored_ratio={aspect_ratio}, stored_style={style}"
+        f"ratio={effective_aspect_ratio}, style={effective_style}, industry={industry}"
     )
+    if progress_callback:
+        try:
+            progress_callback({
+                "event": "generation_pipeline_start",
+                "generation_type": generation_type,
+            })
+        except Exception:
+            pass
 
     # 콘텐츠 생성
     gen_result = await generate_contents(

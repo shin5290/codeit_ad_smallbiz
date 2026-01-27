@@ -406,17 +406,20 @@
             display: flex;
             align-items: flex-start;
             gap: 12px;
+            flex-direction: column;
         }
 
         .msg.has-media .msg-content {
             flex: 1 1 0;
             min-width: 0;
-            align-self: flex-end;
+            align-self: stretch;
+            order: 2;
         }
 
         .msg.has-media .image-wrapper {
             flex: 0 0 auto;
             margin-top: 0;
+            order: 1;
         }
 
         .msg.has-media .image-wrapper img {
