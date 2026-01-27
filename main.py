@@ -6,7 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
-from uvicorn.logging import AccessFormatter, DefaultFormatter
 
 import src.backend.process_db as process_db
 import src.backend.services as services
@@ -17,12 +16,14 @@ from src.generation.image_generation.preload import start_model_preload
 from src.backend.rag_preload import start_rag_preload
 
 
-# 로깅 설정
-setup_logging()
-logger = get_logger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 로깅 설정
+    setup_logging()
+    logger = get_logger(__name__)
+
     # DB 초기화
     process_db.init_db()
 
