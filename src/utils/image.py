@@ -112,7 +112,7 @@ async def save_uploaded_image(*, image: UploadFile, base_dir: str) -> Optional[d
     try:
         # 베이스 디렉토리 생성
         os.makedirs(base_dir, exist_ok=True)
-        logger.info(f"save_uploaded_image: base_dir={base_dir}")
+        logger.debug(f"save_uploaded_image: base_dir={base_dir}")
 
         # 이미지 데이터 읽기
         contents = await image.read()
@@ -120,17 +120,17 @@ async def save_uploaded_image(*, image: UploadFile, base_dir: str) -> Optional[d
             logger.warning("save_uploaded_image: image contents is empty")
             return None
 
-        logger.info(f"save_uploaded_image: read {len(contents)} bytes from {getattr(image, 'filename', 'unknown')}")
+        logger.debug(f"save_uploaded_image: read {len(contents)} bytes from {getattr(image, 'filename', 'unknown')}")
 
         # 해시 계산 및 파일명 생성
         file_hash = sha256_hex(contents)
         ext = ext_from_content_type(getattr(image, "content_type", None))
-        logger.info(f"save_uploaded_image: file_hash={file_hash}, ext={ext}, content_type={getattr(image, 'content_type', None)}")
+        logger.debug(f"save_uploaded_image: file_hash={file_hash}, ext={ext}, content_type={getattr(image, 'content_type', None)}")
 
         # 서브디렉토리 생성 (해시 앞 2자리)
         subdir = os.path.join(base_dir, file_hash[:2])
         os.makedirs(subdir, exist_ok=True)
-        logger.info(f"save_uploaded_image: created subdir={subdir}")
+        logger.debug(f"save_uploaded_image: created subdir={subdir}")
 
         # 전체 파일 경로
         filename = f"{file_hash}{ext}"
@@ -140,12 +140,12 @@ async def save_uploaded_image(*, image: UploadFile, base_dir: str) -> Optional[d
         if not os.path.exists(file_directory):
             with open(file_directory, "wb") as out:
                 out.write(contents)
-            logger.info(f"save_uploaded_image: saved file to {file_directory}")
+            logger.debug(f"save_uploaded_image: saved file to {file_directory}")
         else:
-            logger.info(f"save_uploaded_image: file already exists at {file_directory}")
+            logger.debug(f"save_uploaded_image: file already exists at {file_directory}")
 
         result = {"file_hash": file_hash, "file_directory": file_directory}
-        logger.info(f"save_uploaded_image: returning {result}")
+        logger.debug(f"save_uploaded_image: returning {result}")
         return result
 
     except Exception as e:

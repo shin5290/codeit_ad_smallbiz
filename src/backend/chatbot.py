@@ -12,6 +12,13 @@ from typing import Any, Optional, List, Dict, AsyncIterator
 from sqlalchemy.orm import Session
 
 from src.utils.image import image_payload 
+from src.utils.intent_keywords import (
+    normalize_modification_typo,
+    should_force_image_modification,
+    normalize_hashtag_placeholder,
+    apply_hashtag_requirements,
+    normalize_industry_label,
+)
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -134,6 +141,55 @@ def _summarize_generation_history(
         summary = f"중간 생성 이력 {len(middle)}개 생략"
 
     return latest + oldest, summary
+
+
+def _looks_like_final_copy(text: str) -> bool:
+    if not text:
+        return False
+    if re.search(r"(^|\n)\s*[-•*]", text):
+        return False
+    if "요구사항" in text:
+        return False
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    if len(cleaned) < 80:
+        return False
+    sentences = [s for s in re.split(r"[.!?。！？]", cleaned) if s.strip()]
+    return len(sentences) >= 2
+
+
+def _looks_like_spec(text: str) -> bool:
+    if not text:
+        return False
+    if re.search(r"(^|\n)\s*[-•*]", text):
+        return True
+    lowered = text.replace(" ", "")
+    return any(token in lowered for token in ("요구사항", "필수문구", "해시태그", "길이:"))
+
+
+def _extract_business_context(
+    chat_history: List[Dict],
+    latest_user_message: str,
+    max_len: int = 140,
+) -> Optional[str]:
+    if not chat_history:
+        return None
+    for msg in reversed(chat_history):
+        if msg.get("role") != "user":
+            continue
+        content = (msg.get("content") or "").strip()
+        if not content or content == latest_user_message:
+            continue
+        if len(content) < 30:
+            continue
+        structured_lines = re.findall(r"(?m)^(업종|계획|목표)\s*[:：]\s*.+$", content)
+        if structured_lines:
+            matched = re.findall(r"(?m)^(?:업종|계획|목표)\s*[:：]\s*(.+)$", content)
+            if matched:
+                summary = " / ".join(m.strip() for m in matched if m.strip())
+                return summary[:max_len]
+        snippet = " ".join(content.split())
+        return snippet[:max_len]
+    return None
 
 
 def _extract_json_dict(content: Optional[str]) -> Optional[Dict]:
@@ -310,7 +366,7 @@ class LLMOrchestrator:
             "generation_type": "image|text|null",
             "aspect_ratio": "1:1|16:9|9:16|4:3",
             "style": "ultra_realistic|semi_realistic|anime",
-            "industry": "cafe|restaurant|fashion|...",
+            "need_rmbg": true|false,
             "strength": 0.0-1.0 or null
         }
         """
@@ -323,9 +379,26 @@ class LLMOrchestrator:
 - modification: 기존 광고를 수정하고 싶어하는 경우
 - consulting: 광고 제작 방법이나 조언을 구하는 경우
 
+아래는 consulting으로 분류해야 합니다:
+- 마케팅 "플랜/전략/운영 방식/진행 방법/계획"을 요청하는 경우
+- “~어떻게 해야할까?”, “~계획 세워줘”, “~플랜 짜줘”처럼 방향/전략을 묻는 경우
+- 결과물 생성(이미지/문구)보다 **컨설팅 답변**이 우선인 질문
+- 애매하거나 혼합된 경우(전략+생성)에는 consulting을 우선하세요.
+- 확실하지 않으면 consulting으로 분류하고 generation_type은 null로 두세요.
+
+아래는 generation으로 분류합니다:
+- “이미지 만들어줘/생성해줘”, “문구 써줘/카피 작성”처럼 실제 결과물 생성이 목적일 때
+
+※ 단, 기존 이미지에 “텍스트를 써줘/추가해줘/수정해줘”처럼 **이미지 위 텍스트 추가/교체** 요청이 있거나
+   배경 제거/합성/누끼처럼 **이미지 편집 작업**이 포함되면 modification으로 분류하세요.
+
 ## 2. 생성 타입 결정 (intent=generation일 때)
 - image: 이미지/사진/그림/배너/포스터/피드 등 시각적 콘텐츠
 - text: 광고 문구/카피/슬로건만 필요한 경우
+
+## 2.1 생성 타입 결정 (intent=modification일 때)
+- 사용자가 “이미지에 글자 추가/교체”, “배경 제거/합성” 등 **시각적 편집**을 요구하면 generation_type="image"
+- 문구 길이/톤/표현만 바꾸는 요청이라면 generation_type="text"
 
 ## 3. 수정 강도(strength) 감지 (intent=modification일 때)
 사용자의 수정 요청 표현을 분석하여 0.0~1.0 범위의 strength 값을 결정:
@@ -357,6 +430,10 @@ class LLMOrchestrator:
 - 구도/레이아웃 변경: 0.7~0.9
 
 명시적 표현이 없으면 수정 종류의 기본값 사용
+
+## 3.5 배경 제거 요청 감지 (need_rmbg)
+- 사용자가 "배경 제거", "누끼", "배경 없애줘", "투명 배경" 등을 명시하면 need_rmbg: true
+- 그렇지 않으면 need_rmbg: false
 
 ## 4. 플랫폼 감지 및 비율 결정
 플랫폼별 기본 비율:
@@ -399,30 +476,14 @@ class LLMOrchestrator:
 사용자가 명시적으로 스타일을 지정하면 우선 적용
 스타일이 명확하지 않으면 style=null (기본값 사용)
 
-## 6. 업종 감지
-- cafe: 카페, 커피, 카페테리아
-- restaurant: 레스토랑, 음식점, 식당
-- bakery: 베이커리, 빵집, 제과점
-- fashion: 패션, 의류, 옷
-- beauty: 뷰티, 미용, 화장품
-- event: 이벤트, 행사, 프로모션
-- 기타 명확한 업종이 있으면 영문으로
-- 업종 불명확 시 general로 출력
-
-## 7. 텍스트 생성 파라미터 (generation_type=text일 때)
-톤(text_tone): warm|professional|friendly|energetic 중 하나
-- 사용자가 톤을 직접 지정하면 우선 적용
-- "전문적", "신뢰", "격식", "고급" → professional
-- "친근", "편안", "부드럽게" → friendly
-- "활기", "에너지", "역동" → energetic
-- 그 외는 warm
-
-길이(text_max_length): 숫자 (10~200)
-- "한 줄", "짧게", "슬로건", "캐치프레이즈" → 15~30
-- "제목", "헤드라인" → 30~40
-- "소개", "설명", "상세" → 80~120
-- 배너/썸네일 → 15~25, 포스터 → 30~50, 인스타 피드 → 20~40
-- 사용자가 "50자" 등 명시하면 그대로 반영
+## 6. 업종(industry) 추정
+- 사용자가 말한 업종/서비스를 보고 가장 그럴듯한 업종 라벨로 일반화하세요.
+- 가능한 라벨 예시: cafe, restaurant, bakery, dessert, bar, retail, service
+- 메뉴/서비스 키워드가 있으면 업종으로 일반화합니다. (예: 김치찌개 → restaurant)
+- 업종을 특정할 단서가 없으면 null
+- 출력은 1~2단어의 짧은 라벨만 허용 (장문 금지)
+- 최근 대화가 제공되면 맥락을 반영하되, **최신 사용자 메시지가 기존 업종과 충돌하면 최신 메시지를 우선**하세요.
+- 즉, 사용자가 업종을 변경해 말한 경우에는 이전 업종을 버리고 최신 업종으로 업데이트합니다.
 
 반드시 JSON 객체만 출력하고, 설명/코드펜스/추가 텍스트는 금지.
 
@@ -433,10 +494,9 @@ class LLMOrchestrator:
   "generation_type": "image|text|null",
   "aspect_ratio": "1:1|16:9|9:16|4:3" or null,
   "style": "ultra_realistic|semi_realistic|anime" or null,
-  "industry": "cafe|restaurant|..." or null,
-  "strength": 0.0-1.0 or null,
-  "text_tone": "warm|professional|friendly|energetic" or null,
-  "text_max_length": 10-200 or null
+  "industry": "cafe|restaurant|bakery|dessert|bar|retail|service" or null,
+  "need_rmbg": true|false,
+  "strength": 0.0-1.0 or null
 }
 
 ## 분석 예시
@@ -450,6 +510,7 @@ class LLMOrchestrator:
   "aspect_ratio": "1:1",
   "style": "semi_realistic",
   "industry": "cafe",
+  "need_rmbg": false,
   "strength": null
 }
 
@@ -462,6 +523,7 @@ class LLMOrchestrator:
   "aspect_ratio": "16:9",
   "style": "ultra_realistic",
   "industry": "restaurant",
+  "need_rmbg": false,
   "strength": null
 }
 
@@ -473,7 +535,8 @@ class LLMOrchestrator:
   "generation_type": "image",
   "aspect_ratio": "9:16",
   "style": "anime",
-  "industry": "event",
+  "industry": null,
+  "need_rmbg": false,
   "strength": null
 }
 
@@ -486,6 +549,7 @@ class LLMOrchestrator:
   "aspect_ratio": null,
   "style": null,
   "industry": null,
+  "need_rmbg": false,
   "strength": 0.55
 }
 
@@ -497,7 +561,7 @@ class LLMOrchestrator:
   "generation_type": "image",
   "aspect_ratio": null,
   "style": null,
-  "industry": null,
+  "need_rmbg": false,
   "strength": 0.35
 }
 
@@ -509,7 +573,7 @@ class LLMOrchestrator:
   "generation_type": "image",
   "aspect_ratio": null,
   "style": null,
-  "industry": null,
+  "need_rmbg": false,
   "strength": 0.9
 }
 
@@ -521,7 +585,7 @@ class LLMOrchestrator:
   "generation_type": "image",
   "aspect_ratio": null,
   "style": null,
-  "industry": null,
+  "need_rmbg": false,
   "strength": 0.45
 }
 
@@ -534,20 +598,41 @@ class LLMOrchestrator:
   "aspect_ratio": null,
   "style": null,
   "industry": "cafe",
-  "strength": null,
-  "text_tone": "warm",
-  "text_max_length": 20
+  "need_rmbg": false,
+  "strength": null
+}
+
+입력: "여기에 오픈 이벤트 문구 써줘"
+출력:
+{
+  "intent": "modification",
+  "confidence": 0.9,
+  "generation_type": "image",
+  "aspect_ratio": null,
+  "style": null,
+  "industry": null,
+  "need_rmbg": false,
+  "strength": 0.55
 }
 """
 
         # 최근 대화만 컨텍스트로 사용 (선택적)
         context_str = ""
         if recent_conversations:
+            condensed_history, history_summary = _summarize_chat_history(
+                recent_conversations, keep_last=8, summary_items=6
+            )
             conv_summary = "\n".join([
                 f"{msg['role']}: {(msg.get('content') or '')[:200]}"
-                for msg in recent_conversations[-3:]  # 3개만으로 충분
+                for msg in condensed_history[-8:]
             ])
-            context_str = f"\n\n최근 대화 (참고용):\n{conv_summary}"
+            context_parts = []
+            if history_summary:
+                context_parts.append(f"최근 대화 요약:\n{history_summary}")
+            if conv_summary:
+                context_parts.append(f"최근 대화 (참고용):\n{conv_summary}")
+            if context_parts:
+                context_str = "\n\n" + "\n\n".join(context_parts)
 
         user_prompt = f"사용자 메시지: {user_message}{context_str}"
 
@@ -575,9 +660,8 @@ class LLMOrchestrator:
                     "aspect_ratio": None,
                     "style": None,
                     "industry": None,
+                    "need_rmbg": False,
                     "strength": None,
-                    "text_tone": None,
-                    "text_max_length": None,
                 }
 
             # 기본값 처리
@@ -604,9 +688,7 @@ class LLMOrchestrator:
             style = result.get("style")
             industry = result.get("industry")
             strength = result.get("strength")
-            text_tone = result.get("text_tone")
-            text_max_length = result.get("text_max_length")
-
+            need_rmbg = result.get("need_rmbg")
             # 유효성 검사
             valid_aspect_ratios = ["1:1", "16:9", "9:16", "4:3"]
             if isinstance(aspect_ratio, str):
@@ -619,8 +701,11 @@ class LLMOrchestrator:
                 style = style.strip()
             if style not in valid_styles:
                 style = None
+
             if isinstance(industry, str):
-                industry = industry.strip() or None
+                industry = industry.strip()
+            if not industry:
+                industry = None
 
             if strength is not None:
                 try:
@@ -630,14 +715,21 @@ class LLMOrchestrator:
             if strength is not None and not (0.0 <= strength <= 1.0):
                 strength = None
 
+            if isinstance(need_rmbg, str):
+                normalized = need_rmbg.strip().lower()
+                if normalized in ("true", "yes", "y", "1"):
+                    need_rmbg = True
+                elif normalized in ("false", "no", "n", "0"):
+                    need_rmbg = False
+                else:
+                    need_rmbg = None
+            if isinstance(need_rmbg, (int, float)) and not isinstance(need_rmbg, bool):
+                need_rmbg = bool(need_rmbg)
+            if not isinstance(need_rmbg, bool):
+                need_rmbg = False
+
             if intent == "modification" and gen_type in ("text", None):
-                msg_lower = user_message.lower()
-                image_keywords = [
-                    "image", "photo", "picture", "background", "color", "font", "text",
-                    "이미지", "사진", "그림", "배경", "색상", "색깔", "폰트", "글씨",
-                    "포스터", "배너", "구도", "레이아웃",
-                ]
-                if any(keyword in msg_lower for keyword in image_keywords):
+                if should_force_image_modification(user_message):
                     gen_type = "image"
 
             if aspect_ratio is None:
@@ -649,32 +741,8 @@ class LLMOrchestrator:
                 elif any(k in msg_lower for k in banner_keywords):
                     aspect_ratio = "16:9"
 
-            valid_tones = ["warm", "professional", "friendly", "energetic"]
-            if isinstance(text_tone, str):
-                text_tone = text_tone.strip()
-            if text_tone not in valid_tones:
-                text_tone = None
-
-            if text_max_length is not None:
-                try:
-                    text_max_length = int(text_max_length)
-                except (TypeError, ValueError):
-                    text_max_length = None
-            if text_max_length is not None:
-                if text_max_length < 10:
-                    text_max_length = 10
-                elif text_max_length > 200:
-                    text_max_length = 200
-
-            if gen_type != "text":
-                text_tone = None
-                text_max_length = None
-
-            logger.info(
-                f"Intent: {intent}, type: {gen_type}, strength: {strength}, "
-                f"ratio: {aspect_ratio}, style: {style}, industry: {industry}, "
-                f"text_tone: {text_tone}, text_max_length: {text_max_length}"
-            )
+            if gen_type != "image":
+                need_rmbg = False
 
             return {
                 "intent": intent,
@@ -683,9 +751,8 @@ class LLMOrchestrator:
                 "aspect_ratio": aspect_ratio,
                 "style": style,
                 "industry": industry,
+                "need_rmbg": need_rmbg,
                 "strength": strength,
-                "text_tone": text_tone,
-                "text_max_length": text_max_length,
             }
 
         except json.JSONDecodeError as e:
@@ -697,9 +764,8 @@ class LLMOrchestrator:
                 "aspect_ratio": None,
                 "style": None,
                 "industry": None,
+                "need_rmbg": False,
                 "strength": None,
-                "text_tone": None,
-                "text_max_length": None,
             }
         except Exception as e:
             logger.error(f"Intent analysis failed: {e}", exc_info=True)
@@ -710,9 +776,8 @@ class LLMOrchestrator:
                 "aspect_ratio": None,
                 "style": None,
                 "industry": None,
+                "need_rmbg": False,
                 "strength": None,
-                "text_tone": None,
-                "text_max_length": None,
             }
 
 
@@ -723,6 +788,7 @@ class LLMOrchestrator:
         generation_type: Optional[str],
         chat_history: List[Dict],
         generation_history: List[Dict],
+        industry_hint: Optional[str] = None,
     ) -> Dict:
         """
         전체 맥락을 반영해 생성 입력을 정제하고 수정 대상 ID 찾기
@@ -730,7 +796,8 @@ class LLMOrchestrator:
         Returns:
             {
                 "refined_input": str,  # 정제된 입력 텍스트
-                "target_generation_id": int or None  # 수정 대상 ID (modification일 때만)
+                "target_generation_id": int or None,  # 수정 대상 ID (modification일 때만)
+                "is_text_modification": bool  # 텍스트만 수정 요청 여부
             }
         """
 
@@ -773,19 +840,48 @@ class LLMOrchestrator:
 
 ---
 
-# Task 2: Input Refinement Logic (텍스트 정제)
+# Task 2: Input Refinement Logic (요구사항 정제)
 
-단순히 사용자의 마지막 말만 번역하지 말고, **(기존 문맥 + 새로운 요청)**을 통합하여 완벽한 프롬프트를 만드십시오.
+단순히 사용자의 마지막 말만 번역하지 말고, **(기존 문맥 + 새로운 요청)**을 통합하여 **정제된 요구사항(spec)**을 만드십시오.
 
 1. **상속 (Inheritance):** 선택된 `target_generation_id`의 `input_text`를 베이스로 가져옵니다. (target이 없으면 대화 내 제품 정보가 베이스)
 2. **수정 (Modification):** 사용자의 새로운 요청(추가/삭제/변경)을 반영합니다.
    - "A 빼줘" → A 삭제
    - "B를 C로 바꿔줘" → B를 C로 치환
 3. **구체화 (Specification):** 대명사("그 문구")나 모호한 표현을 구체적인 값으로 치환합니다.
-4. **형식 (Output Format):** 문장 형태보다는, 이미지 생성/광고 문구 생성에 즉시 투입 가능한 **지시문 형태**로 요약합니다.
+4. **형식 (Output Format):** 문장 형태보다는, 이미지 생성/광고 문구 생성에 즉시 투입 가능한 **요구사항 형태**로 요약합니다.
 
-
+추가 원칙:
+- **현재 사용자 요청이 우선**입니다. 이전 지시사항은 기본값으로만 유지하고, 현재 요청과 충돌하면 제거/수정하십시오.
+- 사용자가 특정 처리(예: 어떤 단계나 효과)를 **하지 않겠다는 의도**를 보이면, 이전에 포함되었더라도 refined_input에서 제외하십시오.
+- 사용자가 그 부분을 **명시적으로 유지/변경**하는 경우에만 refined_input에 남기십시오.
+- 사용자가 **직접 제시한 문구/문장**은 누락하지 말고 refined_input에 **그대로 포함**하십시오.
+- 사용자가 이미지에 텍스트를 넣어달라고 하면, **넣어야 할 정확한 텍스트**를 refined_input에 명확히 반영하십시오.
+- 해당 텍스트가 **현재 메시지에 없고 이전 대화/생성 이력에만 있는 경우**, 문맥(지시어·대명사)을 근거로 **가장 관련 있는 텍스트를 찾아** refined_input에 포함하십시오.
+- 이전 상담/대화에서 **확정된 규칙(게시 일정, 요일별 포스팅 타입, 해시태그 개수/필수 태그, 지역 등)**은
+  **intent=modification이거나 사용자가 명시적으로 이어서 진행한다고 말한 경우에만** refined_input에 반영하십시오.
+- 그렇지 않은 새 생성 요청(generation)에서는 이전 규칙을 자동으로 끌고 오지 마십시오.
+- refined_input에는 **최종 광고 문구를 완성형으로 작성하지 마십시오.**
+  - 예: "엄마의 정성이..." 같은 완성 문장은 금지
+  - 대신: "문구는 따뜻한 톤, 길게, 해시태그 포함"처럼 **요구사항(spec)**으로 작성
+- generation_type이 image인 경우:
+  - refined_input에는 반드시 **구체적인 업종/제품/서비스**를 명시하십시오. (예: "인형뽑기 가게", "김치찌개 가게")
+  - "브랜드 이미지" 같은 일반적 표현은 금지합니다.
+  - 이미지에 들어갈 텍스트는 짧게 1~2개만 포함하십시오.
+  - 사업/업종 맥락이 제공되면 반드시 그 내용을 반영하십시오.
+- 길이 기대치는 사용자의 표현을 사람 기준으로 해석해 포함하십시오.
+  - 예: "길게" → "약 400~600자 수준"
+  - 예: "짧게" → "약 20~40자 수준"
+- 해시태그 요청이 있으면 **문장 끝에 해시태그 N개 포함**을 요구사항에 명시하십시오.
 ---
+
+# Task 3: Text-only Modification Detection
+사용자가 **텍스트만** 수정하겠다는 의도가 명확한지 판단하십시오.
+아래 조건에 해당하면 `is_text_modification = true`:
+- "문구만", "글자만", "텍스트만", "카피만" 등 텍스트 수정만 명시
+- "이미지는 그대로", "배경은 그대로"처럼 이미지 변경 제외를 명시
+
+그 외에는 `is_text_modification = false`.
 
 Output Format (JSON Only)
 반드시 아래 JSON 포맷으로만 응답하며, 마크다운 코드 블록(``json)을 사용하지 마십시오.
@@ -795,7 +891,8 @@ Output Format (JSON Only)
   "reasoning": "사용자가 '두 번째 거'라고 했으므로 chrono_rank=2인 ID 105를 선택함. 기존 요청 '시원한 느낌'에 '빨간색 강조'를 추가함.",
   "intent_type": "modification" | "generation",
   "target_generation_id": 123 | null,
-  "refined_input": "여기에 정제된 텍스트 작성"
+  "refined_input": "여기에 정제된 텍스트 작성",
+  "is_text_modification": true|false
 }}
 
 
@@ -806,6 +903,8 @@ Output Format (JSON Only)
             if msg.get("role") == "user":
                 latest_user_message = (msg.get("content") or "").strip()
                 break
+        latest_user_message = normalize_modification_typo(latest_user_message)
+        business_context = _extract_business_context(chat_history, latest_user_message)
 
         total_generations = len(generation_history or [])
         if total_generations:
@@ -820,6 +919,10 @@ Output Format (JSON Only)
             gen for gen in condensed_generation_history
             if gen.get("output_image") or gen.get("input_image") or gen.get("content_type") == "image"
         ]
+        if intent != "modification":
+            condensed_generation_history = []
+            condensed_image_history = []
+            generation_summary = ""
 
         prompt = f"""
 # 현재 사용자 메시지
@@ -827,6 +930,9 @@ Output Format (JSON Only)
 
 # 이전 대화 요약
 {chat_summary or "(없음)"}
+
+# 사업/업종 맥락(대화 기반)
+{business_context or "(없음)"}
 
 # 전체 대화 히스토리
 {_format_chat_history(condensed_chat_history)}
@@ -843,13 +949,14 @@ Output Format (JSON Only)
 # 사용자 요청
 intent: {intent}
 generation_type: {generation_type or "null"}
+industry_hint: {industry_hint or "null"}
 
 # 작업
 1. modification이면 target_generation_id 찾기
 2. refined_input 작성
 
 JSON 형식으로 응답:
-{{"refined_input": "...", "target_generation_id": 123 or null}}
+{{"refined_input": "...", "target_generation_id": 123 or null, "is_text_modification": true|false}}
 """
 
         try:
@@ -870,6 +977,14 @@ JSON 형식으로 응답:
             if result is None:
                 logger.warning("Refinement JSON parse failed: %s", content.strip())
                 refined_input = content.strip() or latest_user_message
+                if generation_type == "text":
+                    refined_input = normalize_hashtag_placeholder(refined_input, chat_history)
+                    if intent == "modification":
+                        refined_input = apply_hashtag_requirements(
+                            refined_input,
+                            latest_user_message,
+                            chat_history,
+                        )
                 return {
                     "refined_input": refined_input,
                     "target_generation_id": None,
@@ -877,6 +992,7 @@ JSON 형식으로 응답:
 
             refined_input = (result.get("refined_input") or "").strip()
             target_id = result.get("target_generation_id")
+            is_text_modification = result.get("is_text_modification")
 
             # target_id 유효성 검사
             if isinstance(target_id, str) and target_id.isdigit():
@@ -884,9 +1000,122 @@ JSON 형식으로 응답:
             if not isinstance(target_id, int):
                 target_id = None
 
+            if isinstance(is_text_modification, str):
+                normalized = is_text_modification.strip().lower()
+                if normalized in ("true", "yes", "y", "1"):
+                    is_text_modification = True
+                elif normalized in ("false", "no", "n", "0"):
+                    is_text_modification = False
+                else:
+                    is_text_modification = None
+            if isinstance(is_text_modification, (int, float)) and not isinstance(is_text_modification, bool):
+                is_text_modification = bool(is_text_modification)
+            if not isinstance(is_text_modification, bool):
+                is_text_modification = False
+
+            if _looks_like_final_copy(refined_input):
+                logger.warning("Refined input looks like final copy; rewriting to spec")
+                rewrite_system_prompt = """
+당신은 광고 생성용 요구사항(spec) 작성자입니다.
+반드시 "요구사항" 형태로만 요약하고, 완성된 광고 문구를 작성하지 마세요.
+문장은 짧은 요구사항 항목으로 구성하고, 사용자가 명시한 핵심 문구/해시태그/길이 조건만 포함하세요.
+generation_type이 image인 경우:
+- 해시태그는 이미지 내용에 포함하지 말고, 필요하면 "캡션용"으로만 언급하세요.
+- 이미지에 들어갈 텍스트가 필요하면 짧은 문구 1~2개로 제한하세요.
+generation_type이 text인 경우:
+- 문구 생성에 필요한 요구사항(톤/길이/해시태그/필수 문구)을 명시하세요.
+출력은 JSON 객체 하나만 반환하며, 코드펜스/설명 텍스트는 금지합니다.
+"""
+                rewrite_prompt = f"""
+# 사용자 요청
+{latest_user_message or "(없음)"}
+
+# 이전 대화 요약
+{chat_summary or "(없음)"}
+
+# 이전 생성 요약
+{generation_summary or "(없음)"}
+
+# 생성 타입
+generation_type: {generation_type or "null"}
+
+# 잘못 생성된 refined_input (완성 문구일 가능성)
+{refined_input}
+
+# 출력 형식 (JSON only)
+{{"refined_input": "- 요구사항: ...\\n- 길이: ...\\n- 해시태그: ...\\n- 필수 문구: ..."}}
+"""
+                rewrite_response = await client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": rewrite_system_prompt},
+                        {"role": "user", "content": rewrite_prompt},
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.2,
+                )
+                rewrite_content = rewrite_response.choices[0].message.content or ""
+                rewrite_result = _extract_json_dict(rewrite_content)
+                if rewrite_result and rewrite_result.get("refined_input"):
+                    refined_input = (rewrite_result.get("refined_input") or "").strip()
+
+            if generation_type == "image" and _looks_like_spec(refined_input):
+                logger.warning("Refined input looks like spec for image; rewriting to image request")
+                image_rewrite_system_prompt = """
+당신은 이미지 생성 요청을 자연스러운 한 문장으로 재작성하는 전문가입니다.
+해시태그, 길이, 번호 목록, "요구사항" 같은 형식은 제거하세요.
+완성된 광고 문구(긴 카피)를 쓰지 말고, 이미지에 넣을 텍스트가 필요하다면 짧은 문구 1~2개로 제한하세요.
+플랫폼/업종/느낌 정보가 있으면 포함하되 한 문장으로 요약하세요.
+업종/제품/서비스(예: 인형뽑기 가게, 김치찌개 가게)를 반드시 명시하세요.
+출력은 JSON 객체 하나만 반환하며, 코드펜스/설명 텍스트는 금지합니다.
+"""
+                image_rewrite_prompt = f"""
+# 사용자 요청
+{latest_user_message or "(없음)"}
+
+# 이전 대화 요약
+{chat_summary or "(없음)"}
+
+# 이전 생성 요약
+{generation_summary or "(없음)"}
+
+# 업종 힌트
+{industry_hint or "(없음)"}
+
+# 사업/업종 맥락(대화 기반)
+{business_context or "(없음)"}
+
+# 현재 refined_input
+{refined_input}
+
+# 출력 형식 (JSON only)
+{{"refined_input": "인스타그램에 올릴 김치찌개 광고 이미지 생성, 따뜻한 느낌 강조"}}
+"""
+                image_rewrite_response = await client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": image_rewrite_system_prompt},
+                        {"role": "user", "content": image_rewrite_prompt},
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.2,
+                )
+                image_rewrite_content = image_rewrite_response.choices[0].message.content or ""
+                image_rewrite_result = _extract_json_dict(image_rewrite_content)
+                if image_rewrite_result and image_rewrite_result.get("refined_input"):
+                    refined_input = (image_rewrite_result.get("refined_input") or "").strip()
+
             # refined_input이 비어있으면 마지막 사용자 메시지 사용
             if not refined_input:
                 refined_input = latest_user_message
+            if generation_type == "text":
+                refined_input = normalize_hashtag_placeholder(refined_input, chat_history)
+                if intent == "modification":
+                    refined_input = apply_hashtag_requirements(
+                        refined_input,
+                        latest_user_message,
+                        chat_history,
+                    )
 
             logger.info(
                 "Refinement: original=%s, refined=%s, target_id=%s",
@@ -898,6 +1127,7 @@ JSON 형식으로 응답:
             return {
                 "refined_input": refined_input,
                 "target_generation_id": target_id,
+                "is_text_modification": is_text_modification,
             }
 
         except Exception as e:
@@ -906,6 +1136,7 @@ JSON 형식으로 응답:
             return {
                 "refined_input": latest_user_message,
                 "target_generation_id": None,
+                "is_text_modification": False,
             }
 
 # =====================================================
@@ -929,6 +1160,7 @@ class ConsultingService:
         self._consultant_bots: Dict[str, Any] = {}
         self.slot_checker = SlotChecker()
         self._session_contexts: Dict[str, UserContext] = {}
+        self._pending_slots: Dict[str, str] = {}
 
     def _get_consultant_bot(self, session_id: str):
         """세션별 SmallBizConsultant 인스턴스 반환 (슬롯 상태 분리)"""
@@ -987,8 +1219,31 @@ class ConsultingService:
         self,
         session_id: str,
         recent_conversations: List[Dict],
+        industry_hint: Optional[str] = None,
     ):
         user_context = self._session_contexts.get(session_id)
+        if user_context is None:
+            from src.generation.chat_bot.rag.prompts import UserContext
+
+            user_context = UserContext()
+            self._session_contexts[session_id] = user_context
+
+        if industry_hint:
+            incoming_industry = normalize_industry_label(industry_hint)
+            current_industry = (
+                normalize_industry_label(user_context.industry)
+                if user_context.industry
+                else None
+            )
+            if current_industry and incoming_industry and current_industry != incoming_industry:
+                user_context.location = None
+                user_context.budget = None
+                user_context.goal = None
+                user_context.platform = None
+                user_context.industry = incoming_industry
+            elif not user_context.industry and incoming_industry:
+                user_context.industry = incoming_industry
+
         for msg in recent_conversations:
             if msg.get("role") == "user":
                 content = (msg.get("content") or "").strip()
@@ -996,8 +1251,8 @@ class ConsultingService:
                     user_context = self.slot_checker.update_context_from_query(
                         content, user_context
                     )
-        if user_context is not None:
-            self._session_contexts[session_id] = user_context
+
+        self._session_contexts[session_id] = user_context
         return user_context
 
     async def _stream_consulting_answer(
@@ -1005,16 +1260,62 @@ class ConsultingService:
         message: str,
         recent_conversations: List[Dict],
         session_id: str,
+        industry_hint: Optional[str] = None,
     ) -> AsyncIterator[str]:
         chat_history = [
             {"role": msg.get("role"), "content": msg.get("content")}
             for msg in recent_conversations
             if msg.get("role") and msg.get("content") is not None
         ]
-        user_context = self._build_user_context(session_id, recent_conversations)
+        user_context = self._build_user_context(
+            session_id, recent_conversations, industry_hint
+        )
+        pending_slot = self._pending_slots.pop(session_id, None)
+        if pending_slot and message:
+            candidate = (message or "").strip()
+            if pending_slot == "industry" and not user_context.industry:
+                user_context.industry = normalize_industry_label(candidate) or candidate
+            elif pending_slot == "location" and not user_context.location:
+                user_context.location = candidate
+        if not user_context.industry:
+            self._pending_slots[session_id] = "industry"
+            yield self.slot_checker.get_slot_question("industry")
+            return
+        if not user_context.location:
+            self._pending_slots[session_id] = "location"
+            yield self.slot_checker.get_slot_question("location")
+            return
         task = self.rag.prompt_builder.classify_task(message)
         filter_kwargs = self._build_rag_filter(user_context)
         retrieved_docs = self.rag.retrieve(message, k=5, filter=filter_kwargs)
+        if not retrieved_docs and filter_kwargs:
+            fallback_filters: List[Optional[Dict[str, Any]]] = []
+            industry_value = None
+            location_value = None
+            if "$and" in filter_kwargs:
+                for clause in filter_kwargs.get("$and", []):
+                    if "industry" in clause:
+                        industry_value = clause.get("industry")
+                    if "location" in clause:
+                        location_value = clause.get("location")
+            else:
+                industry_value = filter_kwargs.get("industry")
+                location_value = filter_kwargs.get("location")
+
+            if industry_value:
+                fallback_filters.append({"industry": industry_value})
+            if location_value:
+                fallback_filters.append({"location": location_value})
+            fallback_filters.append(None)
+
+            for fallback in fallback_filters:
+                retrieved_docs = self.rag.retrieve(message, k=5, filter=fallback)
+                if retrieved_docs:
+                    logger.info(
+                        "RAG fallback retrieval used filter=%s",
+                        fallback if fallback else "none",
+                    )
+                    break
 
         async for chunk in self.rag.generate_stream(
             query=message,
@@ -1026,41 +1327,52 @@ class ConsultingService:
             yield chunk
 
     async def stream_response(
-        self, db: Session, session_id: str, message: str
+        self,
+        db: Session,
+        session_id: str,
+        message: str,
+        industry_hint: Optional[str] = None,
     ) -> AsyncIterator[Dict]:
         """상담 응답을 스트리밍으로 생성하며 청크/완료 이벤트를 반환"""
-        bot = self._get_consultant_bot(session_id)
         assistant_chunks: List[str] = []
         assistant_message = ""
 
-        if bot is not None:
-            result = bot.consult(query=message, user_context=None)
-            assistant_message = (result.get("answer") or "").strip() or "무엇을 도와드릴까요?"
-            yield {"type": "chunk", "content": assistant_message}
-        else:
-            context = self.build_context(db, session_id, message)
-            recent_conversations = context.get("recent_conversations", [])
+        context = self.build_context(db, session_id, message)
+        recent_conversations = context.get("recent_conversations", [])
 
-            if self.rag is not None:
-                try:
-                    async for chunk in self._stream_consulting_answer(
-                        message,
-                        recent_conversations,
-                        session_id,
-                    ):
-                        if chunk:
-                            assistant_chunks.append(chunk)
-                            yield {"type": "chunk", "content": chunk}
-                except Exception as e:
-                    logger.error(f"Consulting RAG response failed: {e}", exc_info=True)
-
-            if not assistant_chunks and self.llm is not None:
-                async for chunk in self.llm.stream_consulting_response(message, context):
+        if self.rag is not None:
+            try:
+                async for chunk in self._stream_consulting_answer(
+                    message,
+                    recent_conversations,
+                    session_id,
+                    industry_hint,
+                ):
                     if chunk:
                         assistant_chunks.append(chunk)
                         yield {"type": "chunk", "content": chunk}
+            except Exception as e:
+                logger.error(f"Consulting RAG response failed: {e}", exc_info=True)
 
-            assistant_message = "".join(assistant_chunks).strip() or "무엇을 도와드릴까요?"
+        if not assistant_chunks and self.llm is not None:
+            async for chunk in self.llm.stream_consulting_response(message, context):
+                if chunk:
+                    assistant_chunks.append(chunk)
+                    yield {"type": "chunk", "content": chunk}
+
+        if not assistant_chunks:
+            bot = self._get_consultant_bot(session_id)
+            if bot is not None:
+                user_context = self._build_user_context(
+                    session_id, recent_conversations, industry_hint
+                )
+                result = bot.consult(query=message, user_context=user_context)
+                assistant_message = (result.get("answer") or "").strip()
+                if assistant_message:
+                    assistant_chunks.append(assistant_message)
+                    yield {"type": "chunk", "content": assistant_message}
+
+        assistant_message = "".join(assistant_chunks).strip() or "무엇을 도와드릴까요?"
 
         self.conv.add_message(db, session_id, "assistant", assistant_message)
 

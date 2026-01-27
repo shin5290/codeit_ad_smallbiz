@@ -226,7 +226,7 @@ def save_image_from_hash(
     if existing:
         # NOTE: 같은 파일이 다른 경로로 저장되는 경우가 있을 수 있는데,
         #       지금은 최초 경로를 유지한다. 필요하면 여기서 갱신 정책을 정할 수 있음.
-        logger.info(f"save_image_from_hash: existing image found with id={existing.id}")
+        logger.debug(f"save_image_from_hash: existing image found with id={existing.id}")
         return existing
 
     image = models.ImageMatching(
@@ -237,7 +237,7 @@ def save_image_from_hash(
     db.commit()
     db.refresh(image)
 
-    logger.info(f"save_image_from_hash: new image saved with id={image.id}")
+    logger.debug(f"save_image_from_hash: new image saved with id={image.id}")
     return image
 
 
