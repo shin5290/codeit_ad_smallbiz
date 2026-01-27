@@ -276,18 +276,25 @@ codeit_ad_smallbiz/
 │   ├── generation/
 │   │   ├── text_generation/        # 광고 문구 생성
 │   │   │   ├── text_generator.py   # GPT-4o-mini 카피 생성
+│   │   │   ├── ad_generator.py     # 광고 생성 통합 API
 │   │   │   ├── prompt_manager.py   # 업종별 프롬프트 관리
+│   │   │   ├── evaluate_prompt.py  # 프롬프트 평가
 │   │   │   └── industries.yaml     # 247개 업종 설정
 │   │   ├── image_generation/       # 이미지 생성 (Z-Image Turbo)
 │   │   │   ├── generator.py        # 생성 파이프라인 진입점
 │   │   │   ├── workflow.py         # 노드 워크플로우
+│   │   │   ├── config.py           # 이미지 생성 설정
 │   │   │   ├── preload.py          # 모델 프리로드
+│   │   │   ├── shared_cache.py     # 모델 캐시 관리
 │   │   │   ├── nodes/              # T2I/I2I/레이아웃/저장 노드
-│   │   │   └── prompt/             # 프롬프트/스타일 설정
+│   │   │   ├── prompt/             # 프롬프트/스타일 설정
+│   │   │   └── tools/              # 폰트/텍스트 레이아웃 도구
 │   │   └── chat_bot/               # RAG 기반 상담 챗봇
 │   │       ├── rag/                # SmallBizRAG 체인
 │   │       ├── agent/              # TrendAgent / SmallBizConsultant
 │   │       ├── refine/             # Self-Refine
+│   │       ├── api/                # 상담 API 엔드포인트
+│   │       ├── config/             # RAG/Agent 설정
 │   │       ├── data/               # 문서/벡터스토어 데이터
 │   │       └── evaluation/         # 평가 스크립트
 │   ├── utils/
@@ -296,7 +303,8 @@ codeit_ad_smallbiz/
 │   │   ├── session.py              # 세션 관리
 │   │   ├── image.py                # 이미지 처리/서빙
 │   │   ├── logging.py              # 로깅 설정
-│   │   └── admin_logs.py           # 로그 조회 유틸
+│   │   ├── admin_logs.py           # 로그 조회 유틸
+│   │   └── intent_keywords.py      # Intent 키워드 매핑
 │   └── frontend/
 │       ├── main.html               # 메인 페이지
 │       ├── admin.html              # 관리자 페이지
