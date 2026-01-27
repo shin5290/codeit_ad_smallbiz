@@ -256,6 +256,82 @@ def _resolve_target_generation(
     return latest
 
 
+def _convert_to_origin_path(file_path: str) -> Optional[str]:
+    if not file_path:
+        return None
+    normalized = os.path.normpath(file_path)
+    parts = normalized.split(os.sep)
+    if "origin" in parts:
+        return normalized
+    directory = os.path.dirname(normalized)
+    filename = os.path.basename(normalized)
+    return os.path.join(directory, "origin", filename)
+
+
+def _get_origin_payload_for_image_id(
+    *,
+    db: Session,
+    image_id: Optional[int],
+    source: str,
+) -> Optional[dict]:
+    if not image_id:
+        return None
+
+    image_row = (
+        db.query(models.ImageMatching)
+        .filter(models.ImageMatching.id == image_id)
+        .first()
+    )
+    if not image_row or not image_row.file_directory:
+        logger.warning(
+            "origin lookup failed: source=%s image_id=%s missing file_directory",
+            source,
+            image_id,
+        )
+        return None
+
+    origin_path = _convert_to_origin_path(image_row.file_directory)
+    if not origin_path or not os.path.exists(origin_path):
+        logger.warning(
+            "origin file missing: source=%s image_id=%s origin_path=%s",
+            source,
+            image_id,
+            origin_path,
+        )
+        return None
+
+    return {
+        "file_hash": image_row.file_hash,
+        "file_directory": origin_path,
+    }
+
+
+def _find_recent_origin_from_history(
+    *,
+    db: Session,
+    session_id: str,
+    exclude_generation_id: Optional[int],
+) -> Optional[dict]:
+    for gen in process_db.get_generation_history_by_session(db, session_id, limit=20):
+        if exclude_generation_id and gen.id == exclude_generation_id:
+            continue
+        if not gen.output_image_id:
+            continue
+        origin_payload = _get_origin_payload_for_image_id(
+            db=db,
+            image_id=gen.output_image_id,
+            source="history_output_image_id",
+        )
+        if origin_payload:
+            logger.info(
+                "using history origin image (generation_id=%s, output_image_id=%s)",
+                gen.id,
+                gen.output_image_id,
+            )
+            return origin_payload
+    return None
+
+
 def _resolve_industry_for_revision(
     *,
     db: Session,
@@ -919,6 +995,34 @@ async def handle_chat_revise(
         image_payload(latest_generation.output_image)
         or image_payload(latest_generation.input_image)
     )
+    if latest_generation.content_type == "image":
+        origin_payload = _get_origin_payload_for_image_id(
+            db=db,
+            image_id=latest_generation.output_image_id,
+            source="target_output_image_id",
+        )
+        if not origin_payload:
+            origin_payload = _get_origin_payload_for_image_id(
+                db=db,
+                image_id=latest_generation.input_image_id,
+                source="target_input_image_id",
+            )
+        if not origin_payload:
+            origin_payload = _find_recent_origin_from_history(
+                db=db,
+                session_id=session_id,
+                exclude_generation_id=latest_generation.id,
+            )
+        if origin_payload:
+            reference_payload = origin_payload
+            logger.info(
+                "handle_chat_revise: selected origin as reference (generation_id=%s)",
+                latest_generation.id,
+            )
+        else:
+            logger.warning(
+                "handle_chat_revise: no origin found; fallback to existing reference image"
+            )
     updated_params = {
         "input_text": generation_input or latest_generation.input_text or "",
         "generation_type": latest_generation.content_type,
