@@ -1,0 +1,3032 @@
+# ============================================
+# Ad Copy Generation Industries Configuration
+# 247 Small Business Industries S~E Grade Classification
+# ============================================
+#
+# Version: 1.1.0
+# Updated: 2026-01-26
+# Purpose: AI-based ad copy generation with industry-specific keyword strategies
+#
+# Structure:
+# - S Grade: 감성 및 미각 자극, Sensory & Taste Stimulation (6 groups, 53 businesses)
+# - A Grade: 비주얼 변화 및 자기관리, Visual Transformation & Self-Care (4 groups, 41 businesses)
+# - B Grade: 공간 체험 및 교육, Space Experience & Education (3 groups, 46 businesses)
+# - C Grade: 신뢰 기반 전문 서비스, Trust-Based Professional Services (3 groups, 57 businesses)
+# - D Grade: 목적형 소매 및 장비, Purpose-Driven Retail & Equipment (3 groups, 45 businesses)
+# - E Grade: 인프라 및 특수 목적, Infrastructure & Special Purpose (2 groups, 5 businesses)
+#
+# Key Elements:
+# 1. Target Customer (35% impact)
+# 2. Brand Voice (25% impact)
+# 3. Call-to-Action (15% impact)
+# 4. Core Value (12% impact)
+# 5. Copy Length (8% impact)
+# 6. Platform (3% impact)
+# 7. Differentiation (2% impact)
+
+# ============================================
+# S Grade: Sensory & Taste Stimulation
+# ============================================
+
+s_grade:
+  name: "S Grade - Sensory & Taste Stimulation"
+  name_ko: "S등급 - 감성 및 미각 자극"
+  strategy: "Sensory description + Immediate desire stimulation"
+  aida_focus: "Attention(Sensory) → Desire(Craving)"
+  total_businesses: 53
+
+  common_keywords:
+    priority_1_sensory: ["crispy", "juicy", "rich", "savory", "creamy", "fresh"]
+    priority_2_immediacy: ["now", "today only", "limited", "fresh", "just made"]
+    priority_3_context: ["rainy day", "after work", "weekend gathering", "late night"]
+    priority_4_price: ["discount", "free", "2+1", "special price"]
+    priority_5_social_proof: ["popular", "bestseller", "rated 4.8"]
+
+  common_keywords_ko:
+    priority_1_sensory: ["촉촉한", "바삭한", "진한", "고소한", "부드러운", "신선한"]
+    priority_2_immediacy: ["지금", "오늘만", "한정", "갓 만든", "즉시"]
+    priority_3_context: ["비 오는 날", "야근 후", "주말 모임", "야식"]
+    priority_4_price: ["할인", "무료", "2+1", "특가"]
+    priority_5_social_proof: ["인기", "베스트", "리뷰 4.8점"]
+
+  # ============================================
+  # S-1: Hot Cooking & Juicy Emphasis
+  # ============================================
+  s1_hot_cooking:
+    name: "S-1: Hot Cooking & Juicy Emphasis"
+    name_ko: "S-1: 고온 조리 및 육즙 강조"
+    count: 17
+    businesses:
+      - "Pork BBQ/Braised"
+      - "Beef BBQ/Braised"
+      - "Offal Hot Pot/BBQ"
+      - "Chicken/Duck BBQ/Braised"
+      - "Fried Chicken"
+      - "Pizza"
+      - "Burger"
+      - "Mala Tang/Hot Pot"
+      - "Pasta/Steak"
+      - "Western Casual Dining"
+      - "Family Restaurant"
+      - "Japanese Curry/Katsu/Rice Bowl"
+      - "Buffet"
+      - "Cafeteria"
+      - "Chinese Restaurant"
+      - "Japanese Noodle"
+      - "Vietnamese Restaurant"
+
+    keyword_priorities:
+      sensory_35: ["crispy outside tender inside", "dripping with juice", "seasoned to perfection"]
+      temperature_25: ["fresh from the grill", "piping hot", "cooked to order"]
+      immediacy_20: ["order now", "today only", "limited quantity"]
+      context_12: ["perfect for late night", "team dinner", "solo drinking snack"]
+      price_8: ["20% off", "free delivery", "extra serving free"]
+
+    keyword_priorities_ko:
+      sensory_35: ["겉은 바삭, 속은 촉촉한", "육즙이 흐르는", "짭조름하게 양념한", "감각적"]
+      temperature_25: ["갓 구운", "뜨끈뜨끈한", "주문 즉시 조리"]
+      immediacy_20: ["지금 주문", "오늘만", "한정 수량"]
+      context_12: ["야식으로", "회식 메뉴로", "혼술 안주로", "기념일", "특별한 날"]
+      price_8: ["20% 할인", "배달비 무료", "곱빼기 서비스", "고급"]
+
+    brand_voice: "warm and indulgent, appetite-stimulating tone"
+    brand_voice_ko: "따뜻하고 탐닉적인, 감각을 자극하는 톤"
+
+    cta: ["Order Now", "Order on delivery app", "Call to order", "Reserve Now"]
+    cta_ko: ["지금 주문", "배달앱에서 주문", "전화 주문", "지금 예약"]
+
+    exclude_keywords: ["healthy", "diet", "low-calorie"]
+    exclude_keywords_ko: ["건강", "다이어트", "저칼로리"]
+
+    prompt_template:
+      role: "{business_type} delivery order specialist copywriter"
+      target: "20-30s office workers, {situation} context"
+      pain_points: ["soggy or hard food", "long delivery time"]
+      product_features: ["cooked to order", "{delivery_feature}"]
+      voice: "friendly and sensory"
+      action: "order immediately"
+      length: "headline 15 chars, body 50 chars"
+      required_keywords: ["{texture}", "fast delivery"]
+      exclude: ["healthy", "diet"]
+
+    prompt_template_ko:
+      role: "{business_type} 배달 주문을 늘리는 전문 카피라이터"
+      target: "20-30대 직장인, {situation} 상황"
+      pain_points: ["딱딱하거나 눅눅한 음식", "배달 시간 오래 걸림"]
+      product_features: ["주문 즉시 조리", "{delivery_feature}"]
+      voice: "친근하고 감각적"
+      action: "지금 바로 주문"
+      length: "헤드라인 15자, 본문 50자"
+      required_keywords: ["{texture}", "빠른 배달"]
+      exclude: ["건강", "다이어트"]
+
+    example_copies:
+      - "Crispy outside, juicy inside chicken in 30 minutes. Fresh from the fryer!"
+      - "Sizzling pork belly grilled over charcoal. 20% off today only!"
+      - "Hot pizza delivered in 30 minutes. Stretchy cheese original"
+
+    example_copies_ko:
+      - "겉바속촉 치킨, 30분 안에. 주문 즉시 튀기는 갓 나온 치킨!"
+      - "숯불에 구운 육즙 가득 삼겹살. 오늘만 20% 할인!"
+      - "갓 구운 피자 30분 배달. 치즈 쭉쭉 늘어나는 오리지널"
+      - "특별한 날, 감각을 깨우는 스테이크 코스를 경험하세요!"
+
+    korean_keywords:
+      - 삼겹살
+      - 고기
+      - 구이
+      - 소고기
+      - 돼지고기
+      - 곱창
+      - 치킨
+      - 피자
+      - 버거
+      - 마라탕
+      - 훠궈
+      - 파스타
+      - 스테이크
+      - 돈까스
+      - 라멘
+      - 우동
+      - 이자카야
+      - 뷔페
+      - 중식당
+      - 돼지구이
+      - 돼지찜
+      - 소구이
+      - 소찜
+      - 곱창전골
+      - 곱창구이
+      - 대창
+      - 막창
+      - 닭구이
+      - 오리구이
+      - 닭찜
+      - 오리찜
+      - 치킨전문점
+      - 후라이드
+      - 양념치킨
+      - 피자전문점
+      - 버거전문점
+      - 햄버거
+      - 마라탕전문점
+      - 훠궈전문점
+      - 파스타전문점
+      - 스테이크전문점
+      - 경양식
+      - 패밀리레스토랑
+      - 일식카레
+      - 덮밥
+      - 규동
+      - 구내식당
+      - 중국집
+      - 짜장면
+      - 짬뽕
+      - 일식면
+      - 베트남식
+      - 쌀국수
+      - 분짜
+      - 반미
+      - 육즙
+      - 숯불
+      - 직화
+      - 갓구운
+      - 겉바속촉
+      - 고깃집
+      - 숙성고기
+      - 한우
+      - 프리미엄고기
+
+  # ============================================
+  # S-2: Freshness & Color Emphasis
+  # ============================================
+  s2_freshness:
+    name: "S-2: Freshness & Color Emphasis"
+    name_ko: "S-2: 신선도 및 색감 강조"
+    count: 8
+    businesses:
+      - "Raw Fish Restaurant"
+      - "Seafood BBQ/Steamed"
+      - "Pufferfish Restaurant"
+      - "Japanese Sashimi/Sushi"
+      - "Seafood Retail"
+      - "Dried Fish/Fermented Seafood Retail"
+      - "Butcher Shop"
+      - "Vegetable/Fruit Retail"
+
+    keyword_priorities:
+      freshness_40: ["arrived this morning", "direct from source", "fresh"]
+      premium_25: ["premium", "special selection", "artisan crafted"]
+      visual_20: ["translucent", "glistening", "vibrant colors"]
+      scarcity_10: ["today only", "limited stock", "seasonal menu"]
+      health_5: ["protein-rich", "low calorie"]
+
+    keyword_priorities_ko:
+      freshness_40: ["오늘 아침 입고", "산지 직송", "신선한", "직수입"]
+      premium_25: ["프리미엄", "특선", "장인의 손길", "최고의 품질"]
+      visual_20: ["투명한", "윤기 나는", "생생한 색감"]
+      scarcity_10: ["당일 한정", "소량 입고", "계절 메뉴"]
+      health_5: ["단백질", "저칼로리"]
+
+    brand_voice: "warm and inviting, premium tone"
+    brand_voice_ko: "따뜻하고 초대하는, 고급스러운 톤"
+
+    cta: ["Reserve by phone", "Visit us", "Order today", "Try it now"]
+    cta_ko: ["전화 예약", "방문", "오늘 주문", "지금 맛보세요"]
+
+    exclude_keywords: ["cheap", "fast", "budget"]
+    exclude_keywords_ko: ["저렴", "빠른", "싼"]
+
+    prompt_template:
+      role: "{business_type} reservation specialist copywriter"
+      target: "30-50s, special family gatherings/business dining"
+      pain_points: ["uncertain freshness", "poor value for price"]
+      product_features: ["daily delivery from {source}", "aged specialty"]
+      voice: "trustworthy and premium"
+      action: "phone reservation or visit"
+      length: "headline 20 chars, body 60 chars"
+      required_keywords: ["same-day arrival", "direct from source", "fresh", "premium"]
+      exclude: ["cheap", "fast"]
+
+    prompt_template_ko:
+      role: "{business_type} 예약을 늘리는 전문 카피라이터"
+      target: "30-50대, 특별한 날 가족 모임/접대"
+      pain_points: ["신선도 불확실", "가격 대비 양 부족"]
+      product_features: ["매일 아침 {source}에서 직송", "숙성 회 전문"]
+      voice: "신뢰감 있고 고급스러운 톤"
+      action: "전화 예약 또는 방문"
+      length: "헤드라인 20자, 본문 60자"
+      required_keywords: ["당일 입고", "산지 직송", "신선", "프리미엄"]
+      exclude: ["저렴", "빠른"]
+
+    example_copies:
+      - "Fresh sashimi arrived this morning from Busan. Translucent and chewy, make your special day special"
+      - "Daily fresh domestic Hanwoo. The freshness difference at your neighborhood butcher"
+      - "Farm-fresh seasonal fruits delivered direct. Morning harvest freshness delivered to you"
+
+    example_copies_ko:
+      - "부산서 오늘 아침 올라온 회. 투명하고 쫄깃한 식감, 특별한 날엔 특별하게"
+      - "매일 새벽 도축 국내산 한우. 신선도가 다른 우리 동네 정육점"
+      - "산지 직송 싱싱한 제철 과일. 오늘 아침 수확한 신선함 그대로"
+      - "신선한 노르웨이 연어를 지금 맛보세요! 최고의 품질을 경험해보세요."
+
+    korean_keywords:
+      - 회
+      - 횟집
+      - 초밥
+      - 사시미
+      - 해산물
+      - 생선
+      - 복어
+      - 정육점
+      - 과일
+      - 야채
+      - 채소
+      - 수산시장
+      - 활어
+      - 자연산
+      - 양식
+      - 광어
+      - 우럭
+      - 참돔
+      - 연어
+      - 참치
+      - 새우
+      - 랍스터
+      - 조개구이
+      - 조개찜
+      - 전복
+      - 문어
+      - 오징어
+      - 낙지
+      - 복집
+      - 복어요리
+      - 일식집
+      - 스시
+      - 오마카세
+      - 수산물
+      - 건어물
+      - 젓갈
+      - 정육식당
+      - 고기도매
+      - 한우전문점
+      - 과일가게
+      - 청과물
+      - 과일전문점
+      - 야채가게
+      - 채소가게
+      - 산지직송
+      - 신선식품
+      - 당일입고
+
+  # ============================================
+  # S-3: Emotional & Soft Texture
+  # ============================================
+  s3_emotional:
+    name: "S-3: Emotional & Soft Texture"
+    name_ko: "S-3: 감성 및 부드러운 질감"
+    count: 11
+    businesses:
+      - "Cafe/Coffee Shop"
+      - "Bakery/Donut Shop"
+      - "Ice Cream/Shaved Ice"
+      - "Ice Cream Discount Store"
+      - "Rice Cake/Korean Sweets"
+      - "Toast/Sandwich/Salad"
+      - "Supermarket"
+      - "Convenience Store"
+      - "Water/Beverage Retail"
+      - "Milk Retail"
+      - "Other Fast Food"
+
+    keyword_priorities:
+      emotional_35: ["time for myself", "sweet comfort", "happy moment"]
+      aesthetic_30: ["pretty", "instagram-worthy", "cute and cozy"]
+      quality_20: ["handmade", "natural", "no additives"]
+      trend_10: ["winter signature", "bestseller", "new menu"]
+      experience_5: ["date spot", "with friends"]
+
+    keyword_priorities_ko:
+      emotional_35: ["나를 위한 시간", "달콤한 위로", "행복한 순간"]
+      aesthetic_30: ["예쁜", "인스타감성", "아기자기한"]
+      quality_20: ["수제", "천연", "무첨가"]
+      trend_10: ["겨울 시그니처", "베스트셀러", "신메뉴"]
+      experience_5: ["데이트 코스로", "친구와 함께"]
+
+    brand_voice: "warm and emotional, comforting tone"
+    brand_voice_ko: "따뜻하고 감성적인, 위로하는 톤"
+
+    cta: ["Visit us", "Use SNS hashtag", "Try it now"]
+    cta_ko: ["방문하기", "SNS 해시태그", "지금 맛보기"]
+
+    exclude_keywords: ["fast", "cheap", "rush"]
+    exclude_keywords_ko: ["빠른", "저렴", "서두르다"]
+
+    prompt_template:
+      role: "{business_type} SNS marketing specialist"
+      target: "20-30s women, active on Instagram"
+      pain_points: ["hard to find SNS-worthy spots", "want both taste and visuals"]
+      product_features: ["handmade cake/latte art", "aesthetic interior", "photo zones"]
+      voice: "warm and emotional, comforting"
+      action: "visit and post with SNS hashtag"
+      length: "Instagram caption 80 chars"
+      required_keywords: ["aesthetic", "handmade", "sweet", "pretty", "insta"]
+      exclude: ["fast", "cheap"]
+
+    prompt_template_ko:
+      role: "{business_type} SNS 마케팅 전문가"
+      target: "20-30대 여성, 인스타그램 활동적"
+      pain_points: ["SNS 올릴 만한 곳 찾기 어려움", "맛과 비주얼 둘 다"]
+      product_features: ["수제 케이크/라떼아트", "감성적 인테리어", "포토존"]
+      voice: "따뜻하고 감성적, 위로하는 톤"
+      action: "방문 및 SNS 해시태그 달기"
+      length: "Instagram 캡션용 80자"
+      required_keywords: ["감성", "수제", "달콤한", "예쁜", "인스타"]
+      exclude: ["빠른", "저렴"]
+
+    example_copies:
+      - "A sweet moment just for me today☕️ Handmade cake and a latte break"
+      - "Drawn by the smell of fresh bread🥐 Handmade bakery baked fresh every morning"
+      - "Sweetness that melts the heat🍦 Premium handmade ice cream happiness"
+
+    example_copies_ko:
+      - "오늘 하루, 나를 위한 달콤한 시간☕️ 수제 케이크와 라떼 한 잔의 여유"
+      - "갓 구운 빵 냄새에 이끌려🥐 매일 새벽 만드는 수제 베이커리"
+      - "더위를 녹이는 달콤함🍦 프리미엄 수제 아이스크림의 행복"
+
+    korean_keywords:
+      - 카페
+      - 커피
+      - 라떼
+      - 아메리카노
+      - 에스프레소
+      - 카푸치노
+      - 빵
+      - 베이커리
+      - 도넛
+      - 케이크
+      - 마카롱
+      - 아이스크림
+      - 빙수
+      - 디저트
+      - 토스트
+      - 샌드위치
+      - 샐러드
+      - 편의점
+      - 슈퍼마켓
+      - 커피숍
+      - 커피전문점
+      - 스페셜티커피
+      - 핸드드립
+      - 브런치카페
+      - 디저트카페
+      - 빵집
+      - 제과점
+      - 떡집
+      - 떡카페
+      - 한과
+      - 전통과자
+      - 아이스크림가게
+      - 아이스크림전문점
+      - 젤라또
+      - 빙수전문점
+      - 아이스크림할인점
+      - 샐러드전문점
+      - 주스바
+      - 스무디
+      - 마트
+      - 대형마트
+      - 식자재마트
+      - 음료판매점
+      - 우유배달
+      - 생수판매
+      - 간이음식점
+      - 테이크아웃
+      - 인스타감성
+      - 포토존
+      - 감성카페
+
+  # ============================================
+  # S-4: Neat Korean Home-style Cooking
+  # ============================================
+  s4_korean_homestyle:
+    name: "S-4: Neat Korean Home-style Cooking"
+    name_ko: "S-4: 정갈한 한식과 상차림"
+    count: 9
+    businesses:
+      - "Korean Set Meal"
+      - "Soup/Stew"
+      - "Pig Feet/Bossam"
+      - "Korean Pancake"
+      - "Korean Noodle"
+      - "Cold Noodle"
+      - "Other Korean Restaurant"
+      - "Kimbap/Dumpling/Snack"
+      - "Side Dish/Grocery Retail"
+
+    keyword_priorities:
+      homestyle_35: ["mom's cooking", "like home", "with care"]
+      variety_25: ["abundant spread", "15 side dishes"]
+      healthy_20: ["clean", "local ingredients", "daily made"]
+      warmth_15: ["warm", "comfort food", "family meal"]
+      value_5: ["generous portions", "affordable"]
+
+    keyword_priorities_ko:
+      homestyle_35: ["엄마 손맛", "집밥 같은", "정성", "족발", "보쌈"]
+      variety_25: ["골라 먹는", "풍성한 상차림"]
+      healthy_20: ["깔끔한", "위생적", "국산 재료"]
+      convenience_15: ["바로 먹는", "간편하게", "포장 가능"]
+      value_5: ["푸짐하게", "부담 없이"]
+
+    brand_voice: "warm and industry-specific tone"
+    brand_voice_ko: "따뜻하면서도 업종 특화된 톤"
+
+    cta: ["Visit store", "Call to order", "Takeout order", "Order now"]
+    cta_ko: ["매장 방문", "전화 주문", "포장 주문", "지금 배달"]
+
+    exclude_keywords: ["mass-produced", "factory-made"]
+    exclude_keywords_ko: ["대량생산", "공장제"]
+
+    prompt_template:
+      role: "{business_type} regular customer builder copywriter"
+      target: "30-60s, busy workers/single households"
+      pain_points: ["tired of eating out daily", "hassle of making side dishes"]
+      product_features: ["freshly made every morning", "local ingredients", "15 side dishes"]
+      voice: "warm and trustworthy"
+      action: "visit store or call to order"
+      length: "flyer 40 chars"
+      required_keywords: ["mom's cooking", "daily", "local", "with care", "clean"]
+      exclude: ["mass-produced", "factory-made"]
+
+    prompt_template_ko:
+      role: "{business_type} 단골 고객을 늘리는 카피라이터"
+      target: "30-60대, 바쁜 직장인/1인 가구"
+      pain_points: ["매일 외식 질림", "반찬 만들기 번거로움"]
+      product_features: ["매일 새벽 조리", "국산 재료", "15가지 반찬"]
+      voice: "따뜻하고 믿음직한 톤"
+      action: "매장 방문 또는 전화 주문"
+      length: "전단지용 40자"
+      required_keywords: ["엄마 손맛", "매일", "국산", "정성", "깔끔"]
+      exclude: ["대량생산", "공장제"]
+
+    example_copies:
+      - "Just like mom's cooking, 15 local side dishes daily. Complete your homemeal here"
+      - "Care-filled side dishes made at dawn. Hygienic and clean neighborhood banchan"
+      - "Chewy and tender jokbal. For late night snacks, drinking, mom's taste preserved"
+
+    example_copies_ko:
+      - "엄마 손맛 그대로, 매일 15가지 국산 반찬. 오늘의 집밥, 여기서 완성"
+      - "새벽에 만드는 정성 가득 반찬. 위생적이고 깔끔한 우리 동네 반찬"
+      - "쫄깃하고 부드러운 족발. 야식으로, 술안주로, 엄마 손맛 그대로"
+      - "비 오는 날, 부침개와 막걸리! 지금 바로 주문하세요"
+
+    korean_keywords:
+      - 한식
+      - 백반
+      - 정식
+      - 국밥
+      - 찌개
+      - 전
+      - 냉면
+      - 국수
+      - 김밥
+      - 분식
+      - 만두
+      - 떡볶이
+      - 반찬
+      - 한정식
+      - 가정식
+      - 집밥
+      - 순대국밥
+      - 설렁탕
+      - 갈비탕
+      - 추어탕
+      - 해장국
+      - 삼계탕
+      - 김치찌개
+      - 된장찌개
+      - 부대찌개
+      - 순두부찌개
+      - 청국장
+      - 족발
+      - 보쌈
+      - 족발집
+      - 보쌈집
+      - 파전
+      - 빈대떡
+      - 칼국수
+      - 수제비
+      - 물냉면
+      - 비빔냉면
+      - 막국수
+      - 밀면
+      - 기타한식
+      - 반찬가게
+      - 밑반찬
+      - 분식집
+      - 뚝배기
+      - 정갈한
+      - 담백한
+      - 건강한
+      - 영양가
+      - 엄마손맛
+      - 국산재료
+
+  # ============================================
+  # S-5: Global Variety
+  # ============================================
+  s5_global_variety:
+    name: "S-5: Global Variety"
+    name_ko: "S-5: 글로벌 다채로움"
+    count: 4
+    businesses:
+      - "Other Japanese Restaurant"
+      - "Other Western Restaurant"
+      - "Other Southeast Asian Restaurant"
+      - "Unclassified Foreign Restaurant"
+
+    keyword_priorities:
+      exotic_35: ["authentic local taste", "traditional recipe", "just like abroad"]
+      variety_30: ["new taste", "unique", "special experience"]
+      experience_20: ["taste journey", "culinary adventure", "explore flavors"]
+      authenticity_10: ["original", "genuine", "imported ingredients"]
+      convenience_5: ["nearby", "easy access"]
+
+    keyword_priorities_ko:
+      exotic_35: ["현지 그대로", "정통 레시피", "해외 현지 맛"]
+      variety_30: ["색다른 맛", "새로운", "특별한 경험"]
+      experience_20: ["맛 여행", "미식 탐험", "맛의 발견"]
+      authenticity_10: ["정통", "오리지널", "수입 재료"]
+      convenience_5: ["가까운", "찾기 쉬운"]
+
+    brand_voice: "exotic and curiosity-stimulating tone"
+    brand_voice_ko: "이국적이고 호기심을 자극하는 톤"
+
+    cta: ["Visit us", "See menu", "Reserve now"]
+    cta_ko: ["방문하기", "메뉴 보기", "지금 예약"]
+
+    exclude_keywords: ["fusion", "korean-style", "modified"]
+    exclude_keywords_ko: ["퓨전", "한국식", "변형"]
+
+    prompt_template:
+      role: "{business_type} new customer attraction copywriter"
+      target: "20-40s foodies, enjoying new taste exploration"
+      pain_points: ["bored of same food", "want authentic foreign taste"]
+      product_features: ["authentic local recipe", "imported ingredients", "exotic atmosphere"]
+      voice: "exotic and curiosity-stimulating"
+      action: "visit or reserve"
+      length: "SNS post 60 chars"
+      required_keywords: ["authentic", "local", "new taste", "original"]
+      exclude: ["fusion", "korean-style"]
+
+    prompt_template_ko:
+      role: "{business_type} 신규 고객 유치 카피라이터"
+      target: "20-40대 푸디, 새로운 맛 탐험 즐기는 층"
+      pain_points: ["매일 같은 음식 질림", "정통 외국 음식 먹고 싶음"]
+      product_features: ["현지 정통 레시피", "수입 재료", "이국적 분위기"]
+      voice: "이국적이고 호기심을 자극하는 톤"
+      action: "방문 또는 예약"
+      length: "SNS 포스팅용 60자"
+      required_keywords: ["정통", "현지", "색다른 맛", "오리지널"]
+      exclude: ["퓨전", "한국식"]
+
+    example_copies:
+      - "Authentic Bangkok taste! From Som Tam to Tom Yum Kung, full Thai flavors"
+      - "Experience real Mediterranean! Imported olive oil, fresh pasta special"
+      - "Taste trip to India! Naan baked in tandoor, authentic curry lineup"
+
+    example_copies_ko:
+      - "방콕 현지 그대로! 쏨땀부터 똠얌꿍까지, 입안 가득 태국의 맛"
+      - "진짜 지중해를 경험하세요! 수입 올리브유, 생면 파스타 스페셜"
+      - "인도로 맛여행! 탄두리에서 구운 난, 정통 커리 라인업"
+
+    korean_keywords:
+      - 이국적
+      - 외국음식
+      - 기타일식
+      - 기타양식
+      - 동남아식
+      - 외국식음식점
+      - 태국음식
+      - 인도음식
+      - 터키음식
+      - 멕시칸
+      - 지중해음식
+      - 아시안푸드
+      - 퓨전음식
+      - 세계음식
+      - 현지맛
+      - 정통
+      - 색다른
+      - 맛여행
+      - 미식탐험
+      - 쏨땀
+      - 똠얌꿍
+      - 팟타이
+      - 카레
+      - 난
+      - 탄두리
+
+  # ============================================
+  # S-6: Nightlife & Party Mood
+  # ============================================
+  s6_nightlife:
+    name: "S-6: Nightlife & Party Mood"
+    name_ko: "S-6: 화려한 무드와 야간 감성"
+    count: 4
+    businesses:
+      - "Draft Beer Specialty"
+      - "Gastropub"
+      - "General Bar"
+      - "Dance Bar"
+
+    keyword_priorities:
+      atmosphere_40: ["hotspot", "vibe restaurant", "trendy place"]
+      energy_25: ["exciting", "fun", "lively"]
+      social_20: ["with friends", "tonight", "after work"]
+      specialties_10: ["signature", "best seller", "special"]
+      convenience_5: ["late night", "24 hours", "private room"]
+
+    keyword_priorities_ko:
+      atmosphere_40: ["핫플", "분위기 맛집", "트렌디한"]
+      energy_25: ["신나는", "즐거운", "활기찬"]
+      social_20: ["친구들과", "오늘 밤", "퇴근 후"]
+      specialties_10: ["시그니처", "베스트", "스페셜"]
+      convenience_5: ["야간", "24시간", "룸"]
+
+    brand_voice: "lively and trendy tone, party atmosphere"
+    brand_voice_ko: "활기차고 트렌디한 톤, 파티 분위기"
+
+    cta: ["Reserve now", "Visit tonight", "Call us"]
+    cta_ko: ["예약하기", "지금 방문", "전화 문의"]
+
+    exclude_keywords: ["quiet", "alone", "calm"]
+    exclude_keywords_ko: ["조용한", "혼자", "차분한"]
+
+    prompt_template:
+      role: "{business_type} nightlife promotion copywriter"
+      target: "20-30s, enjoying nightlife after work/weekend"
+      pain_points: ["where to go tonight", "want exciting atmosphere"]
+      product_features: ["trendy interior", "signature drinks", "fun vibe"]
+      voice: "lively and trendy, party atmosphere"
+      action: "reserve or visit"
+      length: "SNS story 40 chars"
+      required_keywords: ["hotspot", "vibe", "tonight", "fun", "trendy"]
+      exclude: ["quiet", "alone"]
+
+    prompt_template_ko:
+      role: "{business_type} 야간 영업 홍보 카피라이터"
+      target: "20-30대, 퇴근 후/주말 밤 유흥 즐기는 층"
+      pain_points: ["오늘 밤 어디 갈지", "신나는 분위기 원함"]
+      product_features: ["트렌디한 인테리어", "시그니처 음료", "재미있는 분위기"]
+      voice: "활기차고 트렌디한 톤, 파티 분위기"
+      action: "예약 또는 방문"
+      length: "SNS 스토리용 40자"
+      required_keywords: ["핫플", "분위기", "오늘 밤", "신나는", "트렌디"]
+      exclude: ["조용한", "혼자"]
+
+    example_copies:
+      - "After work beer time! Awesome vibe draft beer spot, tonight here"
+      - "Weekend party starts here🎉 Trendy club, best DJ lineup"
+      - "Sing all night! Coin karaoke 24hrs open, latest songs updated"
+
+    example_copies_ko:
+      - "퇴근 후 맥주 한 잔! 분위기 끝내주는 생맥주 전문점, 오늘 밤 여기서"
+      - "주말 파티는 여기서 시작🎉 트렌디한 클럽, 최고의 DJ 라인업"
+      - "밤새 노래하자! 코인노래방 24시간 오픈, 최신곡 업데이트"
+
+    korean_keywords:
+      - 생맥주전문점
+      - 요리주점
+      - 일반유흥주점
+      - 무도유흥주점
+      - 펍
+      - 바
+      - 클럽
+      - 칵테일
+      - 맥주
+      - 야식
+      - 분위기맛집
+      - 핫플
+      - 야간
+      - 파티
+      - 유흥
+      - 퇴근후
+      - 주말밤
+      - DJ
+      - 시그니처칵테일
+      - 생맥주
+      - 수제맥주
+      - 크래프트비어
+      - 안주
+      - 호프집
+
+# ============================================
+# A Grade: Visual Transformation & Self-Care
+# ============================================
+
+a_grade:
+  name: "A Grade - Visual Transformation & Self-Care"
+  name_ko: "A등급 - 비주얼 변화 및 자기관리"
+  strategy: "Change/Results + Emotional empathy"
+  aida_focus: "Interest(Empathy) → Desire(Transformation)"
+  total_businesses: 41
+
+  common_keywords:
+    priority_1_change: ["become", "transform", "different"]
+    priority_2_self_investment: ["for myself", "special care"]
+    priority_3_expertise: ["expert", "skilled", "premium"]
+    priority_4_trend: ["trending", "hot", "popular"]
+    priority_5_trial: ["first visit", "free consultation"]
+
+  common_keywords_ko:
+    priority_1_change: ["~되다", "~해지다", "달라진"]
+    priority_2_self_investment: ["나를 위한", "특별한 관리"]
+    priority_3_expertise: ["전문가", "숙련된", "프리미엄"]
+    priority_4_trend: ["요즘", "핫한", "인기"]
+    priority_5_trial: ["첫 방문", "무료 상담"]
+
+  # ============================================
+  # A-1: Person-Centered Beauty & Aesthetics
+  # ============================================
+  a1_beauty:
+    name: "A-1: Person-Centered Beauty & Aesthetics"
+    name_ko: "A-1: 인물 중심 뷰티 및 에스테틱"
+    count: 6
+    businesses:
+      - "Hair Salon"
+      - "Skin Care Clinic"
+      - "Dermatology/Urology Clinic"
+      - "Plastic Surgery Clinic"
+      - "Nail Salon"
+      - "Cosmetics Retail"
+
+    keyword_priorities:
+      transformation_40: ["silky flowing hair", "clear skin", "changed impression"]
+      expert_trust_25: ["20 years experience", "professional designer", "dermatologist"]
+      personalized_20: ["fit for my face shape", "1:1 customized care"]
+      trend_10: ["trending now", "celebrity favorite"]
+      trial_5: ["first visit 20% off", "free diagnosis"]
+
+    keyword_priorities_ko:
+      transformation_40: ["찰랑거리는 머릿결", "맑아진 피부", "달라진 인상"]
+      expert_trust_25: ["20년 경력", "전문 디자이너", "피부과 전문의"]
+      personalized_20: ["내 얼굴형에 맞는", "1:1 맞춤 케어"]
+      trend_10: ["요즘 뜨는", "셀럽들이 찾는"]
+      trial_5: ["첫 방문 20% 할인", "무료 진단"]
+
+    brand_voice: "professional yet friendly tone"
+    brand_voice_ko: "전문적이면서 친근한 톤"
+
+    cta: ["Book consultation", "First visit reservation", "Reserve now"]
+    cta_ko: ["상담 예약", "첫 방문 예약", "지금 예약"]
+
+    exclude_keywords: ["fast", "cheap", "budget"]
+    exclude_keywords_ko: ["빠른", "저렴", "싼"]
+
+    prompt_template:
+      role: "{business_type} new customer acquisition copywriter"
+      target: "20-40s women, wanting {hair/skin} transformation"
+      pain_points: ["don't know what suits me", "hard to maintain after treatment"]
+      product_features: ["{face shape analysis/skin diagnosis} with customized recommendation", "premium products"]
+      voice: "professional yet friendly"
+      action: "book consultation"
+      length: "Naver search ad 40 chars"
+      required_keywords: ["face shape", "skin type", "customized", "expert", "transformation"]
+      exclude: ["fast", "cheap"]
+
+    prompt_template_ko:
+      role: "{business_type} 신규 고객 유치 전문 카피라이터"
+      target: "20-40대 여성, {헤어/피부} 변화 원함"
+      pain_points: ["어울리는 스타일 모름", "시술 후 관리 어려움"]
+      product_features: ["{얼굴형 분석/피부 진단} 후 맞춤 추천", "프리미엄 제품"]
+      voice: "전문적이면서 친근한 톤"
+      action: "상담 예약"
+      length: "네이버 검색광고용 40자"
+      required_keywords: ["얼굴형", "피부타입", "맞춤", "전문", "변화"]
+      exclude: ["빠른", "저렴"]
+
+    example_copies:
+      - "Find the style that fits your face. 1:1 consultation with 20-year veteran designer"
+      - "Clear skin, new confidence. Customized care created by dermatologists"
+      - "Find your style among 5000 designs💅 Expert care that includes nail health"
+
+    example_copies_ko:
+      - "내 얼굴형에 딱 맞는 스타일 찾기. 20년 경력 디자이너의 1:1 맞춤 상담"
+      - "맑아진 피부, 달라진 자신감. 피부과 의사가 만든 맞춤 케어"
+      - "5000가지 디자인 중 나만의 스타일 찾기💅 손톱 건강까지 챙기는 전문 케어"
+
+    korean_keywords:
+      - 미용실
+      - 헤어
+      - 네일
+      - 네일샵
+      - 피부관리
+      - 피부과
+      - 성형외과
+      - 에스테틱
+      - 뷰티
+      - 헤어샵
+      - 헤어살롱
+      - 미용원
+      - 커트
+      - 파마
+      - 염색
+      - 탈색
+      - 매직
+      - 셋팅
+      - 두피관리
+      - 스타일링
+      - 디자이너
+      - 피부샵
+      - 피부미용
+      - 페이셜
+      - 바디관리
+      - 왁싱
+      - 제모
+      - 반영구
+      - 눈썹문신
+      - 속눈썹연장
+      - 속눈썹펌
+      - 피부과의원
+      - 피부클리닉
+      - 레이저
+      - 미백
+      - 여드름치료
+      - 필러
+      - 보톡스
+      - 리프팅
+      - 성형
+      - 쌍꺼풀
+      - 코성형
+      - 윤곽
+      - 네일아트
+      - 젤네일
+      - 매니큐어
+      - 페디큐어
+      - 손톱관리
+      - 변신
+      - 예뻐지다
+      - 자신감
+      - 화장품
+      - 화장품가게
+      - 코스메틱
+      - 뷰티숍
+      - 스킨케어
+      - 메이크업
+
+  # ============================================
+  # A-2: Body Transformation & Wellness
+  # ============================================
+  a2_wellness:
+    name: "A-2: Body Transformation & Wellness"
+    name_ko: "A-2: 신체 변화 및 웰니스"
+    count: 6
+    businesses:
+      - "Gym/Fitness Center"
+      - "Yoga/Pilates Studio"
+      - "Taekwondo/Martial Arts"
+      - "Multi-sports Facility"
+      - "Body Shape/Weight Management"
+      - "Massage/Spa"
+
+    keyword_priorities:
+      goal_achievement_35: ["lose 10kg in 3 months", "toned body", "confidence"]
+      personalized_30: ["1:1 PT", "customized program", "your own trainer"]
+      motivation_20: ["no more quitting after 3 days", "this time is different", "together we can"]
+      facility_10: ["comfortable", "latest equipment", "shower facilities"]
+      price_5: ["reasonable", "affordable"]
+
+    keyword_priorities_ko:
+      goal_achievement_35: ["3개월 -10kg", "탄탄한 몸매", "자신감"]
+      personalized_30: ["1:1 PT", "맞춤 프로그램", "나만의 트레이너"]
+      motivation_20: ["작심삼일 끝", "이번엔 다르다", "함께라서 가능해"]
+      facility_10: ["쾌적한", "최신 기구", "샤워실 완비"]
+      price_5: ["합리적", "부담 없는"]
+
+    brand_voice: "motivating and encouraging tone"
+    brand_voice_ko: "동기부여하고 격려하는 톤"
+
+    cta: ["Apply for free trial", "Request consultation", "Register now"]
+    cta_ko: ["무료 체험 신청", "상담 신청", "등록하기"]
+
+    exclude_keywords: ["hard", "tough", "difficult"]
+    exclude_keywords_ko: ["힘든", "고된", "어려운"]
+
+    prompt_template:
+      role: "{business_type} membership sales copywriter"
+      target: "25-45, diet/fitness goals, quit-after-3-days experience"
+      pain_points: ["quit after 3 days alone", "don't know how to exercise"]
+      product_features: ["3 free 1:1 PT sessions", "systematic program", "24-hour operation"]
+      voice: "motivating and encouraging"
+      action: "apply for free trial"
+      length: "Facebook ad 60 chars"
+      required_keywords: ["PT", "customized", "goal", "no more 3-day quit", "together"]
+      exclude: ["hard", "tough"]
+
+    prompt_template_ko:
+      role: "{business_type} 회원권 판매 전문 카피라이터"
+      target: "25-45대, 다이어트/체력 증진 목표, 작심삼일 경험"
+      pain_points: ["혼자 하면 작심삼일", "운동 방법 모름"]
+      product_features: ["1:1 PT 무료 3회", "체계적 프로그램", "24시간 운영"]
+      voice: "동기부여하고 격려하는 톤"
+      action: "무료 체험 신청"
+      length: "Facebook 광고용 60자"
+      required_keywords: ["PT", "맞춤", "목표", "작심삼일 끝", "함께"]
+      exclude: ["힘든", "고된"]
+
+    example_copies:
+      - "No more quitting after 3 days! Lose 10kg in 3 months with 1:1 PT. Free trial"
+      - "Flexible body, peaceful mind. Small group yoga for time just for you"
+      - "Start of a toned body. Achieve your goal with expert 1:1 customized program"
+
+    example_copies_ko:
+      - "작심삼일은 이제 그만! 1:1 PT로 3개월 -10kg 성공. 무료 체험 신청"
+      - "유연한 몸, 평온한 마음. 소수 정예 요가로 나를 위한 시간 만들기"
+      - "탄탄한 몸매의 시작. 전문가의 1:1 맞춤 프로그램으로 목표 달성"
+
+    korean_keywords:
+      - 헬스
+      - 헬스장
+      - 운동
+      - 피트니스
+      - 요가
+      - 필라테스
+      - 태권도
+      - 무술
+      - 마사지
+      - 스파
+      - 다이어트
+      - 헬스클럽
+      - 피트니스센터
+      - 체육관
+      - 짐
+      - PT
+      - 퍼스널트레이닝
+      - 트레이너
+      - 웨이트
+      - 크로스핏
+      - 요가원
+      - 요가학원
+      - 핫요가
+      - 빈야사
+      - 아쉬탕가
+      - 필라테스학원
+      - 기구필라테스
+      - 매트필라테스
+      - 태권도장
+      - 합기도
+      - 주짓수
+      - 유도
+      - 검도
+      - 복싱
+      - 킥복싱
+      - 무에타이
+      - 체형관리
+      - 체형교정
+      - 다이어트센터
+      - 비만관리
+      - 바디프로필
+      - 마사지샵
+      - 스웨디시
+      - 타이마사지
+      - 스포츠마사지
+      - 아로마마사지
+      - 경락마사지
+      - 건강관리
+      - 운동센터
+      - 몸매관리
+      - 탄탄한
+
+  # ============================================
+  # A-3: Fashion & Style Items
+  # ============================================
+  a3_fashion:
+    name: "A-3: Fashion & Style Items"
+    name_ko: "A-3: 패션 및 스타일 아이템"
+    count: 18
+    businesses:
+      - "Men's Clothing Retail"
+      - "Women's Clothing Retail"
+      - "Children's Clothing Retail"
+      - "Hanbok Retail"
+      - "Other Clothing Retail"
+      - "Bedding/Curtain Retail"
+      - "Wig Retail"
+      - "Shoes Retail"
+      - "Bag Retail"
+      - "Interior Design"
+      - "Product Design"
+      - "Visual Design"
+      - "Fashion/Textile Design"
+      - "Clothing Rental"
+      - "Clothing/Bedding Repair"
+      - "Leather/Bag/Shoe Repair"
+      - "Wedding Hall"
+      - "Wedding Consulting"
+
+    keyword_priorities:
+      style_identity_35: ["like me", "my style", "unique"]
+      trend_25: ["this season", "must-have", "trending now"]
+      coordination_20: ["goes with anything", "daily", "office look"]
+      quality_15: ["premium fabric", "artisan made", "natural material"]
+      scarcity_5: ["limited quantity", "selling out fast"]
+
+    keyword_priorities_ko:
+      style_identity_35: ["나다운", "내 스타일", "개성 있는"]
+      trend_25: ["이번 시즌", "머스트해브", "요즘 대세"]
+      coordination_20: ["어떤 옷에도", "데일리로", "오피스룩으로"]
+      quality_15: ["프리미엄 원단", "장인 제작", "내추럴 소재"]
+      scarcity_5: ["한정 수량", "조기 품절"]
+
+    brand_voice: "friendly and trendy tone"
+    brand_voice_ko: "친근하고 트렌디한 톤"
+
+    cta: ["Click product", "Add to cart", "Buy now"]
+    cta_ko: ["상품 클릭", "장바구니 담기", "지금 구매"]
+
+    exclude_keywords: ["outdated after trend passes"]
+    exclude_keywords_ko: ["유행 지나면 못 입음"]
+
+    prompt_template:
+      role: "{business_type} conversion rate optimizer copywriter"
+      target: "20-30s women, trendy+practical, office workers"
+      pain_points: ["can't wear after trend passes", "hard to coordinate"]
+      product_features: ["basic items focus", "basic+trendy mix", "free returns"]
+      voice: "friendly and trendy"
+      action: "click product and add to cart"
+      length: "product detail page 50 chars"
+      required_keywords: ["daily", "coordination", "versatile", "basic", "trendy"]
+      exclude: ["trend", "season limited"]
+
+    prompt_template_ko:
+      role: "{business_type} 전환율을 높이는 카피라이터"
+      target: "20-30대 여성, 트렌디+실용적, 직장인"
+      pain_points: ["유행 지나면 못 입음", "코디 어려움"]
+      product_features: ["기본 아이템 중심", "베이직+트렌디 믹스", "무료 반품"]
+      voice: "친근하고 트렌디한 톤"
+      action: "상품 클릭 및 장바구니 담기"
+      length: "상품 상세 페이지용 50자"
+      required_keywords: ["데일리", "코디", "활용도", "베이직", "트렌디"]
+      exclude: ["유행", "시즌 한정"]
+
+    example_copies:
+      - "Office to date, OK! Basic essential that matches any outfit"
+      - "Complete your style with one accent. Daily essential accessory collection"
+      - "Once in a lifetime moment, make it special. The space that completes your dream wedding"
+
+    example_copies_ko:
+      - "오피스도 데이트도 OK! 어떤 코디에도 어울리는 베이직 필수템"
+      - "포인트 하나로 완성되는 스타일. 데일리 필수 액세서리 컬렉션"
+      - "평생 한 번뿐인 순간, 특별하게. 꿈꾸던 웨딩을 완성하는 공간"
+
+    korean_keywords:
+      - 옷
+      - 의류
+      - 패션
+      - 남성복
+      - 여성복
+      - 아동복
+      - 한복
+      - 침구
+      - 커튼
+      - 액세서리
+      - 가발
+      - 신발
+      - 가방
+      - 시계
+      - 보석
+      - 안경
+      - 사진관
+      - 인테리어
+      - 디자인
+      - 대여
+      - 남성의류
+      - 신사복
+      - 정장
+      - 캐주얼
+      - 여성의류
+      - 여자옷
+      - 블라우스
+      - 원피스
+      - 스커트
+      - 유아복
+      - 아기옷
+      - 아동의류
+      - 키즈
+      - 한복대여
+      - 한복맞춤
+      - 전통한복
+      - 기타의류
+      - 빈티지
+      - 이월상품
+      - 침구류
+      - 이불
+      - 베개
+      - 커튼전문
+      - 블라인드
+      - 패션소품
+      - 모자
+      - 스카프
+      - 벨트
+      - 가발전문점
+      - 가발맞춤
+      - 신발가게
+      - 구두
+      - 운동화
+      - 스니커즈
+      - 가방전문점
+      - 명품가방
+      - 핸드백
+      - 시계전문점
+      - 주얼리
+      - 귀금속
+      - 금은방
+      - 안경원
+      - 렌즈
+      - 선글라스
+      - 카메라
+      - 사진스튜디오
+      - 프로필사진
+      - 증명사진
+      - 인테리어디자인
+      - 실내디자인
+      - 제품디자인
+      - 시각디자인
+      - 그래픽디자인
+      - 패션디자인
+      - 의상대여
+      - 정장대여
+      - 드레스대여
+      - 수선
+      - 옷수선
+      - 이불수선
+      - 가죽수선
+      - 가방수선
+      - 구두수선
+      - 웨딩홀
+      - 예식장
+      - 결혼식장
+      - 웨딩컨설팅
+      - 웨딩플래너
+      - 스타일링
+      - 코디
+      - 트렌디한
+      - 세련된
+
+  # ============================================
+  # A-4: Delicate Care & Emotional Items
+  # ============================================
+  a4_delicate_care:
+    name: "A-4: Delicate Care & Emotional Items"
+    name_ko: "A-4: 섬세한 케어 및 감성 소품"
+    count: 11
+    businesses:
+      - "Flower Shop"
+      - "Pet/Pet Supplies Retail"
+      - "Veterinary Hospital"
+      - "Furniture Retail"
+      - "Kitchen/Home Goods Retail"
+      - "Health Supplement Retail"
+      - "Accessories/Sundries Retail"
+      - "Watch/Jewelry Retail"
+      - "Eyeglasses/Lens Retail"
+      - "Camera/Optical Equipment Retail"
+      - "Photo Studio"
+
+    keyword_priorities:
+      detail_40: ["delicate", "meticulous", "heartfelt"]
+      special_moment_25: ["special day", "gift", "anniversary"]
+      uniqueness_20: ["my own", "unique", "custom design"]
+      emotional_10: ["lovely", "cute", "beautiful"]
+      expertise_5: ["expert", "skilled", "certified"]
+
+    keyword_priorities_ko:
+      detail_40: ["섬세한", "꼼꼼한", "정성스러운"]
+      special_moment_25: ["특별한 날", "선물하기", "기념일"]
+      uniqueness_20: ["나만의", "유니크한", "맞춤 디자인"]
+      emotional_10: ["사랑스러운", "귀여운", "아름다운"]
+      expertise_5: ["전문가", "숙련", "자격증"]
+
+    brand_voice: "delicate and kind tone"
+    brand_voice_ko: "섬세하고 친절한 톤"
+
+    cta: ["Book online", "Order now", "Visit us"]
+    cta_ko: ["온라인 예약", "주문하기", "방문하기"]
+
+    exclude_keywords: ["fast", "simple", "quick"]
+    exclude_keywords_ko: ["빠른", "간단한", "급한"]
+
+    prompt_template:
+      role: "{business_type} reservation rate optimizer copywriter"
+      target: "20-40s, wanting special care for {gift/pet}"
+      pain_points: ["lack of specialness", "lack of detail"]
+      product_features: ["{custom design/professional grooming}", "delicate care"]
+      voice: "delicate and kind"
+      action: "book online"
+      length: "Instagram story 30 chars"
+      required_keywords: ["design", "custom", "professional", "delicate", "special"]
+      exclude: ["fast", "simple"]
+
+    prompt_template_ko:
+      role: "{business_type} 예약률을 높이는 카피라이터"
+      target: "20-40대, {선물/반려동물} 특별한 케어 원함"
+      pain_points: ["특별함 부족", "디테일 부족"]
+      product_features: ["{맞춤 디자인/전문 미용}", "섬세한 케어"]
+      voice: "섬세하고 친절한 톤"
+      action: "온라인 예약"
+      length: "Instagram 스토리용 30자"
+      required_keywords: ["디자인", "맞춤", "전문", "섬세", "특별"]
+      exclude: ["빠른", "간단한"]
+
+    example_copies:
+      - "Special flowers for special days🌹 Deliver emotions with custom design"
+      - "Trust our expert vet with your pet's health. 24-hour emergency care"
+      - "Discover your talent🎵 Level up your skills with 1:1 customized lessons"
+
+    example_copies_ko:
+      - "특별한 날, 특별한 꽃으로🌹 맞춤 디자인으로 감동을 전하세요"
+      - "우리 아이 건강, 믿고 맡기는 전문 수의사. 24시간 응급 진료"
+      - "재능을 발견하는 시간🎵 1:1 맞춤 레슨으로 실력 UP"
+
+    korean_keywords:
+      - 꽃집
+      - 플라워
+      - 꽃
+      - 펫샵
+      - 동물병원
+      - 가구
+      - 주방용품
+      - 꽃배달
+      - 화원
+      - 꽃꽂이
+      - 플로리스트
+      - 웨딩부케
+      - 화분
+      - 조화
+      - 반려동물
+      - 애견샵
+      - 애견용품
+      - 고양이용품
+      - 펫푸드
+      - 동물의료
+      - 수의사
+      - 펫병원
+      - 24시동물병원
+      - 가구점
+      - 가구매장
+      - 침대
+      - 소파
+      - 테이블
+      - 책상
+      - 주방가구
+      - 주방기구
+      - 냄비
+      - 프라이팬
+      - 그릇
+      - 식기
+      - 건강보조식품
+      - 건강기능식품
+      - 영양제
+      - 비타민
+      - 오메가3
+      - 프로바이오틱스
+      - 액세서리
+      - 잡화
+      - 패션잡화
+      - 헤어액세서리
+      - 시계
+      - 귀금속
+      - 주얼리
+      - 금은방
+      - 반지
+      - 목걸이
+      - 안경
+      - 안경원
+      - 렌즈
+      - 선글라스
+      - 콘택트렌즈
+      - 카메라
+      - 광학기기
+      - 사진관
+      - 사진스튜디오
+      - 프로필사진
+      - 증명사진
+      - 웨딩사진
+      - 가족사진
+      - 공예
+      - 섬세한
+      - 감성
+      - 맞춤
+      - 특별한
+
+# ============================================
+# B Grade: Space Experience & Education
+# ============================================
+
+b_grade:
+  name: "B Grade - Space Experience & Education"
+  name_ko: "B등급 - 공간 체험 및 교육"
+  strategy: "Experience/Atmosphere + Convenience"
+  aida_focus: "Interest(Space appeal) → Action(Experience offer)"
+  total_businesses: 45
+
+  common_keywords:
+    priority_1_space: ["comfortable", "spacious", "quiet"]
+    priority_2_results: ["goal achievement", "focus", "growth"]
+    priority_3_convenience: ["nearby", "convenient", "easy"]
+    priority_4_differentiation: ["special", "unique", "different"]
+    priority_5_trial: ["free facility tour", "trial class"]
+
+  common_keywords_ko:
+    priority_1_space: ["쾌적한", "넓은", "조용한"]
+    priority_2_results: ["목표 달성", "집중", "성장"]
+    priority_3_convenience: ["가까운", "편리한", "쉬운"]
+    priority_4_differentiation: ["특별한", "독특한", "차별화된"]
+    priority_5_trial: ["무료 시설 견학", "체험 수업"]
+
+  # ============================================
+  # B-1: Learning & Focus
+  # ============================================
+  b1_learning:
+    name: "B-1: Learning & Focus"
+    name_ko: "B-1: 학습 및 몰입"
+    count: 17
+    businesses:
+      - "College Prep/Academic Academy"
+      - "Foreign Language Academy"
+      - "Professional Certificate Academy"
+      - "Social Education Facility"
+      - "Employee Training Center"
+      - "Driving School"
+      - "Other Technical/Vocational Training"
+      - "Computer Academy"
+      - "Other Education Institution"
+      - "Education Consulting"
+      - "Other Education Support Service"
+      - "Reading Room/Study Cafe"
+      - "Youth Training Facility"
+      - "Comic Book Cafe"
+      - "Music Academy"
+      - "Art Academy"
+      - "Other Art/Sports Education"
+
+    keyword_priorities:
+      goal_achievement_35: ["grade improvement", "pass", "focus boost"]
+      environment_30: ["quiet", "comfortable", "focus-friendly"]
+      system_20: ["systematic", "customized", "managed"]
+      proof_10: ["pass rate", "grade increase", "reviews"]
+      convenience_5: ["nearby", "24-hour", "parking"]
+
+    keyword_priorities_ko:
+      goal_achievement_35: ["성적 향상", "합격", "집중력 UP"]
+      environment_30: ["조용한", "쾌적한", "집중하기 좋은"]
+      system_20: ["체계적", "맞춤", "관리"]
+      proof_10: ["합격률", "성적 상승", "후기"]
+      convenience_5: ["가까운", "24시간", "주차"]
+
+    brand_voice: "professional and trustworthy tone"
+    brand_voice_ko: "전문적이고 신뢰감 주는 톤"
+
+    cta: ["Request consultation", "Attend orientation", "Free learning diagnosis"]
+    cta_ko: ["상담 신청", "설명회 참석", "무료 학습 진단"]
+
+    exclude_keywords: ["many students", "large scale"]
+    exclude_keywords_ko: ["많은 학생", "대형"]
+
+    prompt_template:
+      role: "{business_type} student recruitment copywriter"
+      target: "{middle/high school parents/adult learners}, {grades/certification} goal"
+      pain_points: ["attend academy but grades don't improve", "worry about study habits"]
+      product_features: ["small group classes", "individual learning management", "weekly consultation"]
+      voice: "professional and trustworthy"
+      action: "request consultation or attend orientation"
+      length: "Naver banner ad 50 chars"
+      required_keywords: ["small group", "management", "grade improvement", "systematic"]
+      exclude: ["many students", "large"]
+
+    prompt_template_ko:
+      role: "{business_type} 원생 모집 전문 카피라이터"
+      target: "{중고등학생 학부모/성인 학습자}, {내신/자격증} 목표"
+      pain_points: ["학원만 다니고 성적 안 오름", "학습 습관 걱정"]
+      product_features: ["소수 정예 수업", "개인별 학습 관리", "주 1회 상담"]
+      voice: "전문적이고 신뢰감 주는 톤"
+      action: "상담 신청 또는 설명회 참석"
+      length: "네이버 배너광고용 50자"
+      required_keywords: ["소수 정예", "관리", "성적 향상", "체계적"]
+      exclude: ["많은 학생", "대형"]
+
+    example_copies:
+      - "Small group intensive focus on each student. Raise your child's grades with systematic management"
+      - "Beginners can converse in 3 months. Native + Korean teacher 1:1 customized class"
+      - "Quiet and comfortable space just for me. 24-hour focused study environment"
+
+    example_copies_ko:
+      - "소수 정예로 한 명 한 명 집중 관리. 우리 아이 성적, 체계적 관리로 올리세요"
+      - "왕초보도 3개월이면 회화 가능. 원어민+한국인 강사 1:1 맞춤 수업"
+      - "조용하고 쾌적한 나만의 공간. 24시간 집중 학습 환경"
+
+    korean_keywords:
+      - 학원
+      - 입시
+      - 어학
+      - 외국어
+      - 공무원
+      - 운전
+      - 컴퓨터
+      - 독서실
+      - 스터디카페
+      - 입시학원
+      - 대입
+      - 수능
+      - 내신
+      - 보습학원
+      - 영어학원
+      - 영어회화
+      - 중국어
+      - 일본어
+      - 토익
+      - 토플
+      - 어학원
+      - 공무원학원
+      - 행정고시
+      - 전문직시험
+      - 사회교육
+      - 평생교육
+      - 직업훈련
+      - 직업교육
+      - 사원연수
+      - 운전학원
+      - 운전면허
+      - 도로연수
+      - 기술학원
+      - 자격증
+      - 컴퓨터학원
+      - 코딩
+      - 프로그래밍
+      - 엑셀
+      - 교육컨설팅
+      - 입시컨설팅
+      - 진로상담
+      - 교육지원
+      - 과외
+      - 24시간독서실
+      - 열람실
+      - 자습실
+      - 스터디룸
+      - 독서카페
+      - 청소년수련
+      - 청소년센터
+      - 만화카페
+      - 만화방
+      - 웹툰카페
+      - 음악학원
+      - 피아노학원
+      - 기타학원
+      - 드럼학원
+      - 바이올린학원
+      - 보컬학원
+      - 미술학원
+      - 미술교습소
+      - 입시미술
+      - 그림
+      - 취미미술
+      - 예술학원
+      - 집중
+      - 몰입
+      - 학습
+      - 성장
+      - 목표달성
+
+  # ============================================
+  # B-2: Leisure & Stay
+  # ============================================
+  b2_leisure:
+    name: "B-2: Leisure & Stay"
+    name_ko: "B-2: 여행 및 숙박"
+    count: 9
+    businesses:
+      - "Hotel/Resort"
+      - "Inn/Motel"
+      - "Pension"
+      - "Camping/Glamping"
+      - "Dormitory/Goshiwon"
+      - "Public Bath/Sauna"
+      - "Travel Agency"
+      - "Other Travel Support Service"
+      - "Other Accommodation"
+
+    keyword_priorities:
+      escape_35: ["healing", "rest", "escape", "recharge"]
+      space_appeal_30: ["ocean view", "private", "spacious", "aesthetic"]
+      convenience_20: ["all-inclusive", "comfortable", "easy"]
+      special_10: ["special memories", "romantic", "unique"]
+      price_5: ["reasonable", "package", "special price"]
+
+    keyword_priorities_ko:
+      escape_35: ["힐링", "쉼", "벗어나다", "재충전"]
+      space_appeal_30: ["오션뷰", "프라이빗", "넓은", "감성적인"]
+      convenience_20: ["모든 것이 갖춰진", "편안한", "간편한"]
+      special_10: ["특별한 추억", "낭만적", "색다른"]
+      price_5: ["합리적", "패키지", "특가"]
+
+    brand_voice: "warm and relaxed tone"
+    brand_voice_ko: "따뜻하고 여유로운 톤"
+
+    cta: ["Book now", "Visit us", "Inquire"]
+    cta_ko: ["예약하기", "방문하기", "문의하기"]
+
+    exclude_keywords: ["busy", "crowded", "complicated"]
+    exclude_keywords_ko: ["바쁜", "복잡한", "붐비는"]
+
+    prompt_template:
+      role: "{business_type} reservation rate optimizer copywriter"
+      target: "30-50s families/couples, weekend trip planning"
+      pain_points: ["crowded accommodation", "no activities for kids"]
+      product_features: ["private pension", "BBQ area", "kids playroom", "{ocean view/valley}"]
+      voice: "warm and relaxed"
+      action: "visit booking site"
+      length: "KakaoTalk channel ad 60 chars"
+      required_keywords: ["private", "healing", "family", "ocean view"]
+      exclude: ["busy", "crowded"]
+
+    prompt_template_ko:
+      role: "{business_type} 예약률을 높이는 카피라이터"
+      target: "30-50대 가족/커플, 주말 여행 계획"
+      pain_points: ["복잡한 숙소", "애들 놀 거리 없음"]
+      product_features: ["독채 펜션", "바베큐장", "키즈 플레이룸", "{오션뷰/계곡}"]
+      voice: "따뜻하고 여유로운 톤"
+      action: "예약 사이트 방문"
+      length: "카카오톡 채널 광고용 60자"
+      required_keywords: ["독채", "프라이빗", "힐링", "가족", "오션뷰"]
+      exclude: ["바쁜", "복잡한"]
+
+    example_copies:
+      - "Family healing time at ocean view private pension🌊 BBQ+kids room included"
+      - "Urban healing space. Spacious rooms and premium service for a special day"
+      - "Lag-free play on latest gaming PCs. 24-hour comfortable gaming space"
+
+    example_copies_ko:
+      - "오션뷰 독채 펜션에서 가족만의 힐링 타임🌊 바베큐+키즈룸 완비"
+      - "도심 속 힐링 공간. 넓은 객실과 프리미엄 서비스로 특별한 하루"
+      - "최신 사양 게이밍 PC로 끊김 없는 플레이. 24시간 쾌적한 게임 공간"
+
+    korean_keywords:
+      - 호텔
+      - 리조트
+      - 모텔
+      - 펜션
+      - 캠핑
+      - 글램핑
+      - 여행사
+      - 호텔예약
+      - 숙박
+      - 비즈니스호텔
+      - 부티크호텔
+      - 콘도
+      - 워터파크
+      - 스파리조트
+      - 여관
+      - 민박
+      - 게스트하우스
+      - 풀빌라
+      - 독채펜션
+      - 오토캠핑
+      - 카라반
+      - 캠핑장
+      - 오션뷰
+      - 마운틴뷰
+      - 기숙사
+      - 고시원
+      - 원룸
+      - 하숙
+      - 목욕탕
+      - 사우나
+      - 찜질방
+      - 대중목욕탕
+      - 한증막
+      - 여행예약
+      - 패키지여행
+      - 자유여행
+      - 항공권
+      - 힐링
+      - 휴식
+      - 재충전
+      - 프라이빗
+
+  # ============================================
+  # B-3: Sports & Activities
+  # ============================================
+  b3_sports:
+    name: "B-3: Sports & Activities"
+    name_ko: "B-3: 스포츠 및 활동"
+    count: 19
+    businesses:
+      - "Swimming Pool"
+      - "Bowling Alley"
+      - "Billiard Hall"
+      - "Golf Practice Range"
+      - "Tennis Court"
+      - "Table Tennis Hall"
+      - "Other Sports Facility"
+      - "Squash/Racketball Court"
+      - "Sports/Recreation Equipment Rental"
+      - "Karaoke"
+      - "Video Room"
+      - "Arcade"
+      - "PC Cafe"
+      - "Other Entertainment Venue"
+      - "Water/Marine Leisure"
+      - "Other Entertainment Service"
+      - "Fishing Spot"
+      - "Lottery Sales"
+      - "Board Game Venue"
+
+    keyword_priorities:
+      facility_quality_40: ["latest facilities", "spacious", "comfortable"]
+      exercise_effect_25: ["skill improvement", "fitness UP", "fun"]
+      accessibility_20: ["nearby", "easy parking", "public transit"]
+      programs_10: ["lessons", "programs", "coaching"]
+      price_5: ["reasonable", "membership", "day pass"]
+
+    keyword_priorities_ko:
+      facility_quality_40: ["최신 시설", "넓은", "쾌적한"]
+      exercise_effect_25: ["실력 향상", "체력 UP", "재미"]
+      accessibility_20: ["가까운", "주차 편리", "대중교통"]
+      programs_10: ["레슨", "프로그램", "강습"]
+      price_5: ["합리적", "회원권", "이용권"]
+
+    brand_voice: "professional yet energetic tone"
+    brand_voice_ko: "전문적이면서 활기찬 톤"
+
+    cta: ["Request facility tour", "Buy pass", "Member registration"]
+    cta_ko: ["시설 견학 신청", "이용권 구매", "회원 등록"]
+
+    exclude_keywords: ["outdoor", "weather-dependent"]
+    exclude_keywords_ko: ["야외", "날씨"]
+
+    prompt_template:
+      role: "{business_type} member acquisition copywriter"
+      target: "30-60s, {golf beginners/want to learn swimming}"
+      pain_points: ["weather makes practice difficult", "no effect practicing alone"]
+      product_features: ["indoor {150 bays/4 lanes}", "latest {screens/pool}", "pro lessons"]
+      voice: "professional yet energetic"
+      action: "request facility tour"
+      length: "banner 30 chars"
+      required_keywords: ["indoor", "latest", "lessons", "comfortable", "spacious"]
+      exclude: ["outdoor", "weather"]
+
+    prompt_template_ko:
+      role: "{business_type} 회원 유치 카피라이터"
+      target: "30-60대, {골프 입문자/수영 배우고 싶은 사람}"
+      pain_points: ["연습하기 애매한 날씨", "혼자 연습 효과 없음"]
+      product_features: ["실내 {150타석/4레인}", "최신 {스크린/수영장}", "프로 레슨"]
+      voice: "전문적이면서 활기찬 톤"
+      action: "시설 견학 신청"
+      length: "현수막용 30자"
+      required_keywords: ["실내", "최신", "레슨", "쾌적", "넓은"]
+      exclude: ["야외", "날씨"]
+
+    example_copies:
+      - "No weather worries! Indoor 150 bays with latest facilities. Pro lessons for rapid improvement"
+      - "Beginners master freestyle in 3 months. Small group customized lessons"
+      - "20 latest lanes, comfortable indoor environment. Perfect for family and friend gatherings"
+
+    example_copies_ko:
+      - "날씨 걱정 NO! 실내 150타석 최신 시설. 프로 레슨으로 실력 쑥쑥"
+      - "초보자도 3개월이면 자유형 완성. 소수 정예 맞춤 레슨"
+      - "최신 레인 20개, 쾌적한 실내 환경. 가족 모임, 친구 모임에 딱"
+
+    korean_keywords:
+      - 수영장
+      - 볼링장
+      - 당구장
+      - 골프
+      - 테니스
+      - 탁구
+      - 실내수영장
+      - 수영강습
+      - 아쿠아로빅
+      - 볼링
+      - 볼링레인
+      - 당구
+      - 포켓볼
+      - 4구
+      - 3구
+      - 골프연습장
+      - 스크린골프
+      - 인도어골프
+      - 드라이빙레인지
+      - 골프레슨
+      - 테니스장
+      - 테니스코트
+      - 테니스레슨
+      - 탁구장
+      - 탁구레슨
+      - 기타스포츠
+      - 스포츠시설
+      - 스쿼시
+      - 라켓볼
+      - 최신시설
+      - 넓은
+      - 쾌적한
+      - 실력향상
+      - 재미
+      - 가까운
+      - 주차편리
+      - 프로레슨
+      - PC방
+      - 노래방
+      - 낚시
+      - 낚시터
+      - 바다낚시
+      - 민물낚시
+      - 선상낚시
+      - 수상레저
+      - 요트
+      - 제트스키
+      - 서핑
+      - 복권
+      - 로또
+      - 바둑
+      - 장기
+      - 기원
+      - 피씨방
+      - 게임방
+      - 인터넷카페
+      - 노래연습장
+      - 코인노래방
+      - 비디오방
+      - 전자게임장
+      - 오락실
+      - 게임센터
+      - 기타오락장
+      - 낚시터
+      - 바다낚시
+      - 민물낚시
+      - 수상레저
+      - 해양레저
+      - 요트
+      - 제트스키
+      - 복권
+      - 로또
+      - 바둑
+      - 장기
+      - 체스
+      - 보드게임
+      - 레크리에이션용품
+
+# ============================================
+# C Grade: Trust-Based Professional Services
+# ============================================
+
+c_grade:
+  name: "C Grade - Trust-Based Professional Services"
+  name_ko: "C등급 - 신뢰 기반 전문 서비스"
+  strategy: "Trust/Expertise + Problem solving"
+  aida_focus: "Interest(Problem empathy) → Desire(Expert solution)"
+  total_businesses: 57
+
+  common_keywords:
+    priority_1_expertise: ["experience", "certified", "expert"]
+    priority_2_problem_solving: ["concern", "solution", "resolve"]
+    priority_3_trust: ["safe", "reliable", "guaranteed"]
+    priority_4_track_record: ["satisfaction rate", "success cases", "reviews"]
+    priority_5_accessibility: ["free consultation", "on-site diagnosis"]
+
+  common_keywords_ko:
+    priority_1_expertise: ["경력", "자격증", "전문가"]
+    priority_2_problem_solving: ["고민", "해결", "솔루션"]
+    priority_3_trust: ["안전한", "믿을 수 있는", "보증"]
+    priority_4_track_record: ["만족도", "성공 사례", "리뷰"]
+    priority_5_accessibility: ["무료 상담", "방문 진단"]
+
+  # ============================================
+  # C-1: Professional Office Services
+  # ============================================
+  c1_office:
+    name: "C-1: Professional Office Services"
+    name_ko: "C-1: 전문 사무"
+    count: 26
+    businesses:
+      - "Real Estate Agency"
+      - "Lawyer"
+      - "Patent Attorney"
+      - "Judicial Scrivener"
+      - "Administrative Agent"
+      - "Certified Labor Attorney"
+      - "Other Legal Service"
+      - "Certified Public Accountant"
+      - "Tax Accountant"
+      - "Other Accounting Service"
+      - "Advertising Agency"
+      - "Outdoor/Exhibition Ad Agency"
+      - "Ad Media Sales"
+      - "Ad Design/Production"
+      - "Other Advertising Service"
+      - "Market/Opinion Research"
+      - "Management Consulting"
+      - "Other Office Support Service"
+      - "Employment Agency"
+      - "Temporary/Day Labor Supply"
+      - "Permanent Labor/HR Service"
+      - "Copy Service"
+      - "Exhibition/Convention Service"
+      - "Business Card/Signage Production"
+      - "Translation/Interpretation"
+      - "Business/IP Brokerage"
+
+    keyword_priorities:
+      expert_experience_40: ["20 years experience", "specialized lawyer", "certified accountant"]
+      problem_solving_30: ["even complex problems", "accurate analysis", "best solution"]
+      trust_20: ["trust and delegate", "safely", "transparently"]
+      track_record_7: ["success rate", "cases handled", "customer satisfaction"]
+      accessibility_3: ["free consultation", "quick response"]
+
+    keyword_priorities_ko:
+      expert_experience_40: ["20년 경력", "전문 변호사", "공인 회계사"]
+      problem_solving_30: ["복잡한 문제도", "정확한 분석", "최선의 방법"]
+      trust_20: ["믿고 맡기는", "안전하게", "투명한"]
+      track_record_7: ["성공률", "처리 건수", "고객 만족"]
+      accessibility_3: ["무료 상담", "빠른 응대"]
+
+    brand_voice: "trustworthy and professional tone"
+    brand_voice_ko: "믿음직하고 전문적인 톤"
+
+    cta: ["Phone consultation", "Free consultation request", "Book visit"]
+    cta_ko: ["전화 상담", "무료 상담 신청", "방문 예약"]
+
+    exclude_keywords: ["fast", "easy", "quick"]
+    exclude_keywords_ko: ["빠른", "쉬운", "간단한"]
+
+    prompt_template:
+      role: "{business_type} new customer acquisition copywriter"
+      target: "30-60s, concerned about {sale/lawsuit/taxes}"
+      pain_points: ["complicated procedures", "fraud concerns", "don't know fair {price/cost}"]
+      product_features: ["{15 years experience/professional certification}", "area specialist", "{transparent/thorough} review"]
+      voice: "trustworthy and professional"
+      action: "phone consultation"
+      length: "flyer 40 chars"
+      required_keywords: ["experience", "certification", "expert", "safe", "reliable"]
+      exclude: ["fast", "easy"]
+
+    prompt_template_ko:
+      role: "{business_type} 신규 고객 유치 카피라이터"
+      target: "30-60대, {매매/소송/세금} 고민 중"
+      pain_points: ["복잡한 절차", "사기 우려", "적정 {가격/비용} 모름"]
+      product_features: ["{15년 경력/전문 자격증}", "지역 전문", "{투명/꼼꼼} 검토"]
+      voice: "믿음직하고 전문적인 톤"
+      action: "전화 상담"
+      length: "전단지용 40자"
+      required_keywords: ["경력", "자격", "전문", "안전", "믿을 수 있는"]
+      exclude: ["빠른", "쉬운"]
+
+    example_copies:
+      - "15-year neighborhood specialist realtor. Even complex contracts handled safely. Free consultation"
+      - "20-year experienced specialized lawyer. Clear solutions for complex legal problems"
+      - "Tax concerns? Leave it to the expert. Accurate consultation from 15-year tax accountant"
+
+    example_copies_ko:
+      - "이 동네 15년 전문 공인중개사. 복잡한 계약도 안전하게. 무료 상담"
+      - "20년 경력 전문 변호사. 복잡한 법률 문제, 명확한 해결책 제시"
+      - "세금 고민, 전문가에게 맡기세요. 15년 경력 세무사의 정확한 상담"
+
+    korean_keywords:
+      - 부동산
+      - 변호사
+      - 법무사
+      - 세무사
+      - 회계사
+      - 광고대행
+      - 컨설팅
+      - 공인중개사
+      - 부동산중개
+      - 매매
+      - 전세
+      - 월세
+      - 임대
+      - 상가
+      - 사무실
+      - 오피스
+      - 법률사무소
+      - 변호사사무소
+      - 로펌
+      - 변리사
+      - 특허사무소
+      - 특허출원
+      - 상표등록
+      - 법무법인
+      - 행정사
+      - 노무사
+      - 노무법인
+      - 근로계약
+      - 인사노무
+      - 공인회계사
+      - 세무법인
+      - 세금
+      - 회계
+      - 기장대행
+      - 결산
+      - 감사
+      - 광고회사
+      - 마케팅
+      - 홍보
+      - 옥외광고
+      - 전시광고
+      - 광고매체
+      - 광고디자인
+      - 광고제작
+      - 시장조사
+      - 여론조사
+      - 경영컨설팅
+      - 경영자문
+      - 사무대행
+      - 고용알선
+      - 인력공급
+      - 파견업
+      - 인력파견
+      - 헤드헌팅
+      - 복사
+      - 인쇄
+      - 출력
+      - 전시대행
+      - 컨벤션
+      - 행사대행
+      - 명함제작
+      - 간판제작
+      - 번역
+      - 통역
+      - 번역서비스
+      - 사업중개
+      - 전문가
+      - 경력
+      - 신뢰
+      - 상담
+
+  # ============================================
+  # C-2: Medical & Healthcare
+  # ============================================
+  c2_medical:
+    name: "C-2: Medical & Healthcare"
+    name_ko: "C-2: 의료 및 케어"
+    count: 18
+    businesses:
+      - "General Hospital"
+      - "Hospital"
+      - "Dental Hospital"
+      - "Oriental Medicine Hospital"
+      - "Nursing Hospital"
+      - "Internal Medicine/Pediatrics Clinic"
+      - "Surgery Clinic"
+      - "Neurology/Psychiatry Clinic"
+      - "Ophthalmology Clinic"
+      - "ENT Clinic"
+      - "OB/GYN Clinic"
+      - "Other Clinic"
+      - "Dental Clinic"
+      - "Oriental Medicine Clinic"
+      - "Radiology/Pathology Clinic"
+      - "Alternative Medicine"
+      - "Pharmacy"
+      - "Medical Equipment Retail"
+
+    keyword_priorities:
+      specialist_35: ["specialist", "MD PhD", "extensive clinical experience"]
+      treatment_results_30: ["cure rate", "fast recovery", "pain relief"]
+      advanced_equipment_20: ["latest medical equipment", "precision examination", "CT/MRI"]
+      patient_centered_10: ["friendly", "thorough examination", "1:1 consultation"]
+      convenience_5: ["appointment system", "parking", "evening hours"]
+
+    keyword_priorities_ko:
+      specialist_35: ["전문의", "의학박사", "풍부한 임상 경험"]
+      treatment_results_30: ["완치율", "빠른 회복", "통증 완화"]
+      advanced_equipment_20: ["최신 의료 장비", "정밀 검사", "CT/MRI"]
+      patient_centered_10: ["친절한", "꼼꼼한 진료", "1:1 상담"]
+      convenience_5: ["예약제", "주차", "야간 진료"]
+
+    brand_voice: "professional and reassuring tone"
+    brand_voice_ko: "전문적이고 안심시키는 톤"
+
+    cta: ["Phone reservation", "Online reservation", "Visit consultation"]
+    cta_ko: ["전화 예약", "온라인 예약", "방문 상담"]
+
+    exclude_keywords: ["fast", "simple", "quick"]
+    exclude_keywords_ko: ["빠른", "간단한", "쉬운"]
+
+    prompt_template:
+      role: "{business_type} patient acquisition copywriter"
+      target: "{40-70s/all ages}, {joint/back/dental} pain patients"
+      pain_points: ["chronic pain", "fear of surgery", "recurrence concerns"]
+      product_features: ["{3 specialists/specialized equipment}", "{non-surgical/painless} treatment focus"]
+      voice: "professional and reassuring"
+      action: "phone reservation"
+      length: "Naver search ad 50 chars"
+      required_keywords: ["specialist", "expert", "non-surgical", "pain relief"]
+      exclude: ["fast", "simple"]
+
+    prompt_template_ko:
+      role: "{business_type} 환자 유치 카피라이터"
+      target: "{40-70대/전 연령}, {관절/허리/치아} 통증 환자"
+      pain_points: ["오래된 통증", "수술 두려움", "재발 우려"]
+      product_features: ["{전문의 3인/전문 장비}", "{비수술/무통} 치료 중심"]
+      voice: "전문적이고 안심시키는 톤"
+      action: "전화 예약"
+      length: "네이버 검색광고용 50자"
+      required_keywords: ["전문의", "전문", "비수술", "통증 완화"]
+      exclude: ["빠른", "간단한"]
+
+    example_copies:
+      - "Chronic joint pain, non-surgical solution. 3 orthopedic specialists collaborative system"
+      - "Painless treatment, no pain worries. 10-year experienced dental specialist's thorough care"
+      - "Root cause treatment with natural herbs. 30-year oriental doctor's 1:1 customized care"
+
+    example_copies_ko:
+      - "오래된 관절 통증, 비수술로 해결. 정형외과 전문의 3인 협진 시스템"
+      - "무통 치료로 통증 걱정 NO. 10년 경력 치과 전문의의 꼼꼼한 진료"
+      - "천연 한약으로 근본 치료. 30년 경력 한의사의 1:1 맞춤 진료"
+
+    korean_keywords:
+      - 병원
+      - 의원
+      - 치과
+      - 한의원
+      - 안과
+      - 이비인후과
+      - 산부인과
+      - 정형외과
+      - 내과
+      - 소아과
+      - 종합병원
+      - 대학병원
+      - 전문병원
+      - 치과병원
+      - 한방병원
+      - 요양병원
+      - 재활병원
+      - 내과의원
+      - 소아청소년과
+      - 외과의원
+      - 신경외과
+      - 성형외과
+      - 비뇨기과
+      - 신경과
+      - 정신건강의학과
+      - 신경정신과
+      - 안과의원
+      - 라식
+      - 라섹
+      - 백내장
+      - 이비인후과의원
+      - 코골이
+      - 중이염
+      - 비염
+      - 산부인과의원
+      - 임산부
+      - 산전검사
+      - 정형외과의원
+      - 관절
+      - 척추
+      - 허리
+      - 무릎
+      - 치과의원
+      - 임플란트
+      - 교정
+      - 보철
+      - 스케일링
+      - 한의원
+      - 침
+      - 한약
+      - 추나
+      - 한방치료
+      - 영상의학과
+      - 진단검사
+      - CT
+      - MRI
+      - 엑스레이
+      - 건강검진
+      - 전문의
+      - 진료
+      - 치료
+      - 수술
+      - 통증
+      - 약국
+      - 약사
+      - 처방전
+      - 의약품
+      - 조제약
+      - 일반약
+      - 의료기기
+      - 의료용품
+      - 혈압계
+      - 체온계
+      - 휠체어
+      - 보청기
+
+  # ============================================
+  # C-3: Technical & Construction Services
+  # ============================================
+  c3_technical:
+    name: "C-3: Technical & Construction Services"
+    name_ko: "C-3: 기술 및 시공"
+    count: 13
+    businesses:
+      - "Auto Repair Shop"
+      - "Car Wash"
+      - "Motorcycle Repair"
+      - "Architectural Design Service"
+      - "Urban Planning/Landscape Design"
+      - "Building/Civil Engineering"
+      - "Environmental Engineering"
+      - "Other Engineering Service"
+      - "Facility Maintenance Service"
+      - "Building Cleaning Service"
+      - "Industrial/Transport Cleaning"
+      - "Disinfection/Pest Control"
+      - "Landscape Maintenance"
+
+    keyword_priorities:
+      technical_skill_35: ["skilled", "professional technique", "meticulous work"]
+      result_guarantee_30: ["warranty", "satisfaction guaranteed", "re-work"]
+      experience_track_20: ["10 years experience", "portfolio", "reviews"]
+      price_transparency_10: ["estimate", "no hidden costs", "reasonable"]
+      speed_5: ["same-day visit", "quick service"]
+
+    keyword_priorities_ko:
+      technical_skill_35: ["숙련된", "전문 기술", "꼼꼼한 시공"]
+      result_guarantee_30: ["A/S 보증", "만족 보장", "재시공"]
+      experience_track_20: ["10년 경력", "시공 사례", "후기"]
+      price_transparency_10: ["견적서", "추가 비용 없음", "합리적"]
+      speed_5: ["당일 방문", "빠른 처리"]
+
+    brand_voice: "trustworthy and responsible tone"
+    brand_voice_ko: "믿음직하고 책임감 있는 톤"
+
+    cta: ["Free estimate inquiry", "Phone consultation", "Book visit"]
+    cta_ko: ["무료 견적 문의", "전화 상담", "방문 예약"]
+
+    exclude_keywords: ["cheap", "fast", "budget"]
+    exclude_keywords_ko: ["저렴", "빠른", "싼"]
+
+    prompt_template:
+      role: "{business_type} order acquisition copywriter"
+      target: "30-50s, planning {moving/remodeling/car maintenance}"
+      pain_points: ["poor workmanship", "hidden costs", "schedule delays"]
+      product_features: ["{20 years experience/certification}", "direct work", "1-year warranty"]
+      voice: "trustworthy and responsible"
+      action: "free estimate inquiry"
+      length: "KakaoTalk ad 50 chars"
+      required_keywords: ["experience", "direct work", "warranty", "meticulous", "transparent"]
+      exclude: ["cheap", "fast"]
+
+    prompt_template_ko:
+      role: "{business_type} 수주 전문 카피라이터"
+      target: "30-50대, {이사/리모델링/차량 정비} 계획"
+      pain_points: ["허술한 시공", "추가 비용", "일정 지연"]
+      product_features: ["{20년 경력/자격증}", "직접 시공", "1년 A/S 보증"]
+      voice: "믿음직하고 책임감 있는 톤"
+      action: "무료 견적 문의"
+      length: "카카오톡 광고용 50자"
+      required_keywords: ["경력", "직접 시공", "A/S", "꼼꼼", "투명"]
+      exclude: ["저렴", "빠른"]
+
+    example_copies:
+      - "20-year craftsman's direct work. No poor finishing! 1-year warranty included"
+      - "Skilled mechanic's thorough inspection. Transparent estimate, genuine parts used"
+      - "Experience the difference in cleanliness. Perfect cleaning with professional equipment"
+
+    example_copies_ko:
+      - "20년 경력 장인의 직접 시공. 허술한 마감은 NO! 1년 A/S 보증"
+      - "숙련된 정비사의 꼼꼼한 점검. 투명한 견적, 정품 부품 사용"
+      - "깨끗함의 차이를 경험하세요. 전문 장비로 완벽 청소"
+
+    korean_keywords:
+      - 자동차정비
+      - 세차
+      - 오토바이
+      - 건축
+      - 인테리어시공
+      - 청소
+      - 소독
+      - 카센터
+      - 정비소
+      - 자동차수리
+      - 엔진오일
+      - 브레이크
+      - 타이어교체
+      - 오일교환
+      - 종합정비
+      - 자동세차
+      - 손세차
+      - 광택
+      - 코팅
+      - 유리막코팅
+      - 오토바이수리
+      - 바이크정비
+      - 설계사무소
+      - 건축설계
+      - 인테리어설계
+      - 도시설계
+      - 조경설계
+      - 토목설계
+      - 건축시공
+      - 리모델링
+      - 인테리어업체
+      - 건설
+      - 환경설계
+      - 엔지니어링
+      - 시설관리
+      - 빌딩관리
+      - 입주청소
+      - 이사청소
+      - 사무실청소
+      - 가정청소
+      - 에어컨청소
+      - 후드청소
+      - 산업설비청소
+      - 해충방제
+      - 방역
+      - 바퀴벌레
+      - 해충퇴치
+      - 조경관리
+      - 수목관리
+      - 정원관리
+      - 기술
+      - 시공
+      - 견적
+      - A/S
+
+# ============================================
+# D Grade: Purpose-Driven Retail & Equipment
+# ============================================
+
+d_grade:
+  name: "D Grade - Purpose-Driven Retail & Equipment"
+  name_ko: "D등급 - 목적형 소매 및 장비"
+  strategy: "Function/Benefits + Reasonable price"
+  aida_focus: "Attention(Stock/Price) → Action(Immediate purchase)"
+  total_businesses: 46
+
+  common_keywords:
+    priority_1_stock: ["in stock", "same-day shipping", "immediate installation"]
+    priority_2_price: ["discount", "special price", "affordable"]
+    priority_3_quality: ["genuine", "grade A", "durable"]
+    priority_4_convenience: ["delivery", "installation", "exchange"]
+    priority_5_expertise: ["expert consultation", "recommendation"]
+
+  common_keywords_ko:
+    priority_1_stock: ["재고 보유", "당일 출고", "바로 설치"]
+    priority_2_price: ["할인", "특가", "저렴하게"]
+    priority_3_quality: ["정품", "A급", "내구성"]
+    priority_4_convenience: ["배송", "설치", "교환"]
+    priority_5_expertise: ["전문 상담", "추천"]
+
+  # ============================================
+  # D-1: Heavy Equipment & Parts
+  # ============================================
+  d1_equipment:
+    name: "D-1: Heavy Equipment & Parts"
+    name_ko: "D-1: 중장비 및 부품"
+    count: 13
+    businesses:
+      - "Tire Retail"
+      - "Auto Parts Retail"
+      - "Motorcycle/Parts Retail"
+      - "Hardware/Tool Retail"
+      - "Wallpaper/Flooring Retail"
+      - "Construction Material Retail"
+      - "Other Construction Material Retail"
+      - "Electrical/Lighting Retail"
+      - "Construction Equipment Rental"
+      - "Other Industrial Equipment Rental"
+      - "Other Transport Equipment Rental"
+      - "Home Fuel Retail"
+      - "Packaging/Charging Service"
+
+    keyword_priorities:
+      stock_immediacy_35: ["in stock", "same-day shipping", "immediate installation"]
+      price_30: ["discount", "special price", "affordable"]
+      quality_20: ["genuine", "grade A", "durable"]
+      convenience_10: ["delivery", "installation", "exchange"]
+      expertise_5: ["expert consultation", "recommendation"]
+
+    keyword_priorities_ko:
+      stock_immediacy_35: ["재고 보유", "당일 출고", "바로 설치"]
+      price_30: ["할인", "특가", "저렴하게"]
+      quality_20: ["정품", "A급", "내구성"]
+      convenience_10: ["배송", "설치", "교환"]
+      expertise_5: ["전문 상담", "추천"]
+
+    brand_voice: "practical and straightforward tone"
+    brand_voice_ko: "실용적이고 직관적인 톤"
+
+    cta: ["Phone inquiry", "Visit", "Order now"]
+    cta_ko: ["전화 문의", "방문", "지금 주문"]
+
+    exclude_keywords: ["luxury", "premium", "high-end"]
+    exclude_keywords_ko: ["고급", "프리미엄", "명품"]
+
+    prompt_template:
+      role: "{business_type} customer acquisition copywriter"
+      target: "30-60s {car owners/contractors}, {replacement/purchase} timing"
+      pain_points: ["don't know which product is good", "expensive prices", "no time"]
+      product_features: ["major brands in stock", "same-day {replacement/shipping}", "free {service}"]
+      voice: "practical and straightforward"
+      action: "phone inquiry"
+      length: "banner 30 chars"
+      required_keywords: ["stock", "same-day", "free", "genuine", "reasonable"]
+      exclude: ["luxury", "premium"]
+
+    prompt_template_ko:
+      role: "{business_type} 고객 유치 카피라이터"
+      target: "30-60대 {차주/공사 관계자}, {교체/구매} 시기"
+      pain_points: ["어떤 제품 좋은지 모름", "비싼 가격", "시간 없음"]
+      product_features: ["주요 브랜드 재고 보유", "당일 {교체/출고}", "무료 {서비스}"]
+      voice: "실용적이고 직관적인 톤"
+      action: "전화 문의"
+      length: "현수막용 30자"
+      required_keywords: ["재고", "당일", "무료", "정품", "합리적"]
+      exclude: ["고급", "프리미엄"]
+
+    example_copies:
+      - "Same-day tire replacement OK! Major brands in stock. Free wheel alignment"
+      - "All construction materials in one place. Abundant stock, same-day delivery available"
+      - "Construction materials at wholesale prices. Extra discount for bulk purchases"
+
+    example_copies_ko:
+      - "타이어 교체 당일 OK! 주요 브랜드 재고 보유. 휠 얼라인먼트 무료"
+      - "건축 자재 한곳에서 해결. 재고 풍부, 당일 배송 가능"
+      - "시공 자재 도매가 판매. 대량 구매 시 추가 할인"
+
+    korean_keywords:
+      - 타이어
+      - 자동차부품
+      - 철물
+      - 공구
+      - 건축자재
+      - 전기용품
+      - 타이어판매
+      - 타이어교체
+      - 금호타이어
+      - 한국타이어
+      - 넥센타이어
+      - 휠
+      - 자동차용품
+      - 엔진부품
+      - 정비부품
+      - 오토바이부품
+      - 철물점
+      - 공구상
+      - 전동공구
+      - 수공구
+      - 산업용공구
+      - 벽지
+      - 장판
+      - 바닥재
+      - 마루
+      - 인테리어자재
+      - 건설자재
+      - 레미콘
+      - 시멘트
+      - 골재
+      - 철근
+      - 건자재
+      - 전기자재
+      - 조명기구
+      - LED조명
+      - 배선
+      - 스위치
+      - 콘센트
+      - 건설장비대여
+      - 포크레인
+      - 굴삭기
+      - 지게차
+      - 크레인
+      - 산업장비대여
+      - 운송장비대여
+      - 레카
+      - 가정용연료
+      - 등유
+      - 프로판
+      - 포장
+      - 충전
+      - 당일출고
+      - 재고보유
+      - 정품
+
+  # ============================================
+  # D-2: General Appliances & Devices
+  # ============================================
+  d2_appliances:
+    name: "D-2: General Appliances & Devices"
+    name_ko: "D-2: 일반 기기"
+    count: 14
+    businesses:
+      - "Computer/Software Retail"
+      - "Mobile Phone Retail"
+      - "Home Appliance Retail"
+      - "Office Equipment Retail"
+      - "Computer/Laptop/Printer Repair"
+      - "Computer/Office Equipment Rental"
+      - "Mobile Phone/Telecom Repair"
+      - "Home Appliance Repair"
+      - "Car Rental"
+      - "Other Personal/Home Goods Repair"
+      - "Other Personal/Home Goods Rental"
+      - "Laundry"
+      - "Self-service Laundromat"
+      - "Second-hand Goods Retail"
+
+    keyword_priorities:
+      latest_specs_35: ["latest model", "high specs", "new product"]
+      price_30: ["discount", "special price", "event"]
+      quality_20: ["genuine", "warranty", "guaranteed"]
+      convenience_10: ["same-day delivery", "free installation", "exchange"]
+      expertise_5: ["expert consultation", "comparison recommendation"]
+
+    keyword_priorities_ko:
+      latest_specs_35: ["최신 모델", "고사양", "신제품"]
+      price_30: ["할인", "특가", "이벤트"]
+      quality_20: ["정품", "A/S", "보증"]
+      convenience_10: ["당일 배송", "설치 무료", "교환"]
+      expertise_5: ["전문 상담", "비교 추천"]
+
+    brand_voice: "clear and technical tone"
+    brand_voice_ko: "명확하고 기술적인 톤"
+
+    cta: ["Order online", "Phone inquiry", "Visit store"]
+    cta_ko: ["온라인 주문", "전화 문의", "매장 방문"]
+
+    exclude_keywords: ["used", "refurbished"]
+    exclude_keywords_ko: ["중고", "리퍼"]
+
+    prompt_template:
+      role: "{business_type} sales increase copywriter"
+      target: "20-50s, planning to buy {smartphone/laptop/appliances}"
+      pain_points: ["don't know which product is good", "hard to install"]
+      product_features: ["latest models in stock", "{same-day delivery/free installation}", "warranty"]
+      voice: "clear and technical"
+      action: "order online"
+      length: "product page 40 chars"
+      required_keywords: ["latest", "genuine", "discount", "delivery", "installation"]
+      exclude: ["used"]
+
+    prompt_template_ko:
+      role: "{business_type} 판매 증대 카피라이터"
+      target: "20-50대, {스마트폰/노트북/가전} 구매 계획"
+      pain_points: ["어떤 제품 좋은지 모름", "설치 어려움"]
+      product_features: ["최신 모델 재고", "{당일 배송/무료 설치}", "A/S 보증"]
+      voice: "명확하고 기술적인 톤"
+      action: "온라인 주문"
+      length: "상품 페이지용 40자"
+      required_keywords: ["최신", "정품", "할인", "배송", "설치"]
+      exclude: ["중고"]
+
+    example_copies:
+      - "Latest smartphone special sale. Genuine, carrier official discount + free gift"
+      - "Energy efficiency grade 1 refrigerator. Free delivery+installation, 3-year warranty"
+      - "Same-day repair available. 10-year expert's fast and accurate diagnosis"
+
+    example_copies_ko:
+      - "최신 스마트폰 특가전. 정품, 통신사 공식 할인 + 사은품 증정"
+      - "에너지 효율 1등급 냉장고. 무료 배송+설치, 3년 A/S 보증"
+      - "당일 수리 가능. 10년 경력 전문가의 신속 정확한 진단"
+
+    korean_keywords:
+      - 컴퓨터
+      - 핸드폰
+      - 휴대폰
+      - 가전
+      - 사무기기
+      - 수리
+      - 렌탈
+      - 컴퓨터판매
+      - 노트북
+      - 데스크탑
+      - 조립PC
+      - 게이밍PC
+      - 소프트웨어
+      - 스마트폰
+      - 휴대폰판매
+      - 아이폰
+      - 갤럭시
+      - 통신사
+      - 알뜰폰
+      - 가전제품
+      - 냉장고
+      - 세탁기
+      - 에어컨
+      - TV
+      - 가전판매점
+      - 전자제품
+      - 사무용품
+      - 프린터
+      - 복합기
+      - 팩스
+      - 컴퓨터수리
+      - 노트북수리
+      - 데이터복구
+      - 화면수리
+      - 액정교체
+      - 핸드폰수리
+      - 배터리교환
+      - 가전수리
+      - 에어컨수리
+      - 세탁기수리
+      - 냉장고수리
+      - 컴퓨터렌탈
+      - 사무기기렌탈
+      - 복사기렌탈
+      - 렌터카
+      - 자동차렌트
+      - 장기렌트
+      - 단기렌트
+      - 세탁소
+      - 드라이클리닝
+      - 빨래방
+      - 셀프빨래
+      - 코인세탁
+      - 중고매장
+      - 중고거래
+      - 중고물품
+      - 리사이클
+      - 가전수리점
+      - 최신모델
+      - 특가
+      - A/S
+
+  # ============================================
+  # D-3: Hobby & Lifestyle Retail
+  # ============================================
+  d3_hobby_lifestyle:
+    name: "D-3: Hobby & Lifestyle Retail"
+    name_ko: "D-3: 취미 및 라이프스타일 소매"
+    count: 19
+    businesses:
+      - "Musical Instrument Retail"
+      - "Record/Video Retail"
+      - "Record/Video Rental"
+      - "Tobacco/E-cigarette Retail"
+      - "Thread/Textile Retail"
+      - "Liquor Retail"
+      - "Art Retail"
+      - "Souvenir Shop"
+      - "Bookstore"
+      - "Stationery/Art Supplies Retail"
+      - "Toy Retail"
+      - "Sports Equipment Retail"
+      - "Bicycle Retail"
+      - "Watch/Jewelry/Instrument Repair"
+      - "Recreation Education"
+      - "Other General Retail"
+      - "Other Specialty Retail"
+      - "Grain/Flour Retail"
+      - "Animal Feed Retail"
+
+    keyword_priorities:
+      taste_35: ["my own", "collection", "unique"]
+      quality_30: ["curated", "premium", "selected"]
+      rarity_20: ["limited edition", "rare", "hard to find"]
+      expertise_10: ["expert advice", "recommendation"]
+      convenience_5: ["in stock", "available"]
+
+    keyword_priorities_ko:
+      taste_35: ["나만의", "컬렉션", "유니크한"]
+      quality_30: ["엄선된", "프리미엄", "선별된"]
+      rarity_20: ["한정판", "레어템", "구하기 힘든"]
+      expertise_10: ["전문가 조언", "추천"]
+      convenience_5: ["재고 보유", "구매 가능"]
+
+    brand_voice: "friendly and emotional tone"
+    brand_voice_ko: "친근하고 감성적인 톤"
+
+    cta: ["Visit store", "Order online", "Check stock"]
+    cta_ko: ["매장 방문", "온라인 주문", "재고 문의"]
+
+    exclude_keywords: ["mass-produced", "cheap", "generic"]
+    exclude_keywords_ko: ["대량", "저가", "일반"]
+
+    prompt_template:
+      role: "{business_type} hobbyist customer copywriter"
+      target: "20-50s, enjoying hobby/collection/culture"
+      pain_points: ["hard to find quality items", "want expert advice"]
+      product_features: ["curated selection", "expert staff", "unique items"]
+      voice: "friendly and emotional"
+      action: "visit store or order online"
+      length: "store sign 35 chars"
+      required_keywords: ["my own", "collection", "curated", "unique"]
+      exclude: ["mass-produced", "cheap"]
+
+    prompt_template_ko:
+      role: "{business_type} 취미 고객 카피라이터"
+      target: "20-50대, 취미/수집/문화생활 즐기는 층"
+      pain_points: ["좋은 물건 찾기 어려움", "전문가 조언 원함"]
+      product_features: ["엄선된 선택", "전문 스탭", "유니크한 아이템"]
+      voice: "친근하고 감성적인 톤"
+      action: "매장 방문 또는 온라인 주문"
+      length: "매장 사인용 35자"
+      required_keywords: ["나만의", "컬렉션", "엄선된", "유니크"]
+      exclude: ["대량", "저가"]
+
+    example_copies:
+      - "For music lovers, your space. Curated LP and instrument collection"
+      - "Time to expand your collection! Limited edition figures in stock"
+      - "Unique gifts that express your taste. Curated souvenir selection"
+
+    example_copies_ko:
+      - "음악을 사랑하는 당신을 위한 공간. 엄선된 LP와 악기 컬렉션"
+      - "컬렉션을 늘릴 시간! 한정판 피규어 재고 입고"
+      - "당신의 취향을 표현하는 특별한 선물. 엄선된 기념품 셀렉션"
+
+    korean_keywords:
+      - 악기점
+      - 악기소매
+      - 기타
+      - 피아노
+      - 바이올린
+      - 음반
+      - LP
+      - 비디오
+      - 음반대여
+      - 담배
+      - 전자담배
+      - 실
+      - 섬유
+      - 원단
+      - 주류소매
+      - 와인샵
+      - 양주
+      - 위스키
+      - 예술품
+      - 갤러리
+      - 기념품
+      - 기념품점
+      - 서점
+      - 책방
+      - 독립서점
+      - 문구점
+      - 문구
+      - 화방
+      - 미술용품
+      - 학용품
+      - 필기구
+      - 장난감
+      - 완구점
+      - 피규어
+      - 운동용품
+      - 스포츠용품
+      - 자전거
+      - 자전거판매
+      - 시계수리
+      - 귀금속수리
+      - 악기수리
+      - 레크리에이션
+      - 취미
+      - 컬렉션
+      - 빈티지
+      - 희귀템
+      - 한정판
+      - 곡물
+      - 쌀
+      - 잡곡
+      - 밀가루
+      - 곡분
+      - 사료
+      - 축산사료
+      - 동물사료
+      - 배합사료
+
+# ============================================
+# E Grade: Infrastructure & Special Purpose
+# ============================================
+
+e_grade:
+  name: "E Grade - Infrastructure & Special Purpose"
+  name_ko: "E등급 - 인프라 및 특수 목적"
+  strategy: "Accessibility/Necessity + Honesty"
+  aida_focus: "Attention(Location) → Action(Immediate visit)"
+  total_businesses: 5
+
+  common_keywords:
+    priority_1_location: ["right by IC", "5 min from station", "easy to find"]
+    priority_2_price: ["per liter", "affordable", "discount"]
+    priority_3_convenience: ["24 hours", "car wash", "convenience store"]
+    priority_4_quality_safety: ["genuine", "safe"]
+    priority_5_honesty: ["transparent", "reliable"]
+
+  common_keywords_ko:
+    priority_1_location: ["IC 바로 앞", "○○역 5분", "찾기 쉬운"]
+    priority_2_price: ["리터당 ○원", "저렴한", "할인"]
+    priority_3_convenience: ["24시간", "세차", "편의점"]
+    priority_4_quality_safety: ["정품", "안전한"]
+    priority_5_honesty: ["투명한", "믿을 수 있는"]
+
+  # ============================================
+  # E-1: Convenience & Infrastructure
+  # ============================================
+  e1_infrastructure:
+    name: "E-1: Convenience & Infrastructure"
+    name_ko: "E-1: 편의 및 인프라"
+    count: 3
+    businesses:
+      - "Gas Station"
+      - "Gas Charging Station"
+      - "Ice Retail"
+
+    keyword_priorities:
+      location_40: ["right by IC", "5 min from station", "easy to find"]
+      price_25: ["per liter", "affordable", "discount"]
+      convenience_20: ["24 hours", "car wash", "convenience store"]
+      quality_safety_10: ["genuine", "safe"]
+      honesty_5: ["transparent", "reliable"]
+
+    keyword_priorities_ko:
+      location_40: ["IC 바로 앞", "○○역 5분", "찾기 쉬운"]
+      price_25: ["리터당 ○원", "저���한", "할인"]
+      convenience_20: ["24시간", "세차", "편의점"]
+      quality_safety_10: ["정품", "안전한"]
+      honesty_5: ["투명한", "믿을 수 있는"]
+
+    brand_voice: "straightforward and clear tone"
+    brand_voice_ko: "직관적이고 명확한 톤"
+
+    cta: ["Visit", "Use now"]
+    cta_ko: ["방문", "이용하기"]
+
+    exclude_keywords: ["complicated explanation"]
+    exclude_keywords_ko: ["복잡한 설명"]
+
+    prompt_template:
+      role: "{business_type} customer increase copywriter"
+      target: "all ages drivers, value reasonable price+convenience"
+      pain_points: ["expensive fuel prices", "car wash far away"]
+      product_features: ["{highway IC/station} right in front", "100 won cheaper per liter", "24 hours"]
+      voice: "straightforward and clear"
+      action: "visit"
+      length: "sign 20 chars"
+      required_keywords: ["IC", "station", "cheap", "24 hours"]
+      exclude: ["complicated explanation"]
+
+    prompt_template_ko:
+      role: "{business_type} 이용 고객 증가 카피라이터"
+      target: "모든 연령대 운전자, 합리적 가격+편의성 중시"
+      pain_points: ["비싼 주유 가격", "세차장 멀다"]
+      product_features: ["{고속도로 IC/○○역} 바로 앞", "리터당 100원 저렴", "24시간"]
+      voice: "직관적이고 명확한 톤"
+      action: "방문"
+      length: "간판용 20자"
+      required_keywords: ["IC", "역 앞", "저렴", "24시간"]
+      exclude: ["복잡한 설명"]
+
+    example_copies:
+      - "Gas station right by ○○IC. 100 won↓ per liter, 24-hour car wash available"
+      - "Downtown gas charging station. Reasonable price, safe charging"
+
+    example_copies_ko:
+      - "○○IC 바로 앞 주유소. 리터당 100원↓ 24시간 세차 가능"
+      - "시내 중심 가스충전소. 합리적 가격, 안전한 충전"
+
+    korean_keywords:
+      - 주유소
+      - 충전소
+      - 가스
+      - 휘발유
+      - 경유
+      - 등유
+      - LPG
+      - CNG
+      - 전기차충전
+      - 전기차충전소
+      - 급속충전
+      - 완속충전
+      - 자가용충전
+      - 셀프주유
+      - 셀프충전
+      - SK주유소
+      - GS칼텍스
+      - 에쓰오일
+      - 현대오일뱅크
+      - 알뜰주유소
+      - 주유
+      - 충전
+      - 24시간주유소
+      - IC앞
+      - 고속도로주유소
+      - 기름값
+      - 저렴한주유소
+      - 얼음
+      - 얼음판매
+      - 얼음배달
+      - 각얼음
+      - 식용얼음
+
+  # ============================================
+  # E-2: Etiquette & Ceremony
+  # ============================================
+  e2_ceremony:
+    name: "E-2: Etiquette & Ceremony"
+    name_ko: "E-2: 예절 및 의례"
+    count: 2
+    businesses:
+      - "Funeral Hall"
+      - "Crematorium/Cemetery/Ossuary"
+
+    keyword_priorities:
+      dignity_respect_40: ["solemn", "respectful", "honoring"]
+      facility_25: ["clean", "quiet", "spacious"]
+      service_20: ["attentive", "considerate", "professional"]
+      location_10: ["easy to find", "accessible", "convenient transportation"]
+      price_5: ["reasonable", "transparent"]
+
+    keyword_priorities_ko:
+      dignity_respect_40: ["엄숙한", "정중한", "존중하는"]
+      facility_25: ["깨끗한", "조용한", "넓은"]
+      service_20: ["세심한", "배려하는", "전문적"]
+      location_10: ["찾기 쉬운", "접근성", "교통 편리"]
+      price_5: ["합리적", "투명한"]
+
+    brand_voice: "calm and respectful tone"
+    brand_voice_ko: "차분하고 정중한 톤"
+
+    cta: ["Inquire", "Request consultation"]
+    cta_ko: ["문의하기", "상담 신청"]
+
+    exclude_keywords: ["fancy", "bright", "cheerful"]
+    exclude_keywords_ko: ["화려한", "밝은", "즐거운"]
+
+    prompt_template:
+      role: "{business_type} trust building copywriter"
+      target: "all ages, need funeral services"
+      pain_points: ["feeling lost", "where and how"]
+      product_features: ["clean facilities", "attentive consultation", "professional service"]
+      voice: "calm and respectful"
+      action: "inquire"
+      length: "business card 30 chars"
+      required_keywords: ["clean", "professional", "attentive", "considerate"]
+      exclude: ["fancy", "bright"]
+
+    prompt_template_ko:
+      role: "{business_type} 신뢰 구축 카피라이터"
+      target: "전 연령대, 장례 서비스 필요"
+      pain_points: ["막막함", "어디서 어떻게"]
+      product_features: ["깨끗한 시설", "세심한 상담", "전문 서비스"]
+      voice: "차분하고 정중한 톤"
+      action: "문의하기"
+      length: "명함용 30자"
+      required_keywords: ["깨끗한", "전문", "세심한", "배려"]
+      exclude: ["화려한", "밝은"]
+
+    example_copies:
+      - "Respectfully guiding the final journey. Clean facilities, attentive consultation"
+      - "A peaceful resting place. Quiet and clean environment, reasonable price"
+
+    example_copies_ko:
+      - "고인의 마지막 길을 정중히 모십니다. 깨끗한 시설, 세심한 상담"
+      - "평안한 안식처. 조용하고 깨끗한 환경, 합리적 가격"
+
+    korean_keywords:
+      - 장례식장
+      - 장례
+      - 납골당
+      - 묘지
+      - 장례서비스
+      - 장례대행
+      - 장례정보
+      - 장례홀
+      - 빈소
+      - 발인
+      - 화장터
+      - 화장장
+      - 공원묘지
+      - 납골묘
+      - 봉안당
+      - 추모관
+      - 추모공원
+      - 수목장
+      - 장지
+      - 매장
+      - 화장
+      - 장례용품
+      - 상조
+      - 상조서비스
+      - 상조회사
+      - 엄숙한
+      - 정중한
+      - 깨끗한
+      - 조용한
+      - 세심한
+      - 배려
+      - 품위
+      - 존중
+
+# ============================================
+# Platform Optimization Guide
+# ============================================
+
+platform_guide:
+  google_search:
+    headline_max: 30
+    description_max: 90
+    strategy: "Match search intent precisely, emphasize USP"
+
+  facebook_instagram:
+    headline_max: 40
+    body_optimal: "125-300"
+    strategy: "Emotional appeal, hashtags, moderate emoji use"
+
+  kakaotalk:
+    message_max: 80
+    strategy: "Friendly tone, immediate response trigger, coupon/benefit offer"
+
+  naver:
+    title_range: "15-25"
+    description_range: "45-75"
+    strategy: "Trust keywords, local area names"
+
+# ============================================
+# Tone Guide
+# ============================================
+
+tone_guide:
+  warm:
+    description: "Warm and emotional, comforting"
+    description_ko: "따뜻하고 감성적, 위로하는"
+    suitable_for: ["S3", "A4", "B2"]
+
+  professional:
+    description: "Trustworthy and expert"
+    description_ko: "믿음직하고 전문적인"
+    suitable_for: ["C1", "C2", "C3", "B1"]
+
+  friendly:
+    description: "Casual and approachable"
+    description_ko: "친근하고 편안한"
+    suitable_for: ["S1", "S4", "A1", "A3"]
+
+  energetic:
+    description: "Dynamic and motivating"
+    description_ko: "활기차고 역동적인"
+    suitable_for: ["A2", "B3"]
+
+  practical:
+    description: "Straightforward and functional"
+    description_ko: "실용적이고 직관적인"
+    suitable_for: ["D1", "D2", "E1"]
+
+  respectful:
+    description: "Calm and dignified"
+    description_ko: "차분하고 정중한"
+    suitable_for: ["E2"]
+
+# ============================================
+# Metadata
+# ============================================
+
+metadata:
+  version: "1.1.0"
+  last_updated: "2026-01-27"
+  source: "247 Small Business Industries S~E Grade Classification"
+  total_grades: 6
+  total_subgroups: 18
+  total_businesses: 247
+  template_style: "AIDA Framework + Industry-Specific Keywords"
+  optimization_goal: "Conversion-optimized ad copy for small businesses"

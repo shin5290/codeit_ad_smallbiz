@@ -1,0 +1,3917 @@
+# ============================================
+# 소상공인 전체 247개 업종에 대한 이미지 생성용 프롬프트 구성
+# Civitai 벤치마크 기반 Hybrid Prompting 템플릿
+# ============================================
+#
+# 버전: 3.2.0
+# 업데이트: 2026-01-26
+# 기준: 247개 업종을 S~E 등급 및 추가 세분화 총 21종 분류
+# 기반: Civitai Top 프롬프트 패턴 분석
+#
+# 핵심 원칙:
+# 1. 자연어 구문 + 키워드 혼합
+# 2. Quality tags 제거 (masterpiece, 8k 등)
+# 3. Negative prompt 최소화 (5-7개)
+# 4. 사진가 용어 사용 (카메라, 조명, 렌즈)
+#
+# 구조:
+# - S 등급: Sensory & Taste Stimulation (6 groups, 53 businesses)
+# - A 등급: Visual Transformation & Self-Care (4 groups, 41 businesses)
+# - B 등급: Space Experience & Education (3 groups, 46 businesses)
+# - C 등급: Trust-Based Professional Services (3 groups, 57 businesses)
+# - D 등급: Purpose-Driven Retail & Equipment (3 groups, 45 businesses)
+# - E 등급: Infrastructure & Special Purpose (2 groups, 5 businesses)
+
+# ============================================
+# S Grade: Sensory & Taste Stimulation
+# ============================================
+
+s_grade:
+  name: "S Grade - Sensory & Taste Stimulation"
+  name_ko: "S등급 - 감성 및 미각 자극"
+  characteristics: "High B2C, High Visual Dependency, High Competition"
+  core_strategy: "Taste Visualization - High-res food close-ups, optimized lighting, seasonal/weather data integration"
+  total_businesses: 53
+  
+  # ============================================
+  # S-1: Hot Cooking & Juicy Emphasis
+  # ============================================
+  s1_hot_cooking:
+    name: "S-1: Hot Cooking & Juicy Emphasis"
+    name_ko: "S-1: 고온 조리 및 육즙 강조"
+    count: 17
+    businesses:
+      - "Pork BBQ/Braised"
+      - "Beef BBQ/Braised"
+      - "Offal Hot Pot/BBQ"
+      - "Chicken/Duck BBQ/Braised"
+      - "Fried Chicken"
+      - "Pizza"
+      - "Burger"
+      - "Mala Tang/Hot Pot"
+      - "Pasta/Steak"
+      - "Western Casual Dining"
+      - "Family Restaurant"
+      - "Japanese Curry/Katsu/Rice Bowl"
+      - "Buffet"
+      - "Cafeteria"
+      - "Chinese Restaurant"
+      - "Japanese Noodle"
+      - "Vietnamese Restaurant"
+    
+    visual_core: "Juiciness, steam rising, charcoal grill marks, warm lighting"
+    
+    prompt_template:
+      subject_patterns:
+        - "Professional food photography of {dish_name} served on {surface}"
+        - "Close-up of grilled {meat_type} with {texture_detail}"
+        - "{cuisine_style} {dish_name} with steam rising"
+        - "Sizzling {protein} on hot plate showing {detail}"
+        - "Freshly cooked {dish_name} in {container} with {garnish}"
+      
+      setting_patterns:
+        - "cozy restaurant ambiance with warm lighting"
+        - "rustic dining table with wooden surface"
+        - "modern eatery interior with cinematic mood"
+        - "traditional restaurant atmosphere"
+        - "casual dining environment with inviting feel"
+      
+      composition_keywords:
+        - "overhead shot"
+        - "45-degree angle"
+        - "macro close-up"
+        - "hero dish composition"
+        - "angled food shot"
+        - "table setting context"
+      
+      lighting_phrases:
+        - "warm cinematic lighting from above"
+        - "soft spotlight highlighting texture"
+        - "natural window light with warm glow"
+        - "dramatic side lighting on food"
+        - "golden hour ambient restaurant lighting"
+      
+      style_keywords:
+        - "professional food photography"
+        - "commercial restaurant advertising"
+        - "appetizing editorial style"
+        - "culinary magazine quality"
+        - "mouthwatering presentation"
+      
+      color_phrases:
+        - "rich warm tones with golden highlights"
+        - "appetizing brown and red hues"
+        - "saturated food colors"
+        - "warm rustic color palette"
+      
+      details_keywords:
+        - "glistening oil on surface"
+        - "steam rising elegantly"
+        - "charcoal grill marks visible"
+        - "juicy texture apparent"
+        - "sizzling hot appearance"
+        - "crispy edges with moist center"
+        - "caramelized surfaces"
+      
+      technical_keywords:
+        - "85mm lens"
+        - "f/1.8 aperture"
+        - "50mm prime lens"
+        - "macro food photography"
+        - "shallow depth of field"
+        - "Canon 5D Mark IV"
+    
+    required_layers:
+      - subject
+      - setting
+      - lighting
+      - details
+    
+    keywords:
+      - grilled
+      - sizzling
+      - hot
+      - juicy
+      - meat
+      - barbecue
+      - cooked
+      - savory
+      - charred
+      - steam
+      - pork
+      - beef
+      - offal
+      - chicken
+      - duck
+      - fried
+      - pizza
+      - burger
+      - hotpot
+      - pasta
+      - steak
+      - western
+      - family restaurant
+      - curry
+      - katsu
+      - tonkatsu
+      - rice bowl
+      - izakaya
+      - buffet
+      - chinese
+      - noodle
+      - vietnamese
+      - mala
+      - braised
+
+    korean_keywords:
+      - 삼겹살
+      - 고기
+      - 구이
+      - 소고기
+      - 돼지고기
+      - 곱창
+      - 치킨
+      - 피자
+      - 버거
+      - 마라탕
+      - 훠궈
+      - 파스타
+      - 스테이크
+      - 돈까스
+      - 라멘
+      - 우동
+      - 이자카야
+      - 뷔페
+      - 중식당
+      - 돼지구이
+      - 돼지찜
+      - 소구이
+      - 소찜
+      - 곱창전골
+      - 곱창구이
+      - 대창
+      - 막창
+      - 닭구이
+      - 오리구이
+      - 닭찜
+      - 오리찜
+      - 치킨전문점
+      - 후라이드
+      - 양념치킨
+      - 피자전문점
+      - 버거전문점
+      - 햄버거
+      - 마라탕전문점
+      - 훠궈전문점
+      - 파스타전문점
+      - 스테이크전문점
+      - 경양식
+      - 패밀리레스토랑
+      - 일식카레
+      - 덮밥
+      - 규동
+      - 구내식당
+      - 중국집
+      - 짜장면
+      - 짬뽕
+      - 일식면
+      - 베트남식
+      - 쌀국수
+      - 분짜
+      - 반미
+      - 육즙
+      - 숯불
+      - 직화
+      - 갓구운
+      - 겉바속촉
+      - 고깃집
+      - 숙성고기
+      - 한우
+      - 프리미엄고기
+
+    negative_keywords:
+      - burnt
+      - plastic look
+      - blurry texture
+      - dry
+      - desaturated
+      - messy plate
+      - unappetizing
+  
+  # ============================================
+  # S-2: Freshness & Color Emphasis
+  # ============================================
+  s2_freshness:
+    name: "S-2: Freshness & Color Emphasis"
+    name_ko: "S-2: 신선도 및 색감 강조"
+    count: 8
+    businesses:
+      - "Raw Fish Restaurant"
+      - "Seafood BBQ/Steamed"
+      - "Pufferfish Restaurant"
+      - "Japanese Sashimi/Sushi"
+      - "Seafood Retail"
+      - "Dried Fish/Fermented Seafood Retail"
+      - "Butcher Shop"
+      - "Vegetable/Fruit Retail"
+    
+    visual_core: "Transparent colors, vivid texture, chilled feeling, water droplets"
+    
+    prompt_template:
+      subject_patterns:
+        - "Professional food photography of fresh {ingredient} on {surface}"
+        - "Pristine {seafood_type} with {texture_detail}"
+        - "Raw {ingredient} displaying {quality}"
+        - "Artfully arranged {ingredient} on ice"
+        - "Fresh market display of {ingredient} with {detail}"
+      
+      setting_patterns:
+        - "minimalist white plating environment"
+        - "clean sushi bar atmosphere"
+        - "bright seafood market setting"
+        - "professional fish market display"
+        - "elegant Japanese restaurant interior"
+      
+      composition_keywords:
+        - "overhead flat lay"
+        - "top-down perspective"
+        - "clean minimalist composition"
+        - "ingredient focus shot"
+        - "arranged display"
+      
+      lighting_phrases:
+        - "bright studio lighting emphasizing freshness"
+        - "chilled effect with cool color temperature"
+        - "natural daylight on white surface"
+        - "high-key lighting for clarity"
+        - "professional product lighting setup"
+      
+      style_keywords:
+        - "hyper-realistic food photography"
+        - "premium seafood presentation"
+        - "commercial fish market advertising"
+        - "high-end sushi bar aesthetic"
+        - "fresh produce editorial"
+      
+      color_phrases:
+        - "vibrant natural colors with high saturation"
+        - "translucent seafood hues"
+        - "fresh pink and orange tones"
+        - "clean white background with colorful accents"
+      
+      details_keywords:
+        - "water droplets visible"
+        - "glistening fresh surface"
+        - "translucent texture"
+        - "vibrant natural colors"
+        - "pristine condition"
+        - "high contrast edges"
+        - "elegant garnishing"
+      
+      technical_keywords:
+        - "100mm macro lens"
+        - "f/2.8 aperture"
+        - "studio strobe lighting"
+        - "high contrast setup"
+        - "product photography"
+        - "Nikon D850"
+    
+    required_layers:
+      - subject
+      - lighting
+      - details
+      - technical
+    
+    keywords:
+      - fresh
+      - raw
+      - sushi
+      - sashimi
+      - seafood
+      - fish
+      - pristine
+      - chilled
+      - market
+      - ocean
+      - pufferfish
+      - fugu
+      - shellfish
+      - lobster
+      - crab
+      - shrimp
+      - oyster
+      - abalone
+      - squid
+      - octopus
+      - salmon
+      - tuna
+      - mackerel
+      - flounder
+      - halibut
+      - dried seafood
+      - salted fish
+      - fermented
+      - butcher
+      - meat
+      - vegetable
+      - fruit
+      - organic
+
+    korean_keywords:
+      - 회
+      - 횟집
+      - 초밥
+      - 사시미
+      - 해산물
+      - 생선
+      - 복어
+      - 정육점
+      - 과일
+      - 야채
+      - 채소
+      - 수산시장
+      - 활어
+      - 모둠회
+      - 광어
+      - 우럭
+      - 참치
+      - 연어
+      - 방어
+      - 전복
+      - 새우
+      - 게
+      - 랍스터
+      - 조개
+      - 굴
+      - 오징어
+      - 문어
+      - 해산물구이
+      - 해산물찜
+      - 조개구이
+      - 조개찜
+      - 복요리
+      - 복집
+      - 일식회
+      - 오마카세
+      - 수산물
+      - 건어물
+      - 젓갈
+      - 마른생선
+      - 소매
+      - 정육
+      - 한우
+      - 육류
+      - 청과
+      - 과일가게
+      - 야채가게
+      - 신선식품
+      - 산지직송
+      - 프리미엄
+      - 투명한
+      - 쫄깃한
+
+    negative_keywords:
+      - brownish
+      - mushy texture
+      - frozen look
+      - unrealistic colors
+      - oily
+      - stale
+  
+  # ============================================
+  # S-3: Emotional & Soft Texture
+  # ============================================
+  s3_emotional:
+    name: "S-3: Emotional & Soft Texture"
+    name_ko: "S-3: 감성 및 부드러운 질감"
+    count: 11
+    businesses:
+      - "Cafe/Coffee Shop"
+      - "Bakery/Donut Shop"
+      - "Ice Cream/Shaved Ice"
+      - "Ice Cream Discount Store"
+      - "Rice Cake/Korean Sweets"
+      - "Toast/Sandwich/Salad"
+      - "Supermarket"
+      - "Convenience Store"
+      - "Water/Beverage Retail"
+      - "Milk Retail"
+      - "Other Fast Food"
+    
+    visual_core: "Pastel tones, bokeh, creamy texture, morning sunlight, coziness"
+    
+    prompt_template:
+      subject_patterns:
+        - "Professional beverage photography of {drink_name} on {surface}"
+        - "Soft focus shot of {dessert_name} with {detail}"
+        - "{product_type} in cozy cafe setting with {atmosphere}"
+        - "Overhead flat lay of {product_name} with {styling}"
+        - "Lifestyle photograph of {item} in {setting}"
+      
+      setting_patterns:
+        - "cozy cafe interior with natural window light"
+        - "minimalist retail space with clean aesthetics"
+        - "warm shop atmosphere with soft lighting"
+        - "bright airy store environment"
+        - "inviting retail display with organized shelves"
+      
+      composition_keywords:
+        - "soft focus bokeh"
+        - "overhead flat lay"
+        - "lifestyle composition"
+        - "product hero shot"
+        - "angled casual shot"
+        - "instagram-worthy arrangement"
+      
+      lighting_phrases:
+        - "soft natural window light streaming gently"
+        - "morning sunlight with airy atmosphere"
+        - "diffused daylight creating bokeh effect"
+        - "warm afternoon light through large windows"
+        - "golden hour ambient glow"
+      
+      style_keywords:
+        - "lifestyle photography aesthetic"
+        - "instagram-worthy composition"
+        - "cozy cafe vibe"
+        - "editorial product photography"
+        - "soft emotional style"
+      
+      color_phrases:
+        - "soft pastel pink and beige tones"
+        - "warm earth color palette"
+        - "muted creamy colors"
+        - "gentle lavender and cream hues"
+        - "natural soft tones"
+      
+      details_keywords:
+        - "creamy smooth texture"
+        - "delicate foam art"
+        - "soft edges with bokeh"
+        - "elegant ceramic tableware"
+        - "gentle steam rising"
+        - "sprinkles and toppings"
+        - "golden crust visible"
+      
+      technical_keywords:
+        - "50mm f/1.8 lens"
+        - "85mm portrait lens"
+        - "shallow depth of field"
+        - "natural light photography"
+        - "bokeh background"
+        - "Canon EOS R6"
+    
+    required_layers:
+      - subject
+      - setting
+      - lighting
+      - style
+    
+    keywords:
+      - cafe
+      - coffee
+      - dessert
+      - sweet
+      - cozy
+      - pastel
+      - soft
+      - gentle
+      - warm
+      - comfort
+      - bakery
+      - donut
+      - ice cream
+      - shaved ice
+      - rice cake
+      - korean sweets
+      - toast
+      - sandwich
+      - salad
+      - supermarket
+      - convenience store
+      - retail
+      - beverage
+      - milk
+      - latte
+      - espresso
+      - cappuccino
+      - cake
+      - macaron
+      - croissant
+      - cream
+      - chocolate
+      - pastry
+
+    korean_keywords:
+      - 카페
+      - 커피
+      - 라떼
+      - 아메리카노
+      - 에스프레소
+      - 카푸치노
+      - 빵
+      - 베이커리
+      - 도넛
+      - 케이크
+      - 마카롱
+      - 아이스크림
+      - 빙수
+      - 디저트
+      - 토스트
+      - 샌드위치
+      - 샐러드
+      - 편의점
+      - 슈퍼마켓
+      - 커피숍
+      - 커피전문점
+      - 카페테리아
+      - 빵집
+      - 제과점
+      - 도넛전문점
+      - 아이스크림전문점
+      - 빙수전문점
+      - 아이스크림할인점
+      - 떡집
+      - 떡
+      - 한과
+      - 전통과자
+      - 토스트전문점
+      - 샌드위치전문점
+      - 샐러드전문점
+      - 마트
+      - 그로서리
+      - 식료품
+      - 생수
+      - 음료
+      - 음료수
+      - 우유
+      - 유제품
+      - 달콤한
+      - 수제
+      - 천연
+      - 감성
+      - 인스타감성
+
+    negative_keywords:
+      - harsh shadows
+      - melting mess
+      - artificial colors
+      - distorted shapes
+      - oily surface
+  
+  # ============================================
+  # S-4: Neat Korean Home-style Cooking
+  # ============================================
+  s4_korean_homestyle:
+    name: "S-4: Neat Korean Home-style Cooking"
+    name_ko: "S-4: 정갈한 한식과 상차림"
+    count: 9
+    businesses:
+      - "Korean Set Meal"
+      - "Soup/Stew"
+      - "Pig Feet/Bossam"
+      - "Korean Pancake"
+      - "Korean Noodle"
+      - "Cold Noodle"
+      - "Other Korean Restaurant"
+      - "Kimbap/Dumpling/Snack"
+      - "Side Dish/Grocery Retail"
+    
+    visual_core: "Top-down view, neat side dish arrangement, earthenware pot, warm steam, wooden tray"
+
+    prompt_template:
+      subject_patterns:
+        - "Top-down photograph of korean home-style {meal_name} with banchan"
+        - "Traditional {dish_name} in earthenware pot with side dishes"
+        - "Neat arrangement of {cuisine_type} dishes on wooden tray"
+        - "Korean home cooking spread showing {variety}"
+        - "Cozy dining presentation of {dish_name} with warm steam"
+
+      setting_patterns:
+        - "traditional korean restaurant table setting"
+        - "home-style dining atmosphere with warm feel"
+        - "cozy korean eatery interior with authentic mood"
+        - "casual dining table with multiple side dishes"
+        - "authentic korean restaurant environment"
+
+      composition_keywords:
+        - "top-down flat lay"
+        - "overhead meal spread"
+        - "neat banchan arrangement"
+        - "organized table layout"
+        - "multiple small bowl composition"
+        - "grid-style dish display"
+
+      lighting_phrases:
+        - "home-style warm overhead lighting"
+        - "natural daylight on dining table"
+        - "soft ambient restaurant lights"
+        - "warm inviting illumination"
+        - "gentle top lighting on dishes"
+
+      style_keywords:
+        - "korean home-style cooking photography"
+        - "authentic korean dining aesthetic"
+        - "home-cooking style"
+        - "casual korean restaurant editorial"
+        - "traditional korean food documentation"
+
+      color_phrases:
+        - "vibrant assorted korean food colors"
+        - "rich kimchi red with green vegetables"
+        - "colorful traditional korean palette"
+        - "warm earthy tones with bright accents"
+
+      details_keywords:
+        - "fresh ingredients visible"
+        - "earthenware pot (ddukbaegi)"
+        - "warm steam rising"
+        - "wooden tray"
+        - "neat organized arrangement"
+        - "assorted side dishes (banchan)"
+        - "home-style presentation"
+
+      technical_keywords:
+        - "50mm lens"
+        - "overhead perspective"
+        - "flat lay photography"
+        - "even lighting setup"
+        - "korean food documentation style"
+    
+    required_layers:
+      - subject
+      - composition
+      - lighting
+      - details
+    
+    keywords:
+      - traditional
+      - banchan
+      - homestyle
+      - authentic
+      - neat
+      - korean set meal
+      - soup
+      - stew
+      - pig feet
+      - bossam
+      - korean pancake
+      - korean noodle
+      - cold noodle
+      - kimbap
+      - dumpling
+      - snack
+      - side dish
+      - grocery
+      - earthenware pot
+      - ddukbaegi
+      - wooden tray
+
+    korean_keywords:
+      - 한식
+      - 백반
+      - 정식
+      - 국밥
+      - 찌개
+      - 전
+      - 냉면
+      - 국수
+      - 김밥
+      - 분식
+      - 만두
+      - 떡볶이
+      - 반찬
+      - 한정식
+      - 한식당
+      - 국
+      - 탕
+      - 설렁탕
+      - 곰탕
+      - 갈비탕
+      - 삼계탕
+      - 된장찌개
+      - 김치찌개
+      - 순두부찌개
+      - 부대찌개
+      - 족발
+      - 보쌈
+      - 족발집
+      - 보쌈집
+      - 전집
+      - 파전
+      - 해물파전
+      - 부침개
+      - 칼국수
+      - 손칼국수
+      - 수제비
+      - 물냉면
+      - 비빔냉면
+      - 밀면
+      - 막국수
+      - 기타한식
+      - 김밥집
+      - 김밥천국
+      - 만두집
+      - 분식집
+      - 떡볶이집
+      - 반찬가게
+      - 식료품점
+      - 뚝배기
+      - 정성
+      - 가정식
+      - 집밥
+      - 국산재료
+
+    negative_keywords:
+      - messy spills
+      - chaotic arrangement
+      - faded colors
+      - unappetizing
+      - dark lighting
+
+  # ============================================
+  # S-5: Global Variety
+  # ============================================
+  s5_global_variety:
+    name: "S-5: Global Variety"
+    name_ko: "S-5: 글로벌 다채로움"
+    count: 4
+    businesses:
+      - "Other Japanese Restaurant"
+      - "Other Western Restaurant"
+      - "Other Southeast Asian Restaurant"
+      - "Unclassified Foreign Restaurant"
+
+    visual_core: "Exotic spices, vibrant colors, cultural patterns, travel vibe, rich saturation"
+
+    prompt_template:
+      subject_patterns:
+        - "Professional food photography of exotic {cuisine_type} dish"
+        - "Vibrant {dish_name} with colorful ingredients and spices"
+        - "Authentic {country} cuisine with cultural presentation"
+        - "Rich and colorful {meal_name} with traditional plating"
+        - "Travel-inspired photograph of {dish_name}"
+
+      setting_patterns:
+        - "authentic ethnic restaurant atmosphere"
+        - "vibrant cultural dining environment"
+        - "exotic restaurant interior with traditional decor"
+        - "colorful ethnic eatery setting"
+        - "travel-inspired dining atmosphere"
+
+      composition_keywords:
+        - "45-degree angle shot"
+        - "abundant plating composition"
+        - "colorful variety display"
+        - "maximalist food arrangement"
+        - "cultural pattern backdrop"
+
+      lighting_phrases:
+        - "warm rich lighting with high saturation"
+        - "vibrant colorful illumination"
+        - "appetizing golden light"
+        - "cultural restaurant ambient lighting"
+        - "travel-photo warm tones"
+
+      style_keywords:
+        - "exotic cuisine photography"
+        - "travel food editorial"
+        - "cultural dining aesthetic"
+        - "vibrant food advertising"
+        - "ethnic restaurant promotion"
+
+      color_phrases:
+        - "vibrant spice colors"
+        - "rich saturated food tones"
+        - "exotic color palette"
+        - "cultural pattern colors"
+
+      details_keywords:
+        - "exotic spices visible"
+        - "colorful ingredients"
+        - "maximalist plating"
+        - "cultural patterns"
+        - "appetizing gloss"
+        - "authentic presentation"
+        - "rich saturation"
+
+      technical_keywords:
+        - "50mm lens"
+        - "f/2.8 aperture"
+        - "food photography"
+        - "high saturation"
+        - "travel photography style"
+
+    required_layers:
+      - subject
+      - setting
+      - lighting
+      - details
+
+    keywords:
+      - exotic
+      - global
+      - foreign
+      - ethnic
+      - cultural
+      - vibrant
+      - spices
+      - colorful
+      - travel
+      - authentic
+      - japanese
+      - western
+      - southeast asian
+      - thai
+      - indian
+      - vietnamese
+      - mexican
+      - middle eastern
+      - mediterranean
+
+    korean_keywords:
+      - 이국적
+      - 외국음식
+      - 기타일식
+      - 기타양식
+      - 동남아식
+      - 외국식음식점
+      - 태국음식
+      - 인도음식
+      - 터키음식
+      - 멕시칸
+      - 지중해음식
+      - 아시안푸드
+      - 퓨전음식
+      - 세계음식
+      - 현지맛
+      - 정통
+      - 색다른
+      - 맛여행
+      - 미식탐험
+      - 쏨땀
+      - 똠얌꿍
+      - 팟타이
+      - 카레
+      - 난
+      - 탄두리
+
+    negative_keywords:
+      - bland colors
+      - monotone
+      - plain presentation
+      - desaturated
+      - boring composition
+
+  # ============================================
+  # S-6: Nightlife & Party Mood
+  # ============================================
+  s6_nightlife:
+    name: "S-6: Nightlife & Party Mood"
+    name_ko: "S-6: 화려한 무드와 야간 감성"
+    count: 4
+    businesses:
+      - "Draft Beer Specialty"
+      - "Gastropub"
+      - "General Bar"
+      - "Dance Bar"
+
+    visual_core: "Neon signage, colorful cocktails, bokeh background, cinematic dark mood, party vibe"
+
+    prompt_template:
+      subject_patterns:
+        - "Cinematic photograph of {venue_type} with neon lighting"
+        - "Nightlife atmosphere shot of {drink/food} with bokeh background"
+        - "Party vibe photograph of {subject} in {venue}"
+        - "Colorful {item} with neon signage reflection"
+        - "Dynamic crowd scene in {entertainment_venue}"
+
+      setting_patterns:
+        - "nightlife atmosphere with neon signs"
+        - "trendy bar interior with mood lighting"
+        - "party venue with colorful lights"
+        - "modern entertainment space with dark ambiance"
+        - "vibrant nightclub atmosphere"
+
+      composition_keywords:
+        - "central subject focus"
+        - "bokeh background effect"
+        - "dynamic angle shot"
+        - "neon reflection composition"
+        - "crowd blur effect"
+
+      lighting_phrases:
+        - "neon signage reflection"
+        - "cinematic dark mood lighting"
+        - "colorful party lights"
+        - "mood lighting with bokeh"
+        - "vibrant nightlife illumination"
+
+      style_keywords:
+        - "nightlife photography"
+        - "cinematic dark mood"
+        - "party atmosphere editorial"
+        - "entertainment venue promotion"
+        - "trendy bar aesthetic"
+
+      color_phrases:
+        - "neon colors with dark background"
+        - "vibrant party color palette"
+        - "cinematic blue and pink tones"
+        - "colorful cocktail hues"
+
+      details_keywords:
+        - "neon signage reflection"
+        - "colorful cocktails"
+        - "bokeh background"
+        - "party vibe"
+        - "glass texture"
+        - "dynamic crowd blur"
+        - "cinematic mood"
+
+      technical_keywords:
+        - "35mm lens"
+        - "f/1.4 aperture"
+        - "low light photography"
+        - "cinematic color grading"
+        - "bokeh effect"
+
+    required_layers:
+      - subject
+      - setting
+      - lighting
+      - style
+
+    keywords:
+      - nightlife
+      - party
+      - bar
+      - pub
+      - neon
+      - cocktail
+      - beer
+      - karaoke
+      - entertainment
+      - club
+      - dance
+      - trendy
+      - hotspot
+
+    korean_keywords:
+      - 퇴근후
+      - 주말밤
+      - DJ
+      - 시그니처칵테일
+      - 생맥주
+      - 수제맥주
+      - 크래프트비어
+      - 안주
+      - 호프집
+
+    negative_keywords:
+      - bright daylight
+      - plain background
+      - boring atmosphere
+      - empty venue
+      - harsh fluorescent lighting
+
+# ============================================
+# A 등급: Visual Transformation & Self-Care
+# ============================================
+
+a_grade:
+  name: "A Grade - Visual Transformation & Self-Care"
+  name_ko: "A등급 - 비주얼 변화 및 자기관리"
+  characteristics: "High B2C, High Visual Dependency, Medium-High Competition"
+  core_strategy: "Style Proposal - Before/After, sophisticated model cuts, trendy fonts, 'Investment in Myself'"
+  total_businesses: 41
+  
+  # ============================================
+  # A-1: Person-Centered Beauty & Aesthetics
+  # ============================================
+  a1_beauty:
+    name: "A-1: Person-Centered Beauty & Aesthetics"
+    name_ko: "A-1: 인물 중심 뷰티 및 에스테틱"
+    count: 6
+    businesses:
+      - "Hair Salon"
+      - "Skin Care Clinic"
+      - "Dermatology/Urology Clinic"
+      - "Plastic Surgery Clinic"
+      - "Nail Salon"
+      - "Cosmetics Retail"
+    
+    visual_core: "Flawless skin texture, glossy finish, rim lighting, confident expression"
+    
+    prompt_template:
+      subject_patterns:
+        - "Professional beauty photography of {service_result} with {detail}"
+        - "Close-up portrait showcasing {treatment_result}"
+        - "{professional} performing {service} in modern salon"
+        - "Before and after comparison of {treatment}"
+        - "Detailed shot of {feature} with {quality}"
+      
+      setting_patterns:
+        - "modern upscale salon interior with professional equipment"
+        - "bright clean beauty clinic atmosphere"
+        - "contemporary spa environment with soft lighting"
+        - "elegant treatment room with minimalist design"
+        - "professional beauty studio setting"
+      
+      composition_keywords:
+        - "close-up beauty shot"
+        - "portrait orientation"
+        - "detail macro focus"
+        - "service in progress"
+        - "result showcase"
+        - "mirror reflection composition"
+      
+      lighting_phrases:
+        - "soft rim lighting highlighting features"
+        - "professional studio beauty lighting"
+        - "flattering three-point lighting setup"
+        - "natural window light with fill"
+        - "clean overhead salon lights"
+      
+      style_keywords:
+        - "high-end beauty photography"
+        - "professional salon editorial"
+        - "luxury spa aesthetic"
+        - "commercial beauty advertising"
+        - "premium service photography"
+      
+      color_phrases:
+        - "soft pink and white beauty tones"
+        - "clean professional color palette"
+        - "elegant neutral hues"
+        - "luxury spa colors"
+      
+      details_keywords:
+        - "flawless skin texture visible"
+        - "glossy healthy appearance"
+        - "professional result quality"
+        - "smooth polished finish"
+        - "precise application"
+        - "elegant styling"
+        - "confident expression"
+      
+      technical_keywords:
+        - "85mm portrait lens"
+        - "f/1.8 aperture"
+        - "beauty dish lighting"
+        - "shallow depth of field"
+        - "portrait photography"
+        - "Canon EOS R5"
+    
+    required_layers:
+      - subject
+      - setting
+      - lighting
+      - details
+    
+    keywords:
+      - beauty
+      - skin
+      - hair
+      - treatment
+      - salon
+      - professional
+      - elegant
+      - polished
+      - transformation
+      - care
+      - hair salon
+      - haircut
+      - hairstyle
+      - perm
+      - color
+      - styling
+      - skincare
+      - facial
+      - dermatology
+      - urology
+      - plastic surgery
+      - cosmetic
+      - aesthetic
+      - nail
+      - manicure
+      - pedicure
+      - nail art
+      - gel nail
+      - makeup
+      - makeover
+      - before after
+      - glow
+      - radiant
+      - flawless
+
+    korean_keywords:
+      - 미용실
+      - 헤어
+      - 네일
+      - 네일샵
+      - 피부관리
+      - 피부과
+      - 성형외과
+      - 에스테틱
+      - 뷰티
+      - 헤어살롱
+      - 헤어샵
+      - 머리
+      - 커트
+      - 펌
+      - 염색
+      - 스타일링
+      - 헤어스타일
+      - 머릿결
+      - 찰랑찰랑
+      - 피부관리실
+      - 피부샵
+      - 피부미용
+      - 클렌징
+      - 스킨케어
+      - 피부비뇨기과
+      - 피부과의원
+      - 비뇨기과
+      - 성형
+      - 쌍꺼풀
+      - 코성형
+      - 보톡스
+      - 필러
+      - 리프팅
+      - 레이저
+      - 네일아트
+      - 젤네일
+      - 매니큐어
+      - 페디큐어
+      - 손톱
+      - 발톱
+      - 속눈썹
+      - 반영구
+      - 눈썹문신
+      - 피부결
+      - 화장품
+      - 화장품가게
+      - 코스메틱
+      - 뷰티숍
+      - 스킨케어
+      - 메이크업
+
+    negative_keywords:
+      - bad anatomy
+      - distorted face
+      - blurry eyes
+      - plastic skin
+      - unrealistic
+      - poorly drawn
+  
+  # ============================================
+  # A-2: Body Transformation & Wellness
+  # ============================================
+  a2_wellness:
+    name: "A-2: Body Transformation & Wellness"
+    name_ko: "A-2: 신체 변화 및 웰니스"
+    count: 6
+    businesses:
+      - "Gym/Fitness Center"
+      - "Yoga/Pilates Studio"
+      - "Taekwondo/Martial Arts"
+      - "Multi-sports Facility"
+      - "Body Shape/Weight Management"
+      - "Massage/Spa"
+    
+    visual_core: "Muscle definition, dynamic poses, bright studio, sweat droplets"
+    
+    prompt_template:
+      subject_patterns:
+        - "Professional sports photography of {person} doing {exercise}"
+        - "Athletic training session capturing {movement}"
+        - "Fitness {activity} in modern gym with {equipment}"
+        - "Dynamic {workout_type} showing {focus}"
+        - "{athlete_type} engaged in {activity} with {intensity}"
+      
+      setting_patterns:
+        - "modern gym interior with professional equipment"
+        - "bright airy yoga studio with natural light"
+        - "energetic fitness center atmosphere"
+        - "well-equipped training facility"
+        - "zen wellness space with minimalist design"
+      
+      composition_keywords:
+        - "dynamic action shot"
+        - "motion captured mid-exercise"
+        - "full body athletic pose"
+        - "side angle view"
+        - "training in progress"
+        - "motivational perspective"
+      
+      lighting_phrases:
+        - "dramatic side lighting highlighting muscle definition"
+        - "bright overhead gym lighting"
+        - "natural studio light through windows"
+        - "high contrast athletic lighting"
+        - "backlit with rim light effect"
+      
+      style_keywords:
+        - "professional sports photography"
+        - "fitness editorial style"
+        - "motivational workout aesthetic"
+        - "athletic lifestyle photography"
+        - "energetic training documentation"
+      
+      color_phrases:
+        - "vibrant energetic color palette"
+        - "bold athletic tones with contrast"
+        - "saturated fitness colors"
+        - "dynamic warm and cool balance"
+      
+      details_keywords:
+        - "defined muscle tone visible"
+        - "sweat droplets catching light"
+        - "focused determined expression"
+        - "athletic physique apparent"
+        - "motion blur on equipment"
+        - "reflective gym surfaces"
+        - "active body positioning"
+      
+      technical_keywords:
+        - "70-200mm lens"
+        - "f/2.8 aperture"
+        - "high shutter speed"
+        - "sports photography mode"
+        - "fast lens"
+        - "Canon EOS R6"
+    
+    required_layers:
+      - subject
+      - setting
+      - lighting
+      - technical
+    
+    keywords:
+      - fitness
+      - workout
+      - gym
+      - exercise
+      - athletic
+      - training
+      - muscle
+      - active
+      - wellness
+      - health
+      - fitness center
+      - yoga
+      - pilates
+      - taekwondo
+      - martial arts
+      - judo
+      - karate
+      - boxing
+      - kickboxing
+      - crossfit
+      - multi-sports
+      - sports facility
+      - body shape
+      - weight management
+      - diet
+      - slimming
+      - massage
+      - spa
+      - relaxation
+      - therapy
+      - stretching
+      - cardio
+      - strength
+      - toning
+
+    korean_keywords:
+      - 헬스
+      - 헬스장
+      - 운동
+      - 피트니스
+      - 요가
+      - 필라테스
+      - 태권도
+      - 무술
+      - 마사지
+      - 스파
+      - 다이어트
+      - 헬스클럽
+      - 피트니스센터
+      - 짐
+      - PT
+      - 개인트레이닝
+      - 퍼스널트레이닝
+      - 요가학원
+      - 요가원
+      - 필라테스학원
+      - 필라테스스튜디오
+      - 태권도장
+      - 태권도학원
+      - 합기도
+      - 유도
+      - 검도
+      - 복싱
+      - 주짓수
+      - 무술학원
+      - 종합스포츠
+      - 스포츠시설
+      - 체형관리
+      - 비만관리
+      - 체중관리
+      - 다이어트센터
+      - 마사지샵
+      - 안마
+      - 발마사지
+      - 타이마사지
+      - 웰니스
+      - 탄탄한
+      - 근육
+      - 1:1PT
+      - 맞춤프로그램
+      - 작심삼일
+
+    negative_keywords:
+      - poor anatomy
+      - static pose
+      - unrealistic body
+      - bad form
+      - lazy posture
+  
+  # ============================================
+  # A-3: Fashion & Style Items
+  # ============================================
+  a3_fashion:
+    name: "A-3: Fashion & Style Items"
+    name_ko: "A-3: 패션 및 스타일 아이템"
+    count: 18
+    businesses:
+      - "Men's Clothing Retail"
+      - "Women's Clothing Retail"
+      - "Children's Clothing Retail"
+      - "Hanbok Retail"
+      - "Other Clothing Retail"
+      - "Bedding/Curtain Retail"
+      - "Wig Retail"
+      - "Shoes Retail"
+      - "Bag Retail"
+      - "Interior Design"
+      - "Product Design"
+      - "Visual Design"
+      - "Fashion/Textile Design"
+      - "Clothing Rental"
+      - "Clothing/Bedding Repair"
+      - "Leather/Bag/Shoe Repair"
+      - "Wedding Hall"
+      - "Wedding Consulting"
+    
+    visual_core: "Fabric detail, sophisticated coordination, model pose, urban background"
+    
+    prompt_template:
+      subject_patterns:
+        - "Fashion lookbook photograph of {garment} styled with {accessories}"
+        - "Model wearing {outfit_description} in {setting}"
+        - "Product detail shot of {item} showing {fabric_quality}"
+        - "Lifestyle fashion image featuring {style}"
+        - "Editorial fashion photograph of {clothing_type} with {styling}"
+      
+      setting_patterns:
+        - "urban street fashion background"
+        - "modern boutique interior with clean lines"
+        - "minimalist studio with white backdrop"
+        - "contemporary retail space"
+        - "stylish showroom environment"
+      
+      composition_keywords:
+        - "full body fashion shot"
+        - "three-quarter pose"
+        - "product detail focus"
+        - "lookbook style composition"
+        - "editorial layout"
+        - "lifestyle context"
+      
+      lighting_phrases:
+        - "natural sunlight for fashion photography"
+        - "soft diffused studio lighting on fabric"
+        - "golden hour outdoor light"
+        - "clean white softbox lighting"
+        - "professional fashion photography setup"
+      
+      style_keywords:
+        - "fashion lookbook style"
+        - "editorial magazine quality"
+        - "commercial fashion advertising"
+        - "lifestyle fashion aesthetic"
+        - "high-fashion presentation"
+      
+      color_phrases:
+        - "coordinated seasonal color palette"
+        - "trendy fashion tones"
+        - "sophisticated neutral hues"
+        - "complementary styling colors"
+      
+      details_keywords:
+        - "fabric texture detail visible"
+        - "precise tailoring apparent"
+        - "quality material showcase"
+        - "stylish coordination"
+        - "accessory focus"
+        - "sharp fabric folds"
+        - "professional styling"
+      
+      technical_keywords:
+        - "85mm portrait lens"
+        - "50mm fashion lens"
+        - "f/2.0 aperture"
+        - "fashion photography lighting"
+        - "magazine quality"
+        - "Hasselblad medium format"
+    
+    required_layers:
+      - subject
+      - setting
+      - lighting
+      - style
+    
+    keywords:
+      - fashion
+      - style
+      - clothing
+      - outfit
+      - trendy
+      - designer
+      - fabric
+      - accessory
+      - coordinated
+      - boutique
+      - men's clothing
+      - women's clothing
+      - children's clothing
+      - hanbok
+      - traditional
+      - bedding
+      - curtain
+      - wig
+      - shoes
+      - bag
+      - interior design
+      - product design
+      - visual design
+      - fashion design
+      - textile design
+      - clothing rental
+      - alteration
+      - repair
+      - leather
+      - wedding hall
+      - wedding consulting
+      - bridal
+      - lookbook
+      - must-have
+      - daily
+      - date
+      - office look
+
+    korean_keywords:
+      - 옷
+      - 의류
+      - 패션
+      - 남성복
+      - 여성복
+      - 아동복
+      - 한복
+      - 침구
+      - 커튼
+      - 액세서리
+      - 가발
+      - 신발
+      - 가방
+      - 시계
+      - 보석
+      - 안경
+      - 사진관
+      - 인테리어
+      - 디자인
+      - 대여
+      - 남성의류
+      - 여성의류
+      - 유아의류
+      - 아동의류
+      - 한복집
+      - 한복대여
+      - 기타의류
+      - 침구류
+      - 이불
+      - 베개
+      - 커튼가게
+      - 블라인드
+      - 잡화
+      - 모자
+      - 스카프
+      - 벨트
+      - 가발가게
+      - 신발가게
+      - 운동화
+      - 구두
+      - 가방가게
+      - 핸드백
+      - 백팩
+      - 시계가게
+      - 귀금속
+      - 금은방
+      - 반지
+      - 목걸이
+      - 안경점
+      - 렌즈
+      - 콘택트렌즈
+      - 카메라
+      - 광학기기
+      - 사진촬영
+      - 스튜디오
+      - 증명사진
+      - 프로필사진
+      - 인테리어디자인
+      - 제품디자인
+      - 시각디자인
+      - 패션디자인
+      - 섬유디자인
+      - 의류대여
+      - 정장대여
+      - 수선
+      - 옷수선
+      - 이불수선
+      - 가죽수선
+      - 가방수선
+      - 신발수선
+      - 예식장
+      - 웨딩홀
+      - 결혼식장
+      - 결혼상담
+      - 웨딩컨설팅
+      - 나다운
+      - 개성있는
+      - 트렌디
+      - 머스트해브
+      - 데일리
+      - 오피스룩
+
+    negative_keywords:
+      - poorly fitting
+      - cheap material
+      - awkward pose
+      - watermark
+      - distorted outfit
+  
+  # ============================================
+  # A-4: Delicate Care & Emotional Items
+  # ============================================
+  a4_delicate_care:
+    name: "A-4: Delicate Care & Emotional Items"
+    name_ko: "A-4: 섬세한 케어 및 감성 소품"
+    count: 11
+    businesses:
+      - "Flower Shop"
+      - "Pet/Pet Supplies Retail"
+      - "Veterinary Hospital"
+      - "Furniture Retail"
+      - "Kitchen/Home Goods Retail"
+      - "Health Supplement Retail"
+      - "Accessories/Sundries Retail"
+      - "Watch/Jewelry Retail"
+      - "Eyeglasses/Lens Retail"
+      - "Camera/Optical Equipment Retail"
+      - "Photo Studio"
+    
+    visual_core: "Macro photography, vivid colors, gloss, intricate details"
+    
+    prompt_template:
+      subject_patterns:
+        - "Professional close-up of {subject} with {detail}"
+        - "Macro photograph of {item} showcasing {feature}"
+        - "{professional} working on {subject} with {care}"
+        - "Detailed shot of {product} displaying {quality}"
+        - "Lifestyle image of {item} in {context}"
+      
+      setting_patterns:
+        - "clean organized workspace"
+        - "bright professional service area"
+        - "cozy shop interior with natural light"
+        - "elegant display environment"
+        - "specialized service setting"
+      
+      composition_keywords:
+        - "extreme macro close-up"
+        - "detail focus shot"
+        - "product showcase"
+        - "service documentation"
+        - "arranged display"
+        - "lifestyle context"
+      
+      lighting_phrases:
+        - "soft natural light emphasizing detail"
+        - "bright clean professional lighting"
+        - "diffused window light on subject"
+        - "professional product photography lighting"
+        - "gentle illumination with soft shadows"
+      
+      style_keywords:
+        - "professional service photography"
+        - "lifestyle editorial style"
+        - "commercial product advertising"
+        - "artisan craftsmanship aesthetic"
+        - "detailed documentation style"
+      
+      color_phrases:
+        - "vivid natural colors with high clarity"
+        - "soft pastel tones with warmth"
+        - "clean bright color palette"
+        - "elegant sophisticated hues"
+      
+      details_keywords:
+        - "intricate detail visible"
+        - "precise craftsmanship"
+        - "high quality finish"
+        - "clean professional result"
+        - "delicate texture"
+        - "elegant arrangement"
+        - "meticulous attention"
+      
+      technical_keywords:
+        - "100mm macro lens"
+        - "f/2.8 aperture"
+        - "macro photography setup"
+        - "sharp detail focus"
+        - "product photography"
+        - "ring light"
+    
+    required_layers:
+      - subject
+      - details
+      - lighting
+      - technical
+    
+    keywords:
+      - detail
+      - delicate
+      - craftsmanship
+      - precision
+      - care
+      - professional
+      - quality
+      - specialized
+      - meticulous
+      - elegant
+      - flower shop
+      - florist
+      - bouquet
+      - arrangement
+      - pet store
+      - pet supplies
+      - veterinary
+      - animal hospital
+      - toy
+      - sports equipment
+      - bicycle
+      - furniture
+      - kitchen goods
+      - home goods
+      - watch repair
+      - jewelry repair
+      - instrument repair
+      - watch
+      - jewelry
+      - eyeglasses
+      - lens
+      - camera
+      - optical
+      - photo studio
+      - portrait
+
+    korean_keywords:
+      - 꽃집
+      - 플라워
+      - 꽃
+      - 펫샵
+      - 동물병원
+      - 장난감
+      - 스포츠용품
+      - 자전거
+      - 가구
+      - 주방용품
+      - 수선
+      - 악기
+      - 미술학원
+      - 플라워샵
+      - 꽃다발
+      - 꽃배달
+      - 화환
+      - 꽃꽂이
+      - 플로리스트
+      - 애완동물
+      - 애완용품
+      - 반려동물
+      - 반려용품
+      - 강아지
+      - 고양이
+      - 펫푸드
+      - 동물의료
+      - 수의사
+      - 장난감가게
+      - 토이
+      - 운동용품
+      - 스포츠샵
+      - 자전거가게
+      - 자전거샵
+      - 가구점
+      - 가구매장
+      - 주방용품점
+      - 가정용품
+      - 생활용품
+      - 시계수리
+      - 귀금속수리
+      - 악기수리
+      - 섬세한
+      - 꼼꼼한
+      - 특별한날
+      - 선물
+      - 유니크한
+
+    negative_keywords:
+      - blurry foreground
+      - dull colors
+      - shaky focus
+      - messy
+      - rough quality
+
+# ============================================
+# B 등급: Space Experience & Education
+# ============================================
+
+b_grade:
+  name: "B Grade - Space Experience & Education"
+  name_ko: "B등급 - 공간 체험 및 교육"
+  characteristics: "Medium-High B2C, Medium Visual Dependency, High Competition"
+  core_strategy: "Aesthetics of Space - Wide-angle interior lens, keywords: 'immersion', 'rest', 'enjoyment'"
+  total_businesses: 46
+  
+  # ============================================
+  # B-1: Learning & Focus
+  # ============================================
+  b1_learning:
+    name: "B-1: Learning & Focus"
+    name_ko: "B-1: 학습/몰입"
+    count: 18
+    businesses:
+      - "College Prep/Academic Academy"
+      - "Foreign Language Academy"
+      - "Professional Certificate Academy"
+      - "Social Education Facility"
+      - "Employee Training Center"
+      - "Driving School"
+      - "Other Technical/Vocational Training"
+      - "Computer Academy"
+      - "Other Education Institution"
+      - "Education Consulting"
+      - "Other Education Support Service"
+      - "Reading Room/Study Cafe"
+      - "Youth Training Facility"
+      - "Comic Book Cafe"
+      - "Music Academy"
+      - "Art Academy"
+      - "Other Art/Sports Education"
+      - "Recreation Education"
+    
+    visual_core: "Wide angle, bright and airy, organized desk, focused atmosphere"
+    
+    prompt_template:
+      subject_patterns:
+        - "Architectural interior photograph of {space_type} with {features}"
+        - "Study environment showcasing {atmosphere}"
+        - "Educational facility interior highlighting {quality}"
+        - "Modern {institution_type} space with {layout}"
+        - "Learning area featuring {design_element}"
+      
+      setting_patterns:
+        - "bright airy study space with natural light"
+        - "organized classroom with minimalist design"
+        - "cozy library atmosphere with wooden furniture"
+        - "modern educational facility interior"
+        - "focused learning environment with clean lines"
+      
+      composition_keywords:
+        - "wide angle architectural shot"
+        - "interior perspective"
+        - "room overview"
+        - "organized space layout"
+        - "environmental portrait"
+        - "symmetrical composition"
+      
+      lighting_phrases:
+        - "natural daylight through large windows"
+        - "bright overhead lighting for studying"
+        - "warm ambient interior illumination"
+        - "soft diffused natural light"
+        - "clean white fluorescent lighting"
+      
+      style_keywords:
+        - "architectural interior photography"
+        - "educational facility documentation"
+        - "professional space photography"
+        - "commercial real estate style"
+        - "clean institutional aesthetic"
+      
+      color_phrases:
+        - "neutral warm tones with wood accents"
+        - "bright white and soft beige palette"
+        - "calming earth colors"
+        - "professional educational tones"
+      
+      details_keywords:
+        - "organized desks and chairs"
+        - "clean surfaces visible"
+        - "good natural ventilation"
+        - "focused atmosphere apparent"
+        - "spacious layout"
+        - "minimal distractions"
+        - "comfortable seating"
+      
+      technical_keywords:
+        - "14-24mm wide angle lens"
+        - "architectural photography"
+        - "interior real estate style"
+        - "tilt-shift perspective"
+        - "HDR interior"
+    
+    required_layers:
+      - setting
+      - composition
+      - lighting
+      - details
+    
+    keywords:
+      - study
+      - learning
+      - classroom
+      - focused
+      - organized
+      - bright
+      - educational
+      - space
+      - interior
+      - desk
+      - college prep
+      - academic academy
+      - foreign language
+      - language school
+      - professional certificate
+      - civil service exam
+      - social education
+      - employee training
+      - driving school
+      - technical training
+      - vocational training
+      - computer academy
+      - education consulting
+      - education support
+      - reading room
+      - study cafe
+      - youth training
+      - comic cafe
+      - manga cafe
+      - quiet
+      - concentration
+      - success
+      - achievement
+      - music academy
+      - art academy
+      - art education
+      - sports education
+      - recreation education
+
+    korean_keywords:
+      - 학원
+      - 입시
+      - 어학
+      - 외국어
+      - 공무원
+      - 운전
+      - 컴퓨터
+      - 독서실
+      - 스터디카페
+      - 기숙사
+      - 고시원
+      - 입시학원
+      - 교과학원
+      - 보습학원
+      - 수학학원
+      - 영어학원
+      - 국어학원
+      - 과학학원
+      - 외국어학원
+      - 영어회화
+      - 토익
+      - 토플
+      - 일본어
+      - 중국어
+      - 전문자격
+      - 고시학원
+      - 공무원학원
+      - 자격증
+      - 사회교육
+      - 평생교육
+      - 직원훈련
+      - 기업교육
+      - 운전학원
+      - 운전면허
+      - 기술훈련
+      - 직업훈련
+      - 컴퓨터학원
+      - 코딩학원
+      - IT학원
+      - 교육컨설팅
+      - 교육지원
+      - 과외
+      - 독서실
+      - 스터디룸
+      - 스터디카페
+      - 24시간독서실
+      - 청소년수련
+      - 기숙사
+      - 고시텔
+      - 원룸텔
+      - 숙박
+      - 만화방
+      - 만화카페
+      - 집중
+      - 조용한
+      - 쾌적한
+      - 성적향상
+      - 합격
+      - 소수정예
+      - 음악학원
+      - 피아노학원
+      - 기타학원
+      - 드럼학원
+      - 바이올린학원
+      - 보컬학원
+      - 미술학원
+      - 미술교습소
+      - 입시미술
+      - 그림
+      - 취미미술
+      - 예술학원
+
+    negative_keywords:
+      - crowded
+      - dark
+      - messy
+      - blurry
+      - noisy atmosphere
+      - distracting
+  
+  # ============================================
+  # B-2: Leisure & Stay
+  # ============================================
+  b2_leisure:
+    name: "B-2: Leisure & Stay"
+    name_ko: "B-2: 여가/스테이"
+    count: 9
+    businesses:
+      - "Hotel/Resort"
+      - "Inn/Motel"
+      - "Pension"
+      - "Camping/Glamping"
+      - "Dormitory/Goshiwon"
+      - "Public Bath/Sauna"
+      - "Travel Agency"
+      - "Other Travel Support Service"
+      - "Other Accommodation"
+    
+    visual_core: "Cinematic, high ceiling, luxury, panoramic view"
+    
+    prompt_template:
+      subject_patterns:
+        - "Cinematic interior photograph of {venue_type} with {atmosphere}"
+        - "Luxury {accommodation_type} showcasing {amenity}"
+        - "{entertainment_venue} interior highlighting {feature}"
+        - "Panoramic view of {space_type} with {view}"
+        - "Modern {facility_type} environment with {style}"
+      
+      setting_patterns:
+        - "luxurious hotel interior with high ceiling"
+        - "cozy accommodation atmosphere with comfort focus"
+        - "modern entertainment venue with high-tech elements"
+        - "relaxing leisure space with panoramic views"
+        - "inviting recreational environment"
+      
+      composition_keywords:
+        - "cinematic wide shot"
+        - "high ceiling perspective"
+        - "panoramic view"
+        - "ultra-wide interior"
+        - "atmospheric depth"
+        - "luxury showcase"
+      
+      lighting_phrases:
+        - "dramatic cinematic interior lighting"
+        - "warm ambient mood lighting"
+        - "golden hour sunlight through windows"
+        - "professional architectural lighting"
+        - "atmospheric LED accent lights"
+      
+      style_keywords:
+        - "cinematic interior photography"
+        - "luxury hospitality style"
+        - "commercial real estate advertising"
+        - "lifestyle travel photography"
+        - "premium venue documentation"
+      
+      color_phrases:
+        - "rich warm luxury tones"
+        - "sophisticated neutral palette with accents"
+        - "inviting cozy colors"
+        - "elegant hospitality hues"
+      
+      details_keywords:
+        - "high-quality furnishings visible"
+        - "spacious layout apparent"
+        - "luxury amenities showcased"
+        - "comfortable atmosphere"
+        - "premium finishes"
+        - "inviting ambiance"
+        - "attention to detail"
+      
+      technical_keywords:
+        - "14mm ultra-wide lens"
+        - "tilt-shift architecture"
+        - "HDR interior blend"
+        - "architectural photography"
+        - "luxury real estate style"
+    
+    required_layers:
+      - setting
+      - composition
+      - lighting
+      - style
+    
+    keywords:
+      - luxury
+      - relaxation
+      - comfort
+      - leisure
+      - hospitality
+      - accommodation
+      - dormitory
+      - goshiwon
+      - spacious
+      - premium
+      - inviting
+      - hotel
+      - resort
+      - inn
+      - motel
+      - pension
+      - guesthouse
+      - camping
+      - glamping
+      - travel agency
+      - booking service
+      - healing
+      - escape
+      - recharge
+      - vacation
+      - getaway
+      - panoramic view
+
+    korean_keywords:
+      - 호텔
+      - 리조트
+      - 모텔
+      - 펜션
+      - 캠핑
+      - 글램핑
+      - 기숙사
+      - 고시원
+      - 여행사
+      - 호텔리조트
+      - 특급호텔
+      - 비즈니스호텔
+      - 여관
+      - 민박
+      - 게스트하우스
+      - 캠핑장
+      - 글램핑장
+      - 오토캠핑
+      - 여행사
+      - 투어
+      - 여행상품
+      - 예약서비스
+      - 힐링
+      - 쉼
+      - 재충전
+      - 오션뷰
+      - 프라이빗
+      - 키즈룸
+      - 찜질방
+      - 사우나
+      - 온천
+      - 목욕탕
+      - 스파샵
+
+    negative_keywords:
+      - dirty
+      - cheap look
+      - cramped
+      - old-fashioned
+      - bad lighting
+      - shaky
+  
+  # ============================================
+  # B-3: Sports & Activities
+  # ============================================
+  b3_sports:
+    name: "B-3: Sports & Activities"
+    name_ko: "B-3: 스포츠/활동"
+    count: 19
+    businesses:
+      - "Swimming Pool"
+      - "Bowling Alley"
+      - "Billiard Hall"
+      - "Golf Practice Range"
+      - "Tennis Court"
+      - "Table Tennis Hall"
+      - "Other Sports Facility"
+      - "Squash/Racketball Court"
+      - "Sports/Recreation Equipment Rental"
+      - "Karaoke"
+      - "Video Room"
+      - "Arcade"
+      - "PC Cafe"
+      - "Other Entertainment Venue"
+      - "Water/Marine Leisure"
+      - "Other Entertainment Service"
+      - "Fishing Spot"
+      - "Lottery Sales"
+      - "Board Game Venue"
+    
+    visual_core: "Spacious facility, professional equipment, cleanliness, dynamic visual"
+    
+    prompt_template:
+      subject_patterns:
+        - "Professional sports facility photograph of {venue_type} with {equipment}"
+        - "Spacious {facility_name} interior showcasing {features}"
+        - "Athletic {space_type} environment highlighting {quality}"
+        - "{sports_venue} with {professional_grade} equipment"
+        - "Clean modern {facility_type} capturing {atmosphere}"
+      
+      setting_patterns:
+        - "spacious sports facility with professional equipment"
+        - "bright modern athletic center interior"
+        - "clean well-maintained sports venue"
+        - "professional training facility environment"
+        - "organized recreational space"
+      
+      composition_keywords:
+        - "wide facility overview"
+        - "dynamic perspective"
+        - "equipment showcase"
+        - "spacious interior view"
+        - "action-ready composition"
+        - "professional venue angle"
+      
+      lighting_phrases:
+        - "bright fluorescent sports facility lighting"
+        - "professional venue illumination"
+        - "even overhead lighting for clarity"
+        - "high-key sports photography lighting"
+        - "clean bright athletic space lighting"
+      
+      style_keywords:
+        - "professional sports facility photography"
+        - "commercial athletic venue advertising"
+        - "fitness facility documentation"
+        - "clean modern sports aesthetic"
+        - "professional venue presentation"
+      
+      color_phrases:
+        - "vibrant athletic facility colors"
+        - "clean white and blue sports tones"
+        - "professional venue color scheme"
+        - "energetic bright palette"
+      
+      details_keywords:
+        - "professional-grade equipment visible"
+        - "polished clean floors"
+        - "spacious layout apparent"
+        - "organized facility"
+        - "modern amenities"
+        - "well-maintained space"
+        - "quality infrastructure"
+      
+      technical_keywords:
+        - "16-35mm wide lens"
+        - "architectural interior"
+        - "sports facility photography"
+        - "bright even lighting"
+        - "professional venue style"
+    
+    required_layers:
+      - setting
+      - composition
+      - lighting
+      - details
+    
+    keywords:
+      - sports
+      - athletic
+      - facility
+      - professional
+      - equipment
+      - spacious
+      - modern
+      - clean
+      - venue
+      - swimming pool
+      - bowling alley
+      - billiard hall
+      - pool hall
+      - golf range
+      - driving range
+      - tennis court
+      - table tennis
+      - ping pong
+      - squash
+      - racketball
+      - exhibition
+      - convention
+      - event service
+      - repair service
+      - latest facility
+      - wide
+      - comfortable
+      - skill improvement
+      - fun
+      - accessible
+      - water leisure
+      - marine leisure
+      - equipment rental
+      - pc cafe
+      - internet cafe
+      - karaoke
+      - video room
+      - arcade
+      - game room
+      - fishing
+      - lottery
+      - board game
+
+    korean_keywords:
+      - 수영장
+      - 볼링장
+      - 당구장
+      - 골프
+      - 테니스
+      - 탁구
+      - 실내수영장
+      - 수영강습
+      - 아쿠아로빅
+      - 볼링
+      - 볼링레인
+      - 당구
+      - 포켓볼
+      - 4구
+      - 3구
+      - 골프연습장
+      - 스크린골프
+      - 인도어골프
+      - 드라이빙레인지
+      - 골프레슨
+      - 테니스장
+      - 테니스코트
+      - 테니스레슨
+      - 탁구장
+      - 탁구레슨
+      - 기타스포츠
+      - 스포츠시설
+      - 스쿼시
+      - 라켓볼
+      - 최신시설
+      - 넓은
+      - 쾌적한
+      - 실력향상
+      - 재미
+      - 가까운
+      - 주차편리
+      - 프로레슨
+      - PC방
+      - 노래방
+      - 낚시
+      - 낚시터
+      - 바다낚시
+      - 민물낚시
+      - 선상낚시
+      - 수상레저
+      - 요트
+      - 제트스키
+      - 서핑
+      - 복권
+      - 로또
+      - 바둑
+      - 장기
+      - 기원
+      - 피씨방
+      - 게임방
+      - 인터넷카페
+      - 노래연습장
+      - 코인노래방
+      - 비디오방
+      - 전자게임장
+      - 오락실
+      - 게임센터
+      - 기타오락장
+      - 낚시터
+      - 바다낚시
+      - 민물낚시
+      - 수상레저
+      - 해양레저
+      - 요트
+      - 제트스키
+      - 복권
+      - 로또
+      - 바둑
+      - 장기
+      - 체스
+      - 보드게임
+      - 레크리에이션용품
+
+    negative_keywords:
+      - dark
+      - dusty
+      - broken equipment
+      - cramped
+      - grainy
+      - out of focus
+
+# ============================================
+# C 등급: Trust-Based Professional Services
+# ============================================
+
+c_grade:
+  name: "C Grade - Trust-Based Professional Services"
+  name_ko: "C등급 - 신뢰 기반 전문 서비스"
+  characteristics: "Medium B2C, Low Visual Dependency, Medium Competition"
+  core_strategy: "Solution Presentation - Clean graphics, blue tones, keywords: 'expertise', 'trust', 'reviews'"
+  total_businesses: 57
+  
+  # ============================================
+  # C-1: Professional Office Services
+  # ============================================
+  c1_office:
+    name: "C-1: Professional Office Services"
+    name_ko: "C-1: 전문 사무"
+    count: 26
+    businesses:
+      - "Real Estate Agency"
+      - "Lawyer"
+      - "Patent Attorney"
+      - "Judicial Scrivener"
+      - "Administrative Agent"
+      - "Certified Labor Attorney"
+      - "Other Legal Service"
+      - "Certified Public Accountant"
+      - "Tax Accountant"
+      - "Other Accounting Service"
+      - "Advertising Agency"
+      - "Outdoor/Exhibition Ad Agency"
+      - "Ad Media Sales"
+      - "Ad Design/Production"
+      - "Other Advertising Service"
+      - "Market/Opinion Research"
+      - "Management Consulting"
+      - "Other Office Support Service"
+      - "Employment Agency"
+      - "Temporary/Day Labor Supply"
+      - "Permanent Labor/HR Service"
+      - "Copy Service"
+      - "Exhibition/Convention Service"
+      - "Business Card/Signage Production"
+      - "Translation/Interpretation"
+      - "Business/IP Brokerage"
+    
+    visual_core: "Bright office, professional meeting room, blue accents"
+    
+    prompt_template:
+      subject_patterns:
+        - "Professional office photograph of {service_type} environment"
+        - "Corporate interior showcasing {professional_space}"
+        - "Business {activity} scene in {setting}"
+        - "Modern {office_type} with {features}"
+        - "Professional consultation space highlighting {atmosphere}"
+      
+      setting_patterns:
+        - "bright modern office with glass and steel"
+        - "professional meeting room with clean lines"
+        - "contemporary corporate interior"
+        - "organized business workspace"
+        - "minimalist professional environment"
+      
+      composition_keywords:
+        - "corporate interior view"
+        - "professional space layout"
+        - "business environment shot"
+        - "clean organized composition"
+        - "trustworthy perspective"
+      
+      lighting_phrases:
+        - "bright clean office lighting"
+        - "professional white overhead lights"
+        - "natural daylight through office windows"
+        - "crisp clear business environment lighting"
+        - "trustworthy blue-toned illumination"
+      
+      style_keywords:
+        - "corporate photography style"
+        - "professional business aesthetic"
+        - "commercial office documentation"
+        - "trust-focused presentation"
+        - "clean institutional look"
+      
+      color_phrases:
+        - "trustworthy blue accent colors"
+        - "professional white and grey palette"
+        - "clean corporate tones"
+        - "modern business color scheme"
+      
+      details_keywords:
+        - "organized workspace visible"
+        - "professional equipment present"
+        - "clean surfaces apparent"
+        - "modern technology"
+        - "neat documentation"
+        - "credible atmosphere"
+        - "quality furnishings"
+      
+      technical_keywords:
+        - "24-70mm standard zoom"
+        - "corporate photography"
+        - "professional interior"
+        - "business documentation style"
+        - "clean lighting setup"
+    
+    required_layers:
+      - setting
+      - lighting
+      - style
+      - details
+    
+    keywords:
+      - professional
+      - office
+      - business
+      - corporate
+      - consulting
+      - expert
+      - service
+      - trustworthy
+      - modern
+      - organized
+      - real estate
+      - real estate agency
+      - lawyer
+      - attorney
+      - patent attorney
+      - judicial scrivener
+      - administrative agent
+      - labor attorney
+      - legal service
+      - accountant
+      - CPA
+      - tax accountant
+      - accounting service
+      - advertising agency
+      - outdoor advertising
+      - exhibition advertising
+      - ad media
+      - ad design
+      - ad production
+      - market research
+      - opinion polling
+      - management consulting
+      - office support
+      - expertise
+      - trust
+      - accurate
+      - business card
+      - signage production
+      - translation
+      - interpretation
+      - brokerage
+
+    korean_keywords:
+      - 부동산
+      - 변호사
+      - 법무사
+      - 세무사
+      - 회계사
+      - 광고대행
+      - 컨설팅
+      - 부동산중개
+      - 부동산대리
+      - 공인중개사
+      - 부동산사무소
+      - 변호사사무소
+      - 법률사무소
+      - 변리사
+      - 특허
+      - 상표
+      - 법무사사무소
+      - 행정사
+      - 행정사무소
+      - 공인노무사
+      - 노무사
+      - 법무관련
+      - 공인회계사
+      - 회계사사무소
+      - 세무사사무소
+      - 기장
+      - 세금
+      - 회계관련
+      - 광고대행사
+      - 옥외광고
+      - 전시광고
+      - 광고매체
+      - 광고설계
+      - 광고제작
+      - 시장조사
+      - 여론조사
+      - 경영컨설팅
+      - 사무지원
+      - 전문경력
+      - 신뢰
+      - 정확한분석
+      - 투명한
+      - 복잡한문제
+      - 무료상담
+      - 고용알선
+      - 인력사무소
+      - 임시인력
+      - 일용인력
+      - 상용인력
+      - 인사관리
+      - 인력공급
+      - 파견업
+      - 인력파견
+      - 헤드헌팅
+      - 복사
+      - 인쇄
+      - 출력
+      - 전시대행
+      - 컨벤션
+      - 행사대행
+      - 명함제작
+      - 간판제작
+      - 번역
+      - 통역
+      - 번역서비스
+      - 사업중개
+      - 명함
+      - 간판
+      - 광고물제작
+      - 번역서비스
+      - 통역서비스
+      - 영어번역
+      - 중개업
+      - 무형재산권
+
+    negative_keywords:
+      - unprofessional
+      - messy desk
+      - dark room
+      - chaotic
+      - cluttered
+      - scary
+  
+  # ============================================
+  # C-2: Medical & Healthcare
+  # ============================================
+  c2_medical:
+    name: "C-2: Medical & Healthcare"
+    name_ko: "C-2: 의료/케어"
+    count: 18
+    businesses:
+      - "General Hospital"
+      - "Hospital"
+      - "Dental Hospital"
+      - "Oriental Medicine Hospital"
+      - "Nursing Hospital"
+      - "Internal Medicine/Pediatrics Clinic"
+      - "Surgery Clinic"
+      - "Neurology/Psychiatry Clinic"
+      - "Ophthalmology Clinic"
+      - "ENT Clinic"
+      - "OB/GYN Clinic"
+      - "Other Clinic"
+      - "Dental Clinic"
+      - "Oriental Medicine Clinic"
+      - "Radiology/Pathology Clinic"
+      - "Alternative Medicine"
+      - "Pharmacy"
+      - "Medical Equipment Retail"
+    
+    visual_core: "Clinical cleanliness, bright and sterile, high-end equipment, peaceful atmosphere"
+    
+    prompt_template:
+      subject_patterns:
+        - "Professional medical facility photograph of {space_type}"
+        - "Clinical environment showcasing {equipment}"
+        - "Healthcare {setting_type} interior with {atmosphere}"
+        - "Modern {clinic_type} highlighting {cleanliness}"
+        - "Medical consultation area featuring {professionalism}"
+      
+      setting_patterns:
+        - "bright sterile medical facility interior"
+        - "clean clinical environment with modern equipment"
+        - "peaceful healthcare space with calming design"
+        - "professional medical consultation room"
+        - "hygienic treatment area with organized layout"
+      
+      composition_keywords:
+        - "clean medical space layout"
+        - "professional clinic view"
+        - "healthcare environment shot"
+        - "organized treatment area"
+        - "calming perspective"
+      
+      lighting_phrases:
+        - "bright sterile white clinical lighting"
+        - "clean medical facility illumination"
+        - "soft calming healthcare lighting"
+        - "professional medical environment lights"
+        - "peaceful clinical brightness"
+      
+      style_keywords:
+        - "professional medical photography"
+        - "healthcare facility documentation"
+        - "clinical environment aesthetic"
+        - "trust-building medical style"
+        - "sterile professional presentation"
+      
+      color_phrases:
+        - "clean white with soft pastel accents"
+        - "sterile medical facility tones"
+        - "calming healthcare colors"
+        - "professional clinical palette"
+      
+      details_keywords:
+        - "high-end medical equipment visible"
+        - "immaculate cleanliness apparent"
+        - "organized medical supplies"
+        - "modern healthcare technology"
+        - "peaceful atmosphere"
+        - "professional standards"
+        - "patient-friendly environment"
+      
+      technical_keywords:
+        - "24-70mm lens"
+        - "medical facility photography"
+        - "healthcare documentation"
+        - "clean professional lighting"
+        - "institutional style"
+    
+    required_layers:
+      - setting
+      - lighting
+      - details
+      - style
+    
+    keywords:
+      - medical
+      - clinical
+      - healthcare
+      - sterile
+      - professional
+      - clean
+      - equipment
+      - treatment
+      - peaceful
+      - hygienic
+      - general hospital
+      - hospital
+      - dental hospital
+      - oriental medicine
+      - nursing hospital
+      - internal medicine
+      - pediatrics
+      - surgery clinic
+      - neurology
+      - psychiatry
+      - ophthalmology
+      - otolaryngology
+      - ENT
+      - obstetrics
+      - gynecology
+      - dental clinic
+      - dentist
+      - radiology
+      - pathology
+      - alternative medicine
+      - clinical experience
+      - recovery
+      - pain relief
+      - advanced equipment
+
+    korean_keywords:
+      - 병원
+      - 의원
+      - 치과
+      - 한의원
+      - 안과
+      - 이비인후과
+      - 산부인과
+      - 정형외과
+      - 내과
+      - 소아과
+      - 종합병원
+      - 일반병원
+      - 치과병원
+      - 한방병원
+      - 요양병원
+      - 내과의원
+      - 소아과의원
+      - 외과
+      - 외과의원
+      - 신경과
+      - 정신과
+      - 신경정신과
+      - 안과의원
+      - 이비인후과의원
+      - 산부인과의원
+      - 기타의원
+      - 치과의원
+      - 한의원
+      - 침술
+      - 한방
+      - 방사선
+      - 진단
+      - 병리검사
+      - 유사의료
+      - 전문의
+      - 임상경험
+      - 빠른회복
+      - 통증완화
+      - 최신의료장비
+      - 협진
+      - 비수술
+
+    negative_keywords:
+      - scary
+      - blood visible
+      - dirty
+      - dark
+      - distorted
+      - unprofessional
+  
+  # ============================================
+  # C-3: Technical & Construction Services
+  # ============================================
+  c3_technical:
+    name: "C-3: Technical & Construction Services"
+    name_ko: "C-3: 기술/시공"
+    count: 13
+    businesses:
+      - "Auto Repair Shop"
+      - "Car Wash"
+      - "Motorcycle Repair"
+      - "Architectural Design Service"
+      - "Urban Planning/Landscape Design"
+      - "Building/Civil Engineering"
+      - "Environmental Engineering"
+      - "Other Engineering Service"
+      - "Facility Maintenance Service"
+      - "Building Cleaning Service"
+      - "Industrial/Transport Cleaning"
+      - "Disinfection/Pest Control"
+      - "Landscape Maintenance"
+    
+    visual_core: "Tool details, organized workspace, Before/After results"
+    
+    prompt_template:
+      subject_patterns:
+        - "Professional service photograph of {technical_work} with {tools}"
+        - "Technical {service_type} showcasing {quality}"
+        - "Before and after comparison of {project_type}"
+        - "{professional} working on {task} with {precision}"
+        - "Detail shot of {technical_process} highlighting {skill}"
+      
+      setting_patterns:
+        - "organized professional workshop environment"
+        - "clean technical service area"
+        - "well-maintained repair facility"
+        - "professional construction site"
+        - "tidy work bay with proper equipment"
+      
+      composition_keywords:
+        - "technical detail shot"
+        - "before-after comparison"
+        - "professional service view"
+        - "tool focus composition"
+        - "work in progress documentation"
+      
+      lighting_phrases:
+        - "bright clear workspace lighting"
+        - "professional task lighting on subject"
+        - "even illumination for detail visibility"
+        - "clean workshop lights"
+        - "focused technical photography lighting"
+      
+      style_keywords:
+        - "professional service documentation"
+        - "technical work photography"
+        - "craftsmanship showcase style"
+        - "quality service presentation"
+        - "skilled trade aesthetic"
+      
+      color_phrases:
+        - "industrial color palette with metallic accents"
+        - "clean professional workspace tones"
+        - "authentic work environment colors"
+        - "organized technical space hues"
+      
+      details_keywords:
+        - "sharp tool details visible"
+        - "professional-grade equipment"
+        - "organized workspace"
+        - "quality craftsmanship apparent"
+        - "precise work execution"
+        - "clean professional results"
+        - "attention to detail"
+      
+      technical_keywords:
+        - "50mm lens"
+        - "macro detail focus"
+        - "professional documentation"
+        - "work environment photography"
+        - "clear sharp lighting"
+    
+    required_layers:
+      - subject
+      - details
+      - lighting
+      - composition
+    
+    keywords:
+      - technical
+      - professional
+      - repair
+      - service
+      - craftsmanship
+      - tools
+      - precision
+      - quality
+      - skilled
+      - organized
+      - auto repair
+      - car repair
+      - car wash
+      - motorcycle repair
+      - architectural design
+      - urban planning
+      - landscape design
+      - civil engineering
+      - building engineering
+      - environmental engineering
+      - engineering service
+      - facility maintenance
+      - building cleaning
+      - industrial cleaning
+      - pest control
+      - disinfection
+      - landscape maintenance
+      - before-after
+      - warranty
+      - guarantee
+      - experienced
+
+    korean_keywords:
+      - 자동차정비
+      - 세차
+      - 오토바이
+      - 건축
+      - 인테리어시공
+      - 청소
+      - 소독
+      - 번역
+      - 통역
+      - 자동차정비소
+      - 카센터
+      - 정비소
+      - 자동차세차
+      - 세차장
+      - 손세차
+      - 자동세차
+      - 모터사이클
+      - 오토바이수리
+      - 건축설계
+      - 건축사무소
+      - 도시계획
+      - 조경설계
+      - 토목엔지니어링
+      - 건물엔지니어링
+      - 환경엔지니어링
+      - 기타엔지니어링
+      - 시설유지
+      - 시설관리
+      - 건물청소
+      - 빌딩청소
+      - 산업설비청소
+      - 운송장비청소
+      - 공공장소청소
+      - 소독업
+      - 구충
+      - 방제
+      - 해충방제
+      - 조경유지
+      - 조경관리
+      - 전후비교
+      - AS보증
+      - 만족보장
+      - 숙련된
+      - 꼼꼼한시공
+      - 장인
+
+    negative_keywords:
+      - dirty
+      - messy
+      - broken
+      - rust
+      - unprofessional results
+      - blurry
+
+# ============================================
+# D GRADE: Purpose-Driven Retail & Equipment
+# ============================================
+
+d_grade:
+  name: "D Grade - Purpose-Driven Retail & Equipment"
+  name_ko: "D등급 - 목적형 소매 및 장비"
+  characteristics: "Low-Medium B2C, Low-Medium Visual, Low-Medium Competition"
+  core_strategy: "Information & Benefits - Product features, discount emphasis, keywords: 'in stock', 'same-day installation'"
+  total_businesses: 45
+  
+  # ============================================
+  # D-1: Heavy Equipment & Parts
+  # ============================================
+  d1_equipment:
+    name: "D-1: Heavy Equipment & Parts"
+    name_ko: "D-1: 중장비/부품"
+    count: 13
+    businesses:
+      - "Tire Retail"
+      - "Auto Parts Retail"
+      - "Motorcycle/Parts Retail"
+      - "Hardware/Tool Retail"
+      - "Wallpaper/Flooring Retail"
+      - "Construction Material Retail"
+      - "Other Construction Material Retail"
+      - "Electrical/Lighting Retail"
+      - "Construction Equipment Rental"
+      - "Other Industrial Equipment Rental"
+      - "Other Transport Equipment Rental"
+      - "Home Fuel Retail"
+      - "Packaging/Charging Service"
+    
+    visual_core: "Industrial aesthetic, metallic texture, high contrast"
+    
+    prompt_template:
+      subject_patterns:
+        - "Professional product photograph of {item} on {surface}"
+        - "Industrial {equipment_type} showcasing {features}"
+        - "Commercial display of {product} with {detail}"
+        - "{item_category} inventory in organized {setting}"
+        - "Technical detail shot of {product} highlighting {quality}"
+      
+      setting_patterns:
+        - "organized warehouse with industrial shelving"
+        - "clean retail showroom for equipment"
+        - "professional parts store interior"
+        - "well-stocked commercial space"
+        - "industrial display area with clear lighting"
+      
+      composition_keywords:
+        - "product catalog shot"
+        - "organized display view"
+        - "inventory showcase"
+        - "technical detail focus"
+        - "clean product presentation"
+      
+      lighting_phrases:
+        - "bright warehouse fluorescent lighting"
+        - "clean commercial display lights"
+        - "high contrast product lighting"
+        - "professional retail illumination"
+        - "clear overhead industrial lights"
+      
+      style_keywords:
+        - "industrial product photography"
+        - "commercial retail documentation"
+        - "catalog-style presentation"
+        - "functional product aesthetic"
+        - "straightforward retail style"
+      
+      color_phrases:
+        - "industrial metallic tones"
+        - "utilitarian color palette"
+        - "practical product colors"
+        - "commercial retail tones"
+      
+      details_keywords:
+        - "sharp product details"
+        - "metallic texture visible"
+        - "durable construction apparent"
+        - "organized shelving"
+        - "quality materials"
+        - "professional-grade items"
+        - "functional design"
+      
+      technical_keywords:
+        - "50mm product lens"
+        - "industrial photography"
+        - "catalog style lighting"
+        - "commercial documentation"
+        - "sharp detail focus"
+    
+    required_layers:
+      - subject
+      - lighting
+      - details
+      - composition
+    
+    keywords:
+      - industrial
+      - equipment
+      - parts
+      - tools
+      - durable
+      - professional-grade
+      - inventory
+      - commercial
+      - functional
+      - quality
+      - tire
+      - auto parts
+      - motorcycle parts
+      - hardware
+      - tool shop
+      - wallpaper
+      - flooring
+      - construction material
+      - building material
+      - electrical equipment
+      - lighting equipment
+      - animal feed
+      - livestock feed
+      - construction equipment rental
+      - industrial equipment rental
+      - transport equipment rental
+      - home fuel
+      - medical equipment
+      - second-hand
+      - used goods
+      - packaging
+      - charging service
+      - in stock
+      - same-day
+      - genuine
+
+    korean_keywords:
+      - 타이어
+      - 자동차부품
+      - 철물
+      - 공구
+      - 건축자재
+      - 전기용품
+      - 사료
+      - 중고
+      - 의료기기
+      - 타이어소매
+      - 타이어교체
+      - 휠
+      - 얼라인먼트
+      - 자동차부품소매
+      - 모터사이클부품
+      - 오토바이부품
+      - 철물점
+      - 공구상
+      - 연장
+      - 벽지
+      - 장판
+      - 마루
+      - 바닥재
+      - 건설자재
+      - 건축자재소매
+      - 전기용품소매
+      - 조명
+      - 조명장치
+      - 가축사료
+      - 사료소매
+      - 건설기계대여
+      - 건설장비대여
+      - 산업용기계
+      - 산업장비대여
+      - 운송장비대여
+      - 가정용연료
+      - 등유
+      - 연탄
+      - 의료기기소매
+      - 중고상품
+      - 중고품
+      - 리사이클
+      - 포장업
+      - 충전업
+      - 재고보유
+      - 당일출고
+      - 정품
+      - 내구성
+
+    negative_keywords:
+      - abstract
+      - artistic
+      - rust
+      - broken
+      - messy
+      - faded
+  
+  # ============================================
+  # D-2: General Appliances & Devices
+  # ============================================
+  d2_appliances:
+    name: "D-2: General Appliances & Devices"
+    name_ko: "D-2: 일반 기기"
+    count: 14
+    businesses:
+      - "Computer/Software Retail"
+      - "Mobile Phone Retail"
+      - "Home Appliance Retail"
+      - "Office Equipment Retail"
+      - "Computer/Laptop/Printer Repair"
+      - "Computer/Office Equipment Rental"
+      - "Mobile Phone/Telecom Repair"
+      - "Home Appliance Repair"
+      - "Car Rental"
+      - "Other Personal/Home Goods Repair"
+      - "Other Personal/Home Goods Rental"
+      - "Laundry"
+      - "Self-service Laundromat"
+      - "Second-hand Goods Retail"
+    
+    visual_core: "Clean photography, white background, high-tech feel"
+    
+    prompt_template:
+      subject_patterns:
+        - "Professional product photograph of {device} on white background"
+        - "Clean studio shot of {appliance} showcasing {features}"
+        - "Modern {electronics_type} with {technology_highlight}"
+        - "High-tech {device_category} in {display_setting}"
+        - "Commercial photograph of {product} highlighting {functionality}"
+      
+      setting_patterns:
+        - "clean white studio background"
+        - "modern retail showroom with organized displays"
+        - "bright electronics store interior"
+        - "professional office equipment setting"
+        - "minimalist product showcase environment"
+      
+      composition_keywords:
+        - "clean product shot"
+        - "white background isolation"
+        - "front-facing view"
+        - "three-quarter angle"
+        - "feature highlight composition"
+      
+      lighting_phrases:
+        - "clean studio lighting on white background"
+        - "bright even product illumination"
+        - "professional appliance photography lighting"
+        - "high-key white background setup"
+        - "crisp shadow-free lighting"
+      
+      style_keywords:
+        - "professional product photography"
+        - "commercial electronics advertising"
+        - "clean minimalist aesthetic"
+        - "high-tech presentation style"
+        - "catalog-quality documentation"
+      
+      color_phrases:
+        - "clean white with tech accents"
+        - "modern electronics color scheme"
+        - "minimalist monochrome palette"
+        - "professional product tones"
+      
+      details_keywords:
+        - "sharp device details"
+        - "clean surfaces visible"
+        - "modern design apparent"
+        - "functional features clear"
+        - "high-quality finish"
+        - "professional presentation"
+        - "sleek appearance"
+      
+      technical_keywords:
+        - "100mm macro lens"
+        - "product photography lighting"
+        - "white seamless background"
+        - "commercial style"
+        - "catalog photography"
+    
+    required_layers:
+      - subject
+      - lighting
+      - technical
+      - composition
+    
+    keywords:
+      - electronics
+      - appliance
+      - device
+      - modern
+      - technology
+      - clean
+      - professional
+      - functional
+      - high-tech
+      - quality
+      - computer
+      - software
+      - mobile phone
+      - smartphone
+      - home appliance
+      - office equipment
+      - computer repair
+      - laptop repair
+      - printer repair
+      - phone repair
+      - telecom repair
+      - appliance repair
+      - equipment rental
+      - office equipment rental
+      - employment agency
+      - temporary staffing
+      - day labor
+      - HR service
+      - car rental
+      - personal goods repair
+      - household goods repair
+      - household rental
+      - latest model
+      - high spec
+      - genuine product
+      - after service
+      - Laundry
+      - Laundromat
+      - Laundry shop
+      - Dry cleaning
+      - Self-service laundry
+      - Coin-operated laundry
+
+    korean_keywords:
+      - 컴퓨터
+      - 핸드폰
+      - 휴대폰
+      - 가전
+      - 사무기기
+      - 수리
+      - 렌탈
+      - 인력사무소
+      - 컴퓨터소매
+      - 소프트웨어
+      - 노트북
+      - 데스크탑
+      - 핸드폰소매
+      - 스마트폰
+      - 갤럭시
+      - 아이폰
+      - 가전제품
+      - 가전제품소매
+      - TV
+      - 냉장고
+      - 세탁기
+      - 에어컨
+      - 사무용기기
+      - 복합기
+      - 프린터
+      - 컴퓨터수리
+      - 노트북수리
+      - 프린터수리
+      - 핸드폰수리
+      - 통신장비수리
+      - 액정수리
+      - 가전제품수리
+      - 컴퓨터대여
+      - 사무기기대여
+      - 자동차대여
+      - 렌터카
+      - 가정용품수리
+      - 개인용품수리
+      - 가정용품대여
+      - 최신모델
+      - 고사양
+      - 정품
+      - AS
+      - 세탁소
+      - 드라이클리닝
+      - 빨래방
+      - 셀프빨래
+      - 코인세탁
+
+    negative_keywords:
+      - old
+      - dusty
+      - yellowing
+      - broken
+      - messy wires
+      - distorted
+
+  # ============================================
+  # D-3: Hobby & Lifestyle Retail
+  # ============================================
+  d3_hobby_lifestyle:
+    name: "D-3: Hobby & Lifestyle Retail"
+    name_ko: "D-3: 취미 및 라이프스타일 소매"
+    count: 18
+    businesses:
+      - "Musical Instrument Retail"
+      - "Record/Video Retail"
+      - "Record/Video Rental"
+      - "Tobacco/E-cigarette Retail"
+      - "Thread/Textile Retail"
+      - "Liquor Retail"
+      - "Art Retail"
+      - "Souvenir Shop"
+      - "Bookstore"
+      - "Stationery/Art Supplies Retail"
+      - "Toy Retail"
+      - "Sports Equipment Retail"
+      - "Bicycle Retail"
+      - "Watch/Jewelry/Instrument Repair"
+      - "Animal Feed Retail"
+      - "Grain/Flour Retail"
+      - "Other General Retail"
+      - "Other Specialty Retail"
+
+    visual_core: "Hobbyist room, organized collection, macro shot details, vintage texture, lifestyle composition"
+
+    prompt_template:
+      subject_patterns:
+        - "Professional product photograph of {item} in lifestyle setting"
+        - "Macro shot of {product} details with vintage aesthetic"
+        - "Organized collection display of {products} on wooden shelf"
+        - "Lifestyle composition of {item} in hobbyist room"
+        - "Warm vintage photograph of {product} collection"
+
+      setting_patterns:
+        - "hobbyist room with organized shelves"
+        - "vintage retail space with warm lighting"
+        - "cozy lifestyle store interior"
+        - "collector's display environment"
+        - "specialty shop with curated products"
+
+      composition_keywords:
+        - "macro detail shot"
+        - "lifestyle composition"
+        - "organized shelf display"
+        - "product collection view"
+        - "warm vintage arrangement"
+
+      lighting_phrases:
+        - "warm vintage lighting"
+        - "natural light mixed with warm tones"
+        - "soft lifestyle photography lighting"
+        - "cozy ambient illumination"
+        - "detail-focused lighting"
+
+      style_keywords:
+        - "lifestyle product photography"
+        - "hobbyist collection aesthetic"
+        - "vintage retail style"
+        - "specialty shop editorial"
+        - "collector's item presentation"
+
+      color_phrases:
+        - "warm vintage tones"
+        - "natural wood colors"
+        - "cozy earthy palette"
+        - "soft lifestyle hues"
+
+      details_keywords:
+        - "macro shot details"
+        - "organized collection"
+        - "wooden shelf display"
+        - "warm vintage texture"
+        - "sharp product focus"
+        - "lifestyle composition"
+        - "collector's aesthetic"
+
+      technical_keywords:
+        - "100mm macro lens"
+        - "f/2.8 aperture"
+        - "product photography"
+        - "lifestyle style"
+        - "detail focus"
+
+    required_layers:
+      - subject
+      - setting
+      - lighting
+      - details
+
+    keywords:
+      - hobby
+      - lifestyle
+      - collection
+      - vintage
+      - specialty
+      - musical instrument
+      - record
+      - vinyl
+      - video
+      - tobacco
+      - e-cigarette
+      - textile
+      - thread
+      - liquor
+      - wine
+      - art
+      - souvenir
+      - bookstore
+      - stationery
+      - art supplies
+      - toy
+      - sports equipment
+      - bicycle
+      - watch repair
+      - jewelry repair
+      - recreation
+      - collector
+
+    korean_keywords:
+      - 악기점
+      - 악기소매
+      - 기타
+      - 피아노
+      - 바이올린
+      - 음반
+      - LP
+      - 비디오
+      - 음반대여
+      - 담배
+      - 전자담배
+      - 실
+      - 섬유
+      - 원단
+      - 주류소매
+      - 와인샵
+      - 양주
+      - 예술품
+      - 갤러리
+      - 기념품
+      - 기념품점
+      - 서점
+      - 책방
+      - 문구점
+      - 문구
+      - 화방
+      - 미술용품
+      - 장난감
+      - 완구점
+      - 운동용품
+      - 스포츠용품
+      - 자전거
+      - 자전거판매
+      - 시계수리
+      - 귀금속수리
+      - 악기수리
+      - 레크리에이션
+      - 취미
+      - 컬렉션
+      - 빈티지
+      - 희귀템
+      - 한정판
+
+    negative_keywords:
+      - cluttered mess
+      - poor lighting
+      - generic store shelf
+      - cold industrial feel
+      - blurry details
+      - cheap display
+
+# ============================================
+# E GRADE: Infrastructure & Special Purpose
+# ============================================
+
+e_grade:
+  name: "E Grade - Infrastructure & Special Purpose"
+  name_ko: "E등급 - 인프라 및 특수 목적"
+  characteristics: "Low B2C, Low Visual Dependency, Low Competition"
+  core_strategy: "Accessibility & Public Interest - Clear location, honest pricing, calm tone"
+  total_businesses: 5
+  
+  # ============================================
+  # E-1: Convenience & Infrastructure
+  # ============================================
+  e1_infrastructure:
+    name: "E-1: Convenience & Infrastructure"
+    name_ko: "E-1: 편의/인프라"
+    count: 3
+    businesses:
+      - "Gas Station"
+      - "Gas Charging Station"
+      - "Ice Retail"
+    
+    visual_core: "Straightforward, clear signage, bright sky, wide perspective"
+    
+    prompt_template:
+      subject_patterns:
+        - "Straightforward photograph of {facility_type} during daytime"
+        - "Wide-angle view of {station_type} with clear {signage}"
+        - "Daytime exterior shot of {facility_name} showing {features}"
+        - "Commercial photograph of {service_location} with {accessibility}"
+        - "{infrastructure_type} facility with {visibility}"
+      
+      setting_patterns:
+        - "roadside location with clear visibility"
+        - "well-organized service station environment"
+        - "accessible public facility setting"
+        - "clean maintained infrastructure site"
+        - "convenient roadside service area"
+      
+      composition_keywords:
+        - "wide perspective shot"
+        - "clear facility view"
+        - "straightforward composition"
+        - "signage visibility focus"
+        - "accessible angle"
+      
+      lighting_phrases:
+        - "bright daytime natural sunlight"
+        - "clear blue sky overhead"
+        - "well-lit daytime conditions"
+        - "natural outdoor lighting"
+        - "sunny day clear visibility"
+      
+      style_keywords:
+        - "straightforward documentary photography"
+        - "commercial infrastructure documentation"
+        - "functional facility presentation"
+        - "honest service photography"
+        - "utilitarian aesthetic"
+      
+      color_phrases:
+        - "realistic natural colors"
+        - "bright blue sky with facility colors"
+        - "clean commercial signage tones"
+        - "straightforward color palette"
+      
+      details_keywords:
+        - "clear signage visible"
+        - "organized facility layout"
+        - "accessible location apparent"
+        - "well-maintained appearance"
+        - "functional design"
+        - "safe environment"
+        - "convenient placement"
+      
+      technical_keywords:
+        - "24mm wide lens"
+        - "infrastructure photography"
+        - "documentary style"
+        - "natural daylight"
+        - "commercial real estate"
+    
+    required_layers:
+      - subject
+      - setting
+      - lighting
+      - composition
+    
+    keywords:
+      - station
+      - infrastructure
+      - facility
+      - service
+      - accessible
+      - convenient
+      - organized
+      - roadside
+      - public
+      - functional
+      - gas station
+      - fuel station
+      - petrol station
+      - charging station
+      - gas charging
+      - LPG
+      - CNG
+      - electric vehicle charging
+      - EV charging
+      - location
+      - price
+      - per liter
+      - 24 hours
+      - car wash
+      - clear signage
+      - safe
+      - well-maintained
+
+    korean_keywords:
+      - 주유소
+      - 충전소
+      - 가스
+      - 주유
+      - 기름
+      - 휘발유
+      - 경유
+      - 가스충전
+      - LPG충전
+      - CNG충전
+      - 전기차충전
+      - EV충전
+      - 위치
+      - IC앞
+      - 역근처
+      - 리터당
+      - 가격
+      - 저렴한
+      - 24시간
+      - 세차
+      - 셀프주유
+      - 간판
+      - 안전한
+      - 정비된
+
+    negative_keywords:
+      - cartoon
+      - exaggerated
+      - messy
+      - chaotic
+      - distorted
+      - vibrant neon
+  
+  # ============================================
+  # E-2: Etiquette & Ceremony
+  # ============================================
+  e2_ceremony:
+    name: "E-2: Etiquette & Ceremony"
+    name_ko: "E-2: 예절/의례"
+    count: 2
+    businesses:
+      - "Funeral Hall"
+      - "Crematorium/Cemetery/Ossuary"
+    
+    visual_core: "Calm atmosphere, subdued colors, symmetrical composition, dignity"
+    
+    prompt_template:
+      subject_patterns:
+        - "Respectful photograph of {facility_type} interior with {atmosphere}"
+        - "Dignified view of {ceremonial_space} showing {quality}"
+        - "Calm architectural shot of {venue_type} with {design}"
+        - "Solemn interior photograph of {facility_name} featuring {elements}"
+        - "Professional documentation of {ceremonial_facility} with {respect}"
+      
+      setting_patterns:
+        - "calm dignified interior space"
+        - "respectful ceremonial hall environment"
+        - "peaceful memorial facility setting"
+        - "solemn architectural interior"
+        - "serene ceremonial venue atmosphere"
+      
+      composition_keywords:
+        - "symmetrical composition"
+        - "balanced perspective"
+        - "respectful framing"
+        - "dignified view"
+        - "calm architectural shot"
+      
+      lighting_phrases:
+        - "soft muted natural lighting"
+        - "respectful subdued illumination"
+        - "calm ambient interior lights"
+        - "peaceful diffused lighting"
+        - "dignified soft glow"
+      
+      style_keywords:
+        - "respectful architectural photography"
+        - "dignified ceremonial documentation"
+        - "solemn professional style"
+        - "calm institutional aesthetic"
+        - "peaceful venue presentation"
+      
+      color_phrases:
+        - "soft muted color palette"
+        - "respectful subdued tones"
+        - "calm neutral hues"
+        - "dignified earth colors"
+      
+      details_keywords:
+        - "clean organized space"
+        - "dignified architecture"
+        - "respectful atmosphere"
+        - "solemn environment"
+        - "peaceful ambiance"
+        - "professional maintenance"
+        - "serene presentation"
+      
+      technical_keywords:
+        - "24-70mm lens"
+        - "architectural interior"
+        - "respectful documentation"
+        - "soft lighting setup"
+        - "dignified composition"
+    
+    required_layers:
+      - setting
+      - lighting
+      - composition
+      - style
+    
+    keywords:
+      - respectful
+      - dignified
+      - solemn
+      - peaceful
+      - ceremonial
+      - calm
+      - memorial
+      - serene
+      - professional
+      - clean
+      - funeral hall
+      - funeral home
+      - funeral service
+      - crematorium
+      - cemetery
+      - ossuary
+      - columbarium
+      - memorial park
+      - burial
+      - etiquette
+      - ceremony
+      - farewell
+      - quiet
+      - considerate
+      - caring
+
+    korean_keywords:
+      - 장례식장
+      - 장례
+      - 납골당
+      - 묘지
+      - 장례서비스
+      - 장례홀
+      - 빈소
+      - 화장터
+      - 화장장
+      - 공원묘지
+      - 납골묘
+      - 봉안당
+      - 추모관
+      - 추모공원
+      - 예절
+      - 의례
+      - 엄숙한
+      - 정중한
+      - 깨끗한
+      - 조용한
+      - 세심한
+      - 배려하는
+      - 품위
+      - 존중
+
+    negative_keywords:
+      - scary
+      - vibrant
+      - funny
+      - celebration
+      - chaotic
+      - messy
+
+# ============================================
+# Common Settings (모든 업종 공통)
+# ============================================
+
+common_negative:
+  base:
+    - cartoon
+    - illustration
+    - painting
+    - low quality
+    - blurry
+    - watermark
+    - text overlay
+  
+  realistic_exclusions:
+    - anime style
+    - CGI render
+    - 3D graphics
+    - drawing
+    - sketch
+    - digital art
+  
+  quality_spam_avoid:  # DO NOT USE THESE
+    - masterpiece
+    - best quality
+    - high quality
+    - 8k resolution
+    - 4k resolution
+    - ultra detailed
+    - award-winning
+    - perfect
+    - flawless
+
+# ============================================
+# Usage Guidelines
+# ============================================
+
+guidelines:
+  prompt_construction:
+    step1: "Select appropriate grade and subgroup"
+    step2: "Choose 1-2 subject patterns"
+    step3: "Add 1 setting pattern"
+    step4: "Include 2-3 composition keywords"
+    step5: "Add 1-2 lighting phrases"
+    step6: "Include 1-2 style keywords"
+    step7: "Add color phrase if relevant"
+    step8: "Include 3-5 detail keywords"
+    step9: "Add 1-2 technical keywords"
+    
+  negative_construction:
+    step1: "Start with common_negative base (5-7 items)"
+    step2: "Add grade-specific negatives (2-3 items)"
+    step3: "Total should not exceed 10 items"
+    step4: "Never include quality_spam_avoid terms"
+  
+  hybrid_balance:
+    natural_language: "60% - Use full sentences for subject, setting, lighting"
+    keywords: "40% - Use keywords for composition, details, technical specs"
+  
+  photography_terms:
+    camera_models: "Canon, Nikon, Sony models for authenticity"
+    lens_specs: "14mm, 24mm, 50mm, 85mm, 100mm macro with aperture"
+    lighting_types: "Natural light, studio lighting, specific setups"
+    techniques: "Shallow DOF, bokeh, macro, wide-angle"
+
+# ============================================
+# Metadata
+# ============================================
+
+metadata:
+  version: "3.2.0"
+  last_updated: "2026-01-26"
+  source: "247 Small Business Industries S~E Grade Classification"
+  benchmark: "Civitai Top Prompts Analysis"
+  total_grades: 6
+  total_subgroups: 21
+  total_businesses: 247
+  template_style: "Hybrid Prompting (Natural Language + Keywords)"
+  optimization_goal: "Realistic business photography for advertising"

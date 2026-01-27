@@ -1,0 +1,42 @@
+# ============================================
+# Semi-Realistic Style Template
+# 반실사 스타일 (Z-Image Turbo)
+# ============================================
+
+style_name: "semi_realistic"
+model: "Z-Image Turbo"
+
+# 프롬프트 시작 문구
+prefix: "Highly detailed digital artwork of"
+
+# 기술 키워드
+technical_keywords:
+  - "highly detailed"
+  - "cinematic lighting"
+  - "digital painting"
+  - "semi-realistic style"
+  - "soft rendering"
+  - "artstation quality"
+
+# 품질 키워드
+quality_keywords:
+  - "detailed"
+  - "polished"
+  - "artistic"
+  - "refined"
+
+# 조명 구문
+lighting_phrases:
+  - "cinematic lighting"
+  - "dramatic lighting"
+  - "soft ambient light"
+  - "warm glow"
+  - "atmospheric lighting"
+
+# Negative 키워드
+negative_keywords:
+  - "cartoon"
+  - "anime"
+  - "sketch"
+  - "unfinished"
+  - "rough"

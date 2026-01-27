@@ -1,0 +1,44 @@
+# ============================================
+# Realistic Style Template
+# 실사 스타일 (Z-Image Turbo)
+# ============================================
+
+style_name: "realistic"
+model: "Z-Image Turbo"
+
+# 프롬프트 시작 문구
+prefix: "Professional commercial photography of"
+
+# 기술 키워드
+technical_keywords:
+  - "shot on Canon EOS R5"
+  - "85mm lens"
+  - "f/1.8 aperture"
+  - "natural lighting"
+  - "shallow depth of field"
+  - "professional color grading"
+  - "high resolution"
+
+# 품질 키워드
+quality_keywords:
+  - "sharp focus"
+  - "detailed"
+  - "professional"
+  - "commercial quality"
+
+# 조명 구문
+lighting_phrases:
+  - "soft natural window light"
+  - "warm afternoon sunlight"
+  - "bright morning light"
+  - "golden hour ambient lighting"
+  - "diffused natural daylight"
+
+# Negative 키워드
+negative_keywords:
+  - "cartoon"
+  - "illustration"
+  - "painting"
+  - "anime"
+  - "drawing"
+  - "sketch"
