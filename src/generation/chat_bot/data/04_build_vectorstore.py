@@ -2,7 +2,7 @@
 Chroma 벡터스토어 생성 (LangChain 기반)
 
 기능:
-- documents_v5.jsonl을 Chroma 벡터스토어로 변환
+- documents.jsonl을 Chroma 벡터스토어로 변환
 - multilingual-e5-large 임베딩 사용
 - 메타데이터 필터링 지원 (업종, 지역 등)
 - 영구 저장 (persist)
@@ -11,7 +11,7 @@ Chroma 벡터스토어 생성 (LangChain 기반)
 - vectorstore/chroma_db/ 디렉토리에 Chroma DB 저장
 
 사용법:
-  python 06_build_vectorstore.py
+  python 04_build_vectorstore.py
 
 필요 패키지:
   pip install langchain langchain-community chromadb sentence-transformers
@@ -27,7 +27,7 @@ from typing import Any, Dict, List
 # 설정
 # --------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DOCS_PATH = os.path.join(BASE_DIR, "processed", "documents_v5.jsonl")
+DOCS_PATH = os.path.join(BASE_DIR, "processed", "documents.jsonl")
 VECTORSTORE_DIR = os.path.join(BASE_DIR, "vectorstore", "chroma_db")
 
 # 임베딩 모델

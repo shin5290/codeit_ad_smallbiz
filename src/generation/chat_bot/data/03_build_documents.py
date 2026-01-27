@@ -1,18 +1,18 @@
 """
-문서 빌더 v5 - 정제 강화 & 구분 신호 강화
+문서 빌더 - 정제 강화 & 구분 신호 강화
 
-변경점(v4 대비):
+주요 기능:
 - 노이즈 제거 강화(동영상/알림/참여 수치 등)
 - 제목 변형 + 지역 확장 + 주소 단서 + 전화 끝자리로 구분력 강화
 - 특징 키워드/후기 요약은 깨끗하게만 포함
 
 사용법:
-  python 03_build_documents_v5.py
+  python 03_build_documents.py
 
 환경변수(옵션):
   CORE_PATH   : 입력 코어 레코드 JSON (default: processed/core_records.json)
   OUT_DIR     : 출력 디렉토리 (default: processed)
-  DOCS_JSONL  : 출력 파일 (default: processed/documents_v5.jsonl)
+  DOCS_JSONL  : 출력 파일 (default: processed/documents.jsonl)
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from typing import Any, Dict, List
 # --------------------------------------------
 CORE_PATH = os.getenv("CORE_PATH", "processed/core_records.json")
 OUT_DIR = os.getenv("OUT_DIR", "processed")
-DOCS_JSONL = os.getenv("DOCS_JSONL", os.path.join(OUT_DIR, "documents_v5.jsonl"))
+DOCS_JSONL = os.getenv("DOCS_JSONL", os.path.join(OUT_DIR, "documents.jsonl"))
 os.makedirs(OUT_DIR, exist_ok=True)
 
 
@@ -247,7 +247,7 @@ def build_doc(record: Dict[str, Any], index: int) -> Dict[str, Any]:
 
 def main() -> None:
     print("=" * 70)
-    print("문서 빌더 v5 (정제+구분 강화)")
+    print("문서 빌더 (정제+구분 강화)")
     print("=" * 70)
 
     # 1. 데이터 로드
