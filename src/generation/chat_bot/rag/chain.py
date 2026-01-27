@@ -21,7 +21,7 @@ from __future__ import annotations
 import os
 import threading
 import time
-from concurrent.futures import Future
+from concurrent.futures import Future, TimeoutError as FutureTimeoutError
 from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -198,7 +198,15 @@ class E5Embeddings:
         if self.enable_micro_batch:
             # 마이크로배치 큐에 제출하고 결과 대기
             future = self._submit_request(sanitized, is_query=True)
-            return future.result(timeout=10.0)  # 최대 10초 대기
+            try:
+                return future.result(timeout=20.0)  # 기본 대기 시간 상향
+            except FutureTimeoutError:
+                # 인코딩이 지연될 때는 기존 요청을 조금 더 기다렸다가 재시도
+                try:
+                    return future.result(timeout=20.0)
+                except FutureTimeoutError:
+                    # 그래도 응답이 없으면 직접 인코딩으로 폴백
+                    return self._encode_batch([sanitized], is_query=True)[0]
         else:
             # 마이크로배치 비활성화 시 직접 처리
             return self._encode_batch([sanitized], is_query=True)[0]

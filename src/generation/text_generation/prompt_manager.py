@@ -127,7 +127,10 @@ class IndustryConfigLoader:
                 return self._subgroup_cache[mapped_code][1]
 
         # 기본값
-        return self._subgroup_cache.get('s3_emotional')
+        default_entry = self._subgroup_cache.get('s3_emotional')
+        if default_entry:
+            return default_entry[1]
+        return None
 
     def detect_industry(self, user_input: str) -> str:
         """

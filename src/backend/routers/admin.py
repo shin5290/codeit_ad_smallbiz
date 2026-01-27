@@ -333,60 +333,6 @@ def get_session_detail(
     }
 
 
-@router.get("/messages", response_model=schemas.AdminMessagePage)
-def search_messages(
-    limit: int = Query(20, ge=1, le=200),
-    offset: int = Query(0, ge=0),
-    query: str | None = Query(None),
-    level: str | None = Query(None),
-    from_date: date | None = Query(None, alias="from"),
-    to_date: date | None = Query(None, alias="to"),
-    mask: bool = Query(True),
-    db: Session = Depends(process_db.get_db),
-    current_user=Depends(require_admin),
-):
-    start_at = None
-    end_at = None
-    if from_date:
-        start_at = datetime.combine(from_date, datetime.min.time())
-    if to_date:
-        end_at = datetime.combine(to_date, datetime.min.time()) + timedelta(days=1)
-
-    rows, total = process_db.search_admin_messages(
-        db,
-        query=query,
-        level=level,
-        start_at=start_at,
-        end_at=end_at,
-        limit=limit,
-        offset=offset,
-    )
-
-    items: list[schemas.AdminMessageItem] = []
-    for msg, user_id, login_id in rows:
-        content = msg.content
-        if mask:
-            content = _mask_sensitive(content)
-        items.append(
-            schemas.AdminMessageItem(
-                id=msg.id,
-                session_id=msg.session_id,
-                user_id=user_id,
-                login_id=login_id,
-                role=msg.role,
-                content=content,
-                created_at=msg.created_at,
-            )
-        )
-
-    return {
-        "items": items,
-        "total": total,
-        "limit": limit,
-        "offset": offset,
-    }
-
-
 @router.get("/logs/dates", response_model=schemas.AdminLogDatesResponse)
 def list_log_dates(
     db: Session = Depends(process_db.get_db),
@@ -453,50 +399,6 @@ def tail_log_file(
             continue
         filtered.append(_mask_sensitive(line) if mask else line)
     return {"lines": filtered}
-
-
-@router.get("/logs/stream")
-async def stream_log_file(
-    date: str = Query(...),
-    file: str = Query(...),
-    query: str | None = Query(None),
-    level: str | None = Query(None),
-    mask: bool = Query(True),
-    db: Session = Depends(process_db.get_db),
-    current_user=Depends(require_admin),
-):
-    target = _resolve_log_file(date, file)
-    await _acquire_log_stream_slot()
-
-    async def event_stream() -> AsyncIterator[str]:
-        loop = asyncio.get_running_loop()
-        start_time = loop.time()
-        try:
-            with target.open("r", encoding="utf-8", errors="replace") as file_obj:
-                file_obj.seek(0, os.SEEK_END)
-                while True:
-                    elapsed = loop.time() - start_time
-                    if elapsed > LOG_STREAM_TIMEOUT_SECONDS:
-                        break
-                    line = file_obj.readline()
-                    if not line:
-                        await asyncio.sleep(LOG_STREAM_POLL_INTERVAL)
-                        continue
-                    line = line.rstrip("\n")
-                    if not _filter_log_line(line, query, level):
-                        continue
-                    if mask:
-                        line = _mask_sensitive(line)
-                    payload = {"line": line}
-                    yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
-        finally:
-            LOG_STREAM_SEMAPHORE.release()
-
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
 
 
 @router.get("/logs/current", response_model=schemas.AdminCurrentLogResponse)

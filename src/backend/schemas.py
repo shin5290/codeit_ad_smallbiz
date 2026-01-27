@@ -181,23 +181,6 @@ class AdminSessionDetail(BaseModel):
     generations: List[AdminGenerationSummary]
 
 
-class AdminMessageItem(BaseModel):
-    id: int
-    session_id: str
-    user_id: Optional[int] = None
-    login_id: Optional[str] = None
-    role: Literal["user", "assistant"]
-    content: str
-    created_at: datetime
-
-
-class AdminMessagePage(BaseModel):
-    items: List[AdminMessageItem]
-    total: int
-    limit: int
-    offset: int
-
-
 class AdminLogDatesResponse(BaseModel):
     dates: List[str]
 
