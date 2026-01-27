@@ -404,34 +404,6 @@ def _get_origin_payload_for_image_id(
     }
 
 
-def _find_recent_origin_from_history(
-    *,
-    db: Session,
-    session_id: str,
-    exclude_generation_id: Optional[int],
-) -> Optional[dict]:
-    for gen in process_db.get_generation_history_by_session(db, session_id, limit=20):
-        if exclude_generation_id and gen.id == exclude_generation_id:
-            continue
-        if not gen.output_image_id:
-            continue
-        origin_payload = _get_origin_payload_for_image_id(
-            db=db,
-            image_id=gen.output_image_id,
-            source="history_output_image_id",
-        )
-        if origin_payload:
-            logger.info(
-                "using history origin image (generation_id=%s, output_image_id=%s)",
-                gen.id,
-                gen.output_image_id,
-            )
-            return origin_payload
-    return None
-
-
-
-
 def _infer_industry_from_history(
     chat_history: Optional[List[Dict]],
     generation_history: Optional[List[Dict]],

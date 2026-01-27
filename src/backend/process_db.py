@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from sqlalchemy import create_engine, func, or_
+from sqlalchemy import create_engine, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker, selectinload
 
@@ -651,58 +651,4 @@ def get_admin_session_messages(
     
     total = query_builder.count()
     items = query_builder.offset(offset).limit(limit).all()
-    return items, total
-
-
-def search_admin_messages(
-    db: Session,
-    *,
-    query: Optional[str] = None,
-    level: Optional[str] = None,
-    start_at: Optional[datetime] = None,
-    end_at: Optional[datetime] = None,
-    limit: int = 50,
-    offset: int = 0,
-):
-    """
-    관리자용 채팅 메시지 검색 (필터/페이징)
-    """
-    query_builder = (
-        db.query(
-            models.ChatHistory,
-            models.ChatSession.user_id,
-            models.User.login_id,
-        )
-        .join(models.ChatSession, models.ChatSession.session_id == models.ChatHistory.session_id)
-        .outerjoin(models.User, models.User.user_id == models.ChatSession.user_id)
-    )
-
-    if query:
-        query_builder = query_builder.filter(models.ChatHistory.content.ilike(f"%{query}%"))
-
-    if level:
-        level_key = level.strip().lower()
-        keyword_map = {
-            "error": ["error", "failed", "exception", "traceback", "permission denied", "undefined"],
-            "warn": ["warn", "warning", "deprecated"],
-            "warning": ["warn", "warning", "deprecated"],
-            "critical": ["critical", "fatal", "panic"],
-        }
-        keywords = keyword_map.get(level_key)
-        if keywords:
-            filters = [models.ChatHistory.content.ilike(f"%{kw}%") for kw in keywords]
-            query_builder = query_builder.filter(or_(*filters))
-
-    if start_at is not None:
-        query_builder = query_builder.filter(models.ChatHistory.created_at >= start_at)
-    if end_at is not None:
-        query_builder = query_builder.filter(models.ChatHistory.created_at < end_at)
-
-    total = query_builder.count()
-    items = (
-        query_builder.order_by(models.ChatHistory.created_at.desc(), models.ChatHistory.id.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
     return items, total

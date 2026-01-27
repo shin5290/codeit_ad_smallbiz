@@ -27,18 +27,6 @@ def _set_rag_state(state: str, error: Optional[str] = None) -> None:
             _RAG_READY_EVENT.set()
 
 
-def get_rag_load_state() -> str:
-    """현재 RAG 로딩 상태 반환."""
-    with _RAG_STATE_LOCK:
-        return _RAG_STATE
-
-
-def get_rag_load_error() -> Optional[str]:
-    """RAG 로딩 실패 메시지 반환."""
-    with _RAG_STATE_LOCK:
-        return _RAG_ERROR
-
-
 def is_rag_ready() -> bool:
     """RAG 로딩 완료 여부."""
     with _RAG_STATE_LOCK:

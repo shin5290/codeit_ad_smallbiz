@@ -42,15 +42,6 @@ def _mask_sensitive(text: str) -> str:
     return masked
 
 
-def _normalize_level(level: str | None) -> str | None:
-    if not level:
-        return None
-    key = level.strip().lower()
-    if not key:
-        return None
-    return _LOG_LEVEL_MAP.get(key, key[:1].upper())
-
-
 def _filter_log_line(line: str, query: str | None, level: str | None) -> bool:
     if query:
         if query.lower() not in line.lower():
