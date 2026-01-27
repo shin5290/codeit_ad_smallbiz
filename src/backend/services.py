@@ -1,5 +1,5 @@
 import asyncio
-import logging, os
+import logging, os, re
 from dataclasses import dataclass
 from fastapi import Cookie, Depends, HTTPException, Response, UploadFile
 from jose import JWTError
@@ -332,6 +332,76 @@ def _find_recent_origin_from_history(
     return None
 
 
+def _normalize_modification_typo(text: str) -> str:
+    if not text:
+        return text
+    if "수저해" not in text:
+        return text
+    utensil_markers = ["수저 추가", "수저 넣", "수저 올려", "수저 그려", "숟가락", "스푼", "젓가락"]
+    if any(marker in text for marker in utensil_markers):
+        return text
+    return text.replace("수저해", "수정해")
+
+
+def _normalize_industry_label(label: Optional[str]) -> Optional[str]:
+    if not isinstance(label, str):
+        return None
+    cleaned = label.strip()
+    if not cleaned:
+        return None
+    lowered = cleaned.lower()
+    direct = {
+        "cafe",
+        "restaurant",
+        "bakery",
+        "dessert",
+        "bar",
+        "retail",
+        "service",
+    }
+    if lowered in direct:
+        return lowered
+    mapping = {
+        "소매": "retail",
+        "리테일": "retail",
+        "음식점": "restaurant",
+        "식당": "restaurant",
+        "레스토랑": "restaurant",
+        "카페": "cafe",
+        "베이커리": "bakery",
+        "디저트": "dessert",
+        "술집": "bar",
+        "서비스": "service",
+    }
+    for key, value in mapping.items():
+        if key in cleaned:
+            return value
+    return None
+
+
+def _infer_industry_from_history(
+    chat_history: Optional[List[Dict]],
+    generation_history: Optional[List[Dict]],
+) -> Optional[str]:
+    for msg in reversed(chat_history or []):
+        if msg.get("role") != "user":
+            continue
+        content = (msg.get("content") or "").strip()
+        if not content:
+            continue
+        match = re.search(r"업종\s*[:：]\s*([^\n,]+)", content)
+        if match:
+            inferred = _normalize_industry_label(match.group(1))
+            if inferred:
+                return inferred
+
+    for gen in generation_history or []:
+        inferred = _normalize_industry_label(gen.get("industry"))
+        if inferred:
+            return inferred
+
+    return None
+
 def _resolve_industry_for_revision(
     *,
     db: Session,
@@ -556,14 +626,6 @@ async def generate_contents(
             if not gen_method:
                 gen_method = "i2i" if reference_image is not None else "t2i"
 
-            if not resolved_industry:
-                detected_industry = img_result.get("industry")
-                if isinstance(detected_industry, str):
-                    detected_industry = detected_industry.strip() or None
-                if detected_industry == "unknown":
-                    detected_industry = None
-                resolved_industry = detected_industry
-
             if img_result["success"]:
                 output_image = {
                     "file_hash": img_result["filename"],
@@ -652,6 +714,14 @@ def persist_generation_result(
             "aspect_ratio": gen.aspect_ratio,
         }
     )
+    db_saved_fields = {
+        "content_type": gen.content_type,
+        "industry": gen.industry,
+        "style": gen.style,
+        "aspect_ratio": gen.aspect_ratio,
+        "strength": gen.strength,
+    }
+    logger.info(f"db_saved_fields={db_saved_fields}")
     return gen_history
 
 
@@ -681,6 +751,7 @@ async def handle_chat_message_stream(
         image=image,
     )
     session_key = ingest.session_id
+    analysis_message = _normalize_modification_typo(message)
 
     yield {
         "type": "progress",
@@ -689,10 +760,10 @@ async def handle_chat_message_stream(
     }
 
     # 2. Intent 분석 (플랫폼/스타일 자동 결정 - generation_history 불필요)
-    recent_conversations = conv_manager.get_recent_messages(db, session_key, limit=3)
+    recent_conversations = conv_manager.get_recent_messages(db, session_key, limit=20)
     
     intent_result = await llm.analyze_intent(
-        user_message=message,
+        user_message=analysis_message,
         recent_conversations=recent_conversations
     )
     intent = intent_result.get("intent", "consulting")
@@ -706,6 +777,19 @@ async def handle_chat_message_stream(
     industry = intent_result.get("industry")
     need_rmbg = intent_result.get("need_rmbg")
     strength = intent_result.get("strength")
+    if generation_type == "text":
+        aspect_ratio = None
+        style = None
+
+    chat_history = conv_manager.get_full_messages(db, session_key)
+    generation_history = conv_manager.get_full_generation_history(db, session_key)
+
+    if industry is None and intent != "modification":
+        industry = _infer_industry_from_history(chat_history, generation_history)
+
+    if intent == "modification":
+        industry = None
+
     yield {
         "type": "meta",
         "session_id": session_key,
@@ -719,7 +803,9 @@ async def handle_chat_message_stream(
 
     # 3. Consulting 분기
     if intent == "consulting":
-        async for payload in consulting.stream_response(db, session_key, message):
+        async for payload in consulting.stream_response(
+            db, session_key, message, industry_hint=industry
+        ):
             yield payload
         return
 
@@ -744,14 +830,12 @@ async def handle_chat_message_stream(
 
     # 4. Generation/Modification 분기
     # Refinement (텍스트 정제 + 수정 대상 ID 찾기)
-    chat_history = conv_manager.get_full_messages(db, session_key)
-    generation_history = conv_manager.get_full_generation_history(db, session_key)
-    
     refinement_result = await llm.refine_generation_input(
         intent=intent,
         generation_type=generation_type,
         chat_history=chat_history,
         generation_history=generation_history,
+        industry_hint=industry,
     )
     
     generation_input = refinement_result.get("refined_input") or message
@@ -786,7 +870,7 @@ async def handle_chat_message_stream(
                     generation_input=generation_input,
                     style=style,  # Intent에서 결정된 스타일 전달
                     aspect_ratio=aspect_ratio,  # Intent에서 결정된 비율 전달
-                    industry=industry,
+                    industry=None,
                     need_rmbg=need_rmbg,
                     is_text_modification=is_text_modification,
                     strength=strength,  # Intent에서 결정된 강도 전달
@@ -897,15 +981,16 @@ async def _execute_generation_pipeline(
     2. Intent 분석에서 자동 결정된 값
     3. 기본값
     """
-    # aspect_ratio 최종 결정 (Intent 결과 or 기본값)
-    final_aspect_ratio = aspect_ratio or "1:1"
-
-    # style 최종 결정 (Intent 결과 or 기본값)
-    final_style = style or "ultra_realistic"
+    effective_aspect_ratio = aspect_ratio
+    effective_style = style
+    if generation_type == "image":
+        effective_aspect_ratio = aspect_ratio or "1:1"
+        effective_style = style or "ultra_realistic"
 
     logger.info(
         f"Generation pipeline: type={generation_type}, "
-        f"ratio={final_aspect_ratio}, style={final_style}, industry={industry}"
+        f"ratio={effective_aspect_ratio}, style={effective_style}, industry={industry}, "
+        f"stored_ratio={aspect_ratio}, stored_style={style}"
     )
 
     # 콘텐츠 생성
@@ -913,8 +998,8 @@ async def _execute_generation_pipeline(
         input_text=generation_input,
         input_image=ingest.input_image,
         generation_type=generation_type,
-        style=final_style,
-        aspect_ratio=final_aspect_ratio,
+        style=style,
+        aspect_ratio=aspect_ratio,
         industry=industry,  # 업종 정보도 전달 (프롬프트 생성 시 활용 가능)
         need_rmbg=need_rmbg,
         is_text_modification=is_text_modification,
@@ -980,6 +1065,9 @@ async def handle_chat_revise(
         image_payload(latest_generation.output_image)
         or image_payload(latest_generation.input_image)
     )
+    reference_source = "target_output"
+    if not image_payload(latest_generation.output_image) and image_payload(latest_generation.input_image):
+        reference_source = "target_input"
     if latest_generation.content_type == "image":
         origin_payload = _get_origin_payload_for_image_id(
             db=db,
@@ -992,14 +1080,9 @@ async def handle_chat_revise(
                 image_id=latest_generation.input_image_id,
                 source="target_input_image_id",
             )
-        if not origin_payload:
-            origin_payload = _find_recent_origin_from_history(
-                db=db,
-                session_id=session_id,
-                exclude_generation_id=latest_generation.id,
-            )
         if origin_payload:
             reference_payload = origin_payload
+            reference_source = "target_origin"
             logger.info(
                 "handle_chat_revise: selected origin as reference (generation_id=%s)",
                 latest_generation.id,
@@ -1008,8 +1091,23 @@ async def handle_chat_revise(
             logger.warning(
                 "handle_chat_revise: no origin found; fallback to existing reference image"
             )
+    if latest_generation.content_type == "image" and reference_payload is None:
+        logger.error(
+            "handle_chat_revise: reference_image_source=none (generation_id=%s)",
+            latest_generation.id,
+        )
+        raise HTTPException(400, "참조 이미지가 없어 수정할 수 없습니다.")
+    logger.info("reference_image_source=%s", reference_source)
+    merged_input_text = generation_input or ""
+    base_input_text = latest_generation.input_text or ""
+    if latest_generation.content_type == "image" and base_input_text:
+        if merged_input_text and merged_input_text.strip() != base_input_text.strip():
+            merged_input_text = f"{base_input_text}\n수정 요청: {merged_input_text}"
+        elif not merged_input_text:
+            merged_input_text = base_input_text
+
     updated_params = {
-        "input_text": generation_input or latest_generation.input_text or "",
+        "input_text": merged_input_text,
         "generation_type": latest_generation.content_type,
         "style": style or latest_generation.style,  # Intent 결과 or 기존 스타일
         "aspect_ratio": aspect_ratio or latest_generation.aspect_ratio,  # Intent 결과 or 기존 비율

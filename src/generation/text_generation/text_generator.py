@@ -40,7 +40,7 @@ class TextGenerator:
     def generate_ad_copy(
         self,
         user_input,
-        tone="warm",
+        tone=None,
         max_length=100,
         chat_history=None,
         generation_history=None,
@@ -62,11 +62,24 @@ class TextGenerator:
                 예: "따뜻한 겨울, 새로운 맛"
         """
 
+        resolved_tone = tone
+        if resolved_tone is None and self.use_industry_config and self.prompt_manager:
+            try:
+                resolved_tone = self.prompt_manager.get_recommended_tone(industry) if industry else None
+            except Exception:
+                resolved_tone = None
+        if resolved_tone is None:
+            resolved_tone = "warm"
+
         logger.info("📝 광고 문구 생성 중...")
         logger.info(f"   입력: {user_input}")
-        logger.info(f"   톤: {tone}, 최대 {max_length}자, 업종: {industry or 'general'}")
+        logger.info(
+            f"   톤: {resolved_tone}, 최대 {max_length}자, 업종 힌트: {industry or 'general'}"
+        )
         logger.info(f"   업종 설정 사용: {self.use_industry_config}")
         try:
+            chat_history = self._normalize_history_items(chat_history)
+            generation_history = self._normalize_history_items(generation_history)
             length_spec = self._extract_length_expectation(
                 self._merge_length_source_text(user_input)
             )
@@ -142,7 +155,7 @@ class TextGenerator:
                 if self.use_industry_config and self.prompt_manager:
                     prompts = self.prompt_manager.get_ad_copy_prompt(
                         user_input=user_input,
-                        tone=tone,
+                        tone=resolved_tone,
                         max_length=safe_max_length,
                         industry=industry
                     )
@@ -163,12 +176,21 @@ class TextGenerator:
                     if history_context:
                         user_prompt = f"{user_prompt}\n\n{history_context}"
                     # 자동 감지된 업종 정보 출력
-                    detected_industry = prompts.get("industry", industry)
-                    logger.info(f"   감지된 업종: {detected_industry}")
+                    detected_industry = prompts.get("industry")
+                    if detected_industry == industry and self.prompt_manager:
+                        detected_from_text = self.prompt_manager.detect_industry(user_input)
+                        if detected_from_text:
+                            logger.info(f"   감지된 업종: {detected_from_text}")
+                            if industry and detected_from_text != industry:
+                                logger.info(f"   업종 힌트: {industry}")
+                        else:
+                            logger.info(f"   감지된 업종: {detected_industry}")
+                    else:
+                        logger.info(f"   감지된 업종: {detected_industry}")
                 else:
                     # 1. 시스템 프롬프트 선택 (대화 히스토리와 업종 정보 포함)
                     system_prompt = self._get_system_prompt(
-                        tone,
+                        resolved_tone,
                         safe_max_length,
                         chat_history=chat_history,
                         generation_history=generation_history,
@@ -386,6 +408,8 @@ class TextGenerator:
 
     def _build_history_context(self, chat_history=None, generation_history=None) -> str:
         sections = []
+        chat_history = self._normalize_history_items(chat_history)
+        generation_history = self._normalize_history_items(generation_history)
         chat_part = self._format_chat_history(chat_history)
         if chat_part:
             sections.append(f"최근 대화 맥락(참고):\n{chat_part}")
@@ -393,6 +417,15 @@ class TextGenerator:
         if gen_part:
             sections.append(f"이전에 생성된 문구(참고):\n{gen_part}")
         return "\n\n".join(sections)
+
+    def _normalize_history_items(self, items):
+        if items is None:
+            return []
+        if isinstance(items, tuple) and len(items) == 2 and isinstance(items[0], list):
+            items = items[0]
+        if isinstance(items, list):
+            return items
+        return []
 
     def _append_hashtag_instruction(self, prompt: str, hashtag_count: int) -> str:
         return (
@@ -418,10 +451,14 @@ class TextGenerator:
         return f"{user_prompt}\n\n요구사항:\n" + "\n".join(requirements)
 
     def _detect_hashtag_requirement(self, user_input, chat_history=None) -> tuple[bool, int]:
-        combined = " ".join(
-            [user_input or ""]
-            + [msg.get("content", "") for msg in (chat_history or [])[-5:]]
-        )
+        normalized_history = self._normalize_history_items(chat_history)
+        contents = [user_input or ""]
+        for msg in normalized_history[-5:]:
+            if isinstance(msg, dict):
+                contents.append(msg.get("content", "") or "")
+            elif isinstance(msg, (list, tuple)) and len(msg) >= 2:
+                contents.append(msg[1] or "")
+        combined = " ".join(contents)
         text = combined.lower()
         if "해시태그" in text or "hash tag" in text or "hashtag" in text or "#" in text:
             count = self._extract_hashtag_count(combined)
@@ -434,7 +471,11 @@ class TextGenerator:
             for group in match.groups():
                 if group and group.isdigit():
                     value = int(group)
-                    return max(1, min(value, 10))
+                    return max(1, min(value, 30))
+        match = re.search(r"(\d+)\s*개\s*(?:이상)?\s*해시태그", text)
+        if match and match.group(1).isdigit():
+            value = int(match.group(1))
+            return max(1, min(value, 30))
         return 3
 
     def _extract_length_expectation(self, user_input: str) -> "LengthSpec":
@@ -476,8 +517,17 @@ class TextGenerator:
             return ""
         lines = []
         for msg in chat_history[-max_items:]:
-            role = msg.get("role", "unknown")
-            content = " ".join((msg.get("content") or "").split())
+            role = None
+            content = None
+            if isinstance(msg, dict):
+                role = msg.get("role", "unknown")
+                content = msg.get("content")
+            elif isinstance(msg, (list, tuple)) and len(msg) >= 2:
+                role = msg[0] if msg[0] else "unknown"
+                content = msg[1]
+            if content is None:
+                continue
+            content = " ".join(str(content).split())
             if not content:
                 continue
             snippet = content[:max_len]
@@ -496,6 +546,8 @@ class TextGenerator:
             return ""
         lines = []
         for gen in generation_history:
+            if not isinstance(gen, dict):
+                continue
             if gen.get("content_type") != "text":
                 continue
             output_text = " ".join((gen.get("output_text") or "").split())
