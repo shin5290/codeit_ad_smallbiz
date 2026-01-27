@@ -310,7 +310,6 @@ class LLMOrchestrator:
             "generation_type": "image|text|null",
             "aspect_ratio": "1:1|16:9|9:16|4:3",
             "style": "ultra_realistic|semi_realistic|anime",
-            "industry": "cafe|restaurant|fashion|...",
             "need_rmbg": true|false,
             "strength": 0.0-1.0 or null
         }
@@ -404,17 +403,7 @@ class LLMOrchestrator:
 사용자가 명시적으로 스타일을 지정하면 우선 적용
 스타일이 명확하지 않으면 style=null (기본값 사용)
 
-## 6. 업종 감지
-- cafe: 카페, 커피, 카페테리아
-- restaurant: 레스토랑, 음식점, 식당
-- bakery: 베이커리, 빵집, 제과점
-- fashion: 패션, 의류, 옷
-- beauty: 뷰티, 미용, 화장품
-- event: 이벤트, 행사, 프로모션
-- 기타 명확한 업종이 있으면 영문으로
-- 업종 불명확 시 general로 출력
-
-## 7. 텍스트 생성 파라미터 (generation_type=text일 때)
+## 6. 텍스트 생성 파라미터 (generation_type=text일 때)
 톤(text_tone): warm|professional|friendly|energetic 중 하나
 - 사용자가 톤을 직접 지정하면 우선 적용
 - "전문적", "신뢰", "격식", "고급" → professional
@@ -438,7 +427,6 @@ class LLMOrchestrator:
   "generation_type": "image|text|null",
   "aspect_ratio": "1:1|16:9|9:16|4:3" or null,
   "style": "ultra_realistic|semi_realistic|anime" or null,
-  "industry": "cafe|restaurant|..." or null,
   "need_rmbg": true|false,
   "strength": 0.0-1.0 or null,
   "text_tone": "warm|professional|friendly|energetic" or null,
@@ -455,7 +443,6 @@ class LLMOrchestrator:
   "generation_type": "image",
   "aspect_ratio": "1:1",
   "style": "semi_realistic",
-  "industry": "cafe",
   "need_rmbg": false,
   "strength": null
 }
@@ -468,7 +455,6 @@ class LLMOrchestrator:
   "generation_type": "image",
   "aspect_ratio": "16:9",
   "style": "ultra_realistic",
-  "industry": "restaurant",
   "need_rmbg": false,
   "strength": null
 }
@@ -481,7 +467,6 @@ class LLMOrchestrator:
   "generation_type": "image",
   "aspect_ratio": "9:16",
   "style": "anime",
-  "industry": "event",
   "need_rmbg": false,
   "strength": null
 }
@@ -494,7 +479,6 @@ class LLMOrchestrator:
   "generation_type": "image",
   "aspect_ratio": null,
   "style": null,
-  "industry": null,
   "need_rmbg": false,
   "strength": 0.55
 }
@@ -507,7 +491,6 @@ class LLMOrchestrator:
   "generation_type": "image",
   "aspect_ratio": null,
   "style": null,
-  "industry": null,
   "need_rmbg": false,
   "strength": 0.35
 }
@@ -520,7 +503,6 @@ class LLMOrchestrator:
   "generation_type": "image",
   "aspect_ratio": null,
   "style": null,
-  "industry": null,
   "need_rmbg": false,
   "strength": 0.9
 }
@@ -533,7 +515,6 @@ class LLMOrchestrator:
   "generation_type": "image",
   "aspect_ratio": null,
   "style": null,
-  "industry": null,
   "need_rmbg": false,
   "strength": 0.45
 }
@@ -546,7 +527,6 @@ class LLMOrchestrator:
   "generation_type": "text",
   "aspect_ratio": null,
   "style": null,
-  "industry": "cafe",
   "need_rmbg": false,
   "strength": null,
   "text_tone": "warm",
@@ -588,7 +568,6 @@ class LLMOrchestrator:
                     "generation_type": None,
                     "aspect_ratio": None,
                     "style": None,
-                    "industry": None,
                     "need_rmbg": False,
                     "strength": None,
                     "text_tone": None,
@@ -617,7 +596,6 @@ class LLMOrchestrator:
             # 플랫폼/비율/스타일/업종/strength 추출
             aspect_ratio = result.get("aspect_ratio")
             style = result.get("style")
-            industry = result.get("industry")
             strength = result.get("strength")
             need_rmbg = result.get("need_rmbg")
             text_tone = result.get("text_tone")
@@ -635,8 +613,6 @@ class LLMOrchestrator:
                 style = style.strip()
             if style not in valid_styles:
                 style = None
-            if isinstance(industry, str):
-                industry = industry.strip() or None
 
             if strength is not None:
                 try:
@@ -703,7 +679,7 @@ class LLMOrchestrator:
 
             logger.info(
                 f"Intent: {intent}, type: {gen_type}, strength: {strength}, "
-                f"ratio: {aspect_ratio}, style: {style}, industry: {industry}, need_rmbg: {need_rmbg}, "
+                f"ratio: {aspect_ratio}, style: {style}, need_rmbg: {need_rmbg}, "
                 f"text_tone: {text_tone}, text_max_length: {text_max_length}"
             )
 
@@ -713,7 +689,6 @@ class LLMOrchestrator:
                 "generation_type": gen_type,
                 "aspect_ratio": aspect_ratio,
                 "style": style,
-                "industry": industry,
                 "need_rmbg": need_rmbg,
                 "strength": strength,
                 "text_tone": text_tone,
@@ -728,7 +703,6 @@ class LLMOrchestrator:
                 "generation_type": None,
                 "aspect_ratio": None,
                 "style": None,
-                "industry": None,
                 "need_rmbg": False,
                 "strength": None,
                 "text_tone": None,
@@ -742,7 +716,6 @@ class LLMOrchestrator:
                 "generation_type": None,
                 "aspect_ratio": None,
                 "style": None,
-                "industry": None,
                 "need_rmbg": False,
                 "strength": None,
                 "text_tone": None,
