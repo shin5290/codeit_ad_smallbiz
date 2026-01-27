@@ -384,6 +384,8 @@ async def generate_contents(
     style: Optional[str] = None,
     aspect_ratio: Optional[str] = None,
     industry: Optional[str] = None,
+    need_rmbg: Optional[bool] = None,
+    is_text_modification: Optional[bool] = None,
     strength: Optional[float] = None,
     text_tone: Optional[str] = None,
     text_max_length: Optional[int] = None,
@@ -399,6 +401,8 @@ async def generate_contents(
         style: 이미지 스타일 (ultra_realistic, semi_realistic, anime)
         aspect_ratio: 이미지 비율 (1:1, 16:9, 9:16, 4:3)
         industry: 업종 (cafe, restaurant 등)
+        need_rmbg: 배경 제거 요청 여부 (이미지 생성용)
+        is_text_modification: 텍스트만 수정 요청 여부 (참조용)
         strength: 수정 강도 (0.0~1.0)
         text_tone: 텍스트 톤 (warm, professional, friendly, energetic)
         text_max_length: 텍스트 최대 길이 (10~200)
@@ -464,6 +468,12 @@ async def generate_contents(
             # user_input으로부터 프롬프트를 자동 생성함
             if reference_image is not None and effective_strength is None:
                 effective_strength = 0.6
+            effective_need_rmbg = True if need_rmbg is True else False
+            if effective_need_rmbg and reference_image is None:
+                logger.warning(
+                    "generate_contents: need_rmbg=True but reference_image is None; forcing need_rmbg=False"
+                )
+                effective_need_rmbg = False
             img_result = await run_in_threadpool(
                 generate_and_save_image,
                 user_input=input_text,
@@ -472,6 +482,7 @@ async def generate_contents(
                 industry=resolved_industry,
                 reference_image=reference_image,
                 strength=effective_strength,
+                need_rmbg=effective_need_rmbg,
                 progress_callback=progress_callback,
             )
 
@@ -627,6 +638,7 @@ async def handle_chat_message_stream(
     aspect_ratio = intent_result.get("aspect_ratio")
     style = intent_result.get("style")
     industry = intent_result.get("industry")
+    need_rmbg = intent_result.get("need_rmbg")
     strength = intent_result.get("strength")
     text_tone = intent_result.get("text_tone")
     text_max_length = intent_result.get("text_max_length")
@@ -683,6 +695,7 @@ async def handle_chat_message_stream(
     
     generation_input = refinement_result.get("refined_input") or message
     target_generation_id = refinement_result.get("target_generation_id")  # Refinement에서 찾음
+    is_text_modification = refinement_result.get("is_text_modification")
 
     progress_queue: Optional[asyncio.Queue] = None
     progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
@@ -713,6 +726,8 @@ async def handle_chat_message_stream(
                     style=style,  # Intent에서 결정된 스타일 전달
                     aspect_ratio=aspect_ratio,  # Intent에서 결정된 비율 전달
                     industry=industry,
+                    need_rmbg=need_rmbg,
+                    is_text_modification=is_text_modification,
                     strength=strength,  # Intent에서 결정된 강도 전달
                     text_tone=text_tone,
                     text_max_length=text_max_length,
@@ -758,6 +773,8 @@ async def handle_chat_message_stream(
                 aspect_ratio=aspect_ratio,
                 style=style,
                 industry=industry,
+                need_rmbg=need_rmbg,
+                is_text_modification=is_text_modification,
                 strength=strength,
                 text_tone=text_tone,
                 text_max_length=text_max_length,
@@ -786,6 +803,10 @@ async def handle_chat_message_stream(
             "output": output,
         }
 
+    except HTTPException as exc:
+        logger.warning("Stream failed with HTTPException: %s", exc.detail)
+        message = exc.detail if isinstance(exc.detail, str) else "요청 처리 중 오류가 발생했습니다."
+        yield {"type": "error", "message": message}
     except Exception as exc:
         logger.error(f"Stream failed: {exc}", exc_info=True)
         yield {"type": "error", "message": "요청 처리 중 오류가 발생했습니다."}
@@ -799,6 +820,8 @@ async def _execute_generation_pipeline(
     aspect_ratio: Optional[str] = None,
     style: Optional[str] = None,
     industry: Optional[str] = None,
+    need_rmbg: Optional[bool] = None,
+    is_text_modification: Optional[bool] = None,
     strength: Optional[float] = None,
     text_tone: Optional[str] = None,
     text_max_length: Optional[int] = None,
@@ -832,6 +855,8 @@ async def _execute_generation_pipeline(
         style=final_style,
         aspect_ratio=final_aspect_ratio,
         industry=industry,  # 업종 정보도 전달 (프롬프트 생성 시 활용 가능)
+        need_rmbg=need_rmbg,
+        is_text_modification=is_text_modification,
         strength=strength,
         text_tone=text_tone,
         text_max_length=text_max_length,
@@ -860,6 +885,8 @@ async def handle_chat_revise(
     style: Optional[str] = None,  # Intent에서 전달받음
     aspect_ratio: Optional[str] = None,  # Intent에서 전달받음
     industry: Optional[str] = None,
+    need_rmbg: Optional[bool] = None,
+    is_text_modification: Optional[bool] = None,
     strength: Optional[float] = None,  # Intent에서 전달받음
     text_tone: Optional[str] = None,
     text_max_length: Optional[int] = None,
@@ -911,6 +938,8 @@ async def handle_chat_revise(
         style=updated_params["style"],
         aspect_ratio=updated_params["aspect_ratio"],
         industry=updated_params["industry"],
+        need_rmbg=need_rmbg,
+        is_text_modification=is_text_modification,
         strength=updated_params["strength"],
         text_tone=text_tone,
         text_max_length=text_max_length,
