@@ -1,9 +1,7 @@
 import asyncio
 import json
 import os
-import re
 from datetime import date, datetime, timedelta
-from pathlib import Path
 from typing import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -12,137 +10,25 @@ from sqlalchemy.orm import Session
 
 from src.backend import process_db, schemas
 from src.backend import services
+from src.utils.admin_logs import (
+    LOG_STREAM_POLL_INTERVAL,
+    LOG_STREAM_TIMEOUT_SECONDS,
+    LOG_TAIL_DEFAULT_LINES,
+    LOG_TAIL_MAX_LINES,
+    LOG_STREAM_SEMAPHORE,
+    _acquire_log_stream_slot,
+    _filter_log_line,
+    _is_valid_log_date,
+    _is_within_root,
+    _mask_sensitive,
+    _read_full_file,
+    _resolve_log_dir,
+    _resolve_log_file,
+    _tail_lines,
+)
 from src.utils.logging import get_current_log_file, get_log_root, get_run_id
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-
-LOG_STREAM_MAX_CONNECTIONS = int(os.getenv("LOG_STREAM_MAX_CONNECTIONS", "5"))
-LOG_STREAM_TIMEOUT_SECONDS = int(os.getenv("LOG_STREAM_TIMEOUT_SECONDS", "600"))
-LOG_STREAM_POLL_INTERVAL = float(os.getenv("LOG_STREAM_POLL_INTERVAL", "0.5"))
-LOG_TAIL_DEFAULT_LINES = int(os.getenv("LOG_TAIL_DEFAULT_LINES", "400"))
-LOG_TAIL_MAX_LINES = int(os.getenv("LOG_TAIL_MAX_LINES", "1000"))
-LOG_STREAM_SEMAPHORE = asyncio.Semaphore(LOG_STREAM_MAX_CONNECTIONS)
-
-_LOG_LEVEL_MAP = {
-    "debug": "D",
-    "info": "I",
-    "warn": "W",
-    "warning": "W",
-    "error": "E",
-    "critical": "C",
-    "fatal": "C",
-}
-
-_SENSITIVE_PATTERNS: list[tuple[re.Pattern, str]] = [
-    (re.compile(r"(?i)(authorization\s*:\s*bearer\s+)([^\s,;]+)"), r"\1****"),
-    (re.compile(r'(?i)(authorization"\s*:\s*")([^"]+)(")'), r'\1****\3'),
-    (re.compile(r"(?i)(authorization\s*:\s*)([^\s,;]+)"), r"\1****"),
-    (re.compile(r"(?i)(access_token|refresh_token|id_token)\s*[=:]\s*([^\s&]+)"), r"\1=****"),
-    (re.compile(r"(?i)(cookie|set-cookie)\s*:\s*([^\n]+)"), r"\1: ****"),
-    (re.compile(r"(?i)(cookie)\s*=\s*([^;\n]+)"), r"\1=****"),
-]
-
-
-def _mask_sensitive(text: str) -> str:
-    masked = text
-    for pattern, repl in _SENSITIVE_PATTERNS:
-        masked = pattern.sub(repl, masked)
-    return masked
-
-
-def _normalize_level(level: str | None) -> str | None:
-    if not level:
-        return None
-    key = level.strip().lower()
-    if not key:
-        return None
-    return _LOG_LEVEL_MAP.get(key, key[:1].upper())
-
-
-def _filter_log_line(line: str, query: str | None, level: str | None) -> bool:
-    if query:
-        if query.lower() not in line.lower():
-            return False
-    normalized = _normalize_level(level)
-    if normalized:
-        token = f" - {normalized} - "
-        if token not in line:
-            return False
-    return True
-
-
-def _is_valid_log_date(value: str) -> bool:
-    try:
-        datetime.strptime(value, "%Y-%m-%d")
-        return True
-    except (TypeError, ValueError):
-        return False
-
-
-def _is_safe_log_filename(value: str) -> bool:
-    if not value.endswith(".log"):
-        return False
-    return Path(value).name == value
-
-
-def _is_within_root(target: Path, root: Path) -> bool:
-    try:
-        target.relative_to(root)
-        return True
-    except ValueError:
-        return False
-
-
-def _resolve_log_dir(date_str: str) -> Path:
-    if not _is_valid_log_date(date_str):
-        raise HTTPException(status_code=400, detail="날짜 형식이 올바르지 않습니다.")
-    log_root = get_log_root().resolve()
-    target = (log_root / date_str).resolve()
-    if not _is_within_root(target, log_root):
-        raise HTTPException(status_code=403, detail="허용되지 않은 경로입니다.")
-    if not target.exists() or not target.is_dir():
-        raise HTTPException(status_code=404, detail="로그 폴더를 찾을 수 없습니다.")
-    return target
-
-
-def _resolve_log_file(date_str: str, filename: str) -> Path:
-    if not _is_safe_log_filename(filename):
-        raise HTTPException(status_code=400, detail="파일명이 올바르지 않습니다.")
-    log_dir = _resolve_log_dir(date_str)
-    target = (log_dir / filename).resolve()
-    if not _is_within_root(target, log_dir):
-        raise HTTPException(status_code=403, detail="허용되지 않은 경로입니다.")
-    if not target.exists() or not target.is_file():
-        raise HTTPException(status_code=404, detail="로그 파일을 찾을 수 없습니다.")
-    return target
-
-
-def _tail_lines(path: Path, lines: int) -> list[str]:
-    if lines <= 0:
-        return []
-    buffer = bytearray()
-    newline_count = 0
-    with path.open("rb") as file_obj:
-        file_obj.seek(0, os.SEEK_END)
-        position = file_obj.tell()
-        while position > 0 and newline_count <= lines:
-            step = min(4096, position)
-            position -= step
-            file_obj.seek(position)
-            chunk = file_obj.read(step)
-            buffer[:0] = chunk
-            newline_count = buffer.count(b"\n")
-            if position == 0:
-                break
-    text = buffer.decode("utf-8", errors="replace")
-    return text.splitlines()[-lines:]
-
-
-async def _acquire_log_stream_slot():
-    try:
-        await asyncio.wait_for(LOG_STREAM_SEMAPHORE.acquire(), timeout=0.05)
-    except asyncio.TimeoutError as exc:
-        raise HTTPException(status_code=429, detail="로그 스트리밍 연결이 너무 많습니다.") from exc
 
 
 def require_admin(current_user=Depends(services.get_current_user)):
@@ -348,6 +234,10 @@ def get_session_detail(
     message_limit: int = Query(200, ge=1, le=500),
     message_offset: int = Query(0, ge=0),
     query: str | None = Query(None),
+    role: str | None = Query(None),
+    from_date: date | None = Query(None, alias="from"),
+    to_date: date | None = Query(None, alias="to"),
+    has_image: bool | None = Query(None),
     generation_limit: int = Query(5, ge=0, le=50),
     mask: bool = Query(True),
     db: Session = Depends(process_db.get_db),
@@ -357,12 +247,23 @@ def get_session_detail(
     if not overview:
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
 
+    start_at = None
+    end_at = None
+    if from_date:
+        start_at = datetime.combine(from_date, datetime.min.time())
+    if to_date:
+        end_at = datetime.combine(to_date, datetime.min.time()) + timedelta(days=1)
+
     messages, message_total = process_db.get_admin_session_messages(
         db,
         session_id=session_id,
         limit=message_limit,
         offset=message_offset,
         query=query,
+        role=role,
+        start_at=start_at,
+        end_at=end_at,
+        has_image=has_image,
     )
 
     message_items: list[schemas.AdminSessionMessage] = []
@@ -596,20 +497,6 @@ async def stream_log_file(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-
-
-def _read_full_file(path: Path, query: str | None, level: str | None, mask: bool) -> list[str]:
-    """전체 파일을 읽어서 필터링된 라인 목록을 반환합니다."""
-    result: list[str] = []
-    with path.open("r", encoding="utf-8", errors="replace") as file_obj:
-        for line in file_obj:
-            line = line.rstrip("\n")
-            if not _filter_log_line(line, query, level):
-                continue
-            if mask:
-                line = _mask_sensitive(line)
-            result.append(line)
-    return result
 
 
 @router.get("/logs/current", response_model=schemas.AdminCurrentLogResponse)

@@ -616,6 +616,10 @@ def get_admin_session_messages(
     limit: int = 200,
     offset: int = 0,
     query: Optional[str] = None,
+    role: Optional[str] = None,
+    start_at: Optional[datetime] = None,
+    end_at: Optional[datetime] = None,
+    has_image: Optional[bool] = None,
 ):
     """
     관리자용 세션 메시지 조회 (페이징)
@@ -627,14 +631,26 @@ def get_admin_session_messages(
     
     if query:
         query_builder = query_builder.filter(models.ChatHistory.content.ilike(f"%{query}%"))
+
+    if role:
+        query_builder = query_builder.filter(models.ChatHistory.role == role)
+
+    if start_at is not None:
+        query_builder = query_builder.filter(models.ChatHistory.created_at >= start_at)
+    if end_at is not None:
+        query_builder = query_builder.filter(models.ChatHistory.created_at < end_at)
+
+    if has_image is True:
+        query_builder = query_builder.filter(models.ChatHistory.image_id.isnot(None))
+    elif has_image is False:
+        query_builder = query_builder.filter(models.ChatHistory.image_id.is_(None))
         
     query_builder = query_builder.options(selectinload(models.ChatHistory.image)).order_by(
         models.ChatHistory.created_at.desc(), models.ChatHistory.id.desc()
     )
     
     total = query_builder.count()
-    items_desc = query_builder.offset(offset).limit(limit).all()
-    items = list(reversed(items_desc))
+    items = query_builder.offset(offset).limit(limit).all()
     return items, total
 
 

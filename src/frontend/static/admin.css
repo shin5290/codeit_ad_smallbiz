@@ -86,7 +86,7 @@ body {
 }
 
 .content h2 {
-    margin: 0 0 16px;
+    margin: 0;
     font-size: 1.2rem;
 }
 
@@ -206,7 +206,7 @@ th {
 }
 
 .badge-tight {
-    padding: 2px 8px;
+    padding: 1px 8px;
 }
 
 .badge-neutral {
@@ -274,10 +274,13 @@ th {
 }
 
 .text-preview-row {
+    display: inline;
+}
+
+.text-preview-action {
+    white-space: nowrap;
     display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-    flex-wrap: wrap;
+    align-items: center;
 }
 
 .text-more {
@@ -327,6 +330,10 @@ th {
     word-break: break-word;
 }
 
+.generation-meta .meta-value {
+    white-space: nowrap;
+}
+
 .nowrap {
     white-space: nowrap;
 }
@@ -337,6 +344,7 @@ th {
     gap: 10px;
     align-items: center;
     flex: 1 1 520px;
+    min-width: 0;
 }
 
 .filters input,
@@ -370,6 +378,37 @@ th {
     gap: 8px;
     margin-top: 12px;
     align-items: center;
+}
+
+.session-detail-meta {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+}
+
+.meta-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+
+.meta-chip {
+    display: inline-flex;
+    gap: 6px;
+    align-items: baseline;
+}
+
+.session-detail-pagination {
+    justify-content: space-between;
+    align-items: center;
+}
+
+.session-detail-page-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .session-row.is-selected {
@@ -441,14 +480,6 @@ th {
     vertical-align: top;
 }
 
-.session-message-row.user {
-    background: #eef2ff;
-}
-
-.session-message-row.assistant {
-    background: #ecfdf5;
-}
-
 .session-detail-table .text-cell {
     min-width: 220px;
 }
@@ -468,6 +499,10 @@ th {
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+#view-generations td {
+    vertical-align: top;
 }
 
 .generation-card {
@@ -494,6 +529,17 @@ th {
     grid-template-columns: 240px 1fr;
     gap: 16px;
     align-items: start;
+    width: 100%;
+    min-width: 0;
+}
+
+.log-main {
+    min-width: 0;
+}
+
+.log-stream-panel,
+.log-file-panel {
+    min-width: 0;
 }
 
 .log-tree {
@@ -501,15 +547,28 @@ th {
     border: 1px solid #e5e7eb;
     border-radius: 12px;
     padding: 12px;
-    max-height: 720px;
+    max-height: 520px;
     overflow: auto;
+}
+
+.log-live-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.log-live-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #111827;
 }
 
 .log-tree-header {
     font-size: 0.9rem;
     font-weight: 600;
     color: #374151;
-    margin-bottom: 10px;
+    margin: 12px 0 10px;
 }
 
 .log-tree-list {
@@ -562,6 +621,13 @@ th {
     border: 1px solid #e5e7eb;
 }
 
+.log-file-name {
+    flex: 1 1 auto;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
 .log-file-button.is-active {
     background: #1f2937;
     color: #f9fafb;
@@ -601,6 +667,8 @@ th {
 
 .log-line {
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .log-output-body mark {
@@ -608,6 +676,42 @@ th {
     color: #111827;
     padding: 0 2px;
     border-radius: 3px;
+}
+
+.badge-live {
+    background: #d1fae5;
+    color: #16a34a;
+    padding: 2px 6px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    margin-left: 6px;
+}
+
+.log-live-button {
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #111827;
+    padding: 8px 12px;
+    border-radius: 14px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    justify-content: space-between;
+}
+
+.log-live-button.is-active {
+    background: #f0fdf4;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+
+.checkbox-label {
+    white-space: nowrap;
 }
 
 .checkbox-label {
@@ -758,6 +862,10 @@ th {
     align-items: center;
     justify-content: center;
     z-index: 120;
+}
+
+#user-modal .meta-label {
+    padding-top: 3px;
 }
 
 #user-modal.hidden {
