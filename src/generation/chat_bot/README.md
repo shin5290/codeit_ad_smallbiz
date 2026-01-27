@@ -59,9 +59,9 @@
       ↓
 02_split_data.py → raw/{train,val,test}_places.json
       ↓
-03_build_documents_v5.py → processed/documents_v5.jsonl
+03_build_documents.py → processed/documents.jsonl
       ↓
-06_build_vectorstore.py → data/vectorstore/chroma_db/
+04_build_vectorstore.py → data/vectorstore/chroma_db/
 ```
 
 **RAG 검색 성능 평가 결과 (v5.9, 200개 쿼리):**
@@ -337,9 +337,9 @@ chat_bot/
 ├── data/                         # 데이터 파이프라인
 │   ├── 01_crawl_naver.py         # 네이버 플레이스 크롤링
 │   ├── 02_split_data.py          # 데이터 정제/분리
-│   ├── 03_build_documents_v5.py  # 문서 생성
-│   ├── 06_build_vectorstore.py   # Chroma 벡터스토어 생성
-│   ├── processed/                # 처리된 문서 (documents_v5.jsonl)
+│   ├── 03_build_documents.py     # 문서 생성
+│   ├── 04_build_vectorstore.py   # Chroma 벡터스토어 생성
+│   ├── processed/                # 처리된 문서 (documents.jsonl)
 │   └── vectorstore/              # Chroma DB (chroma_db/)
 │
 ├── docs/                         # 문서
