@@ -737,7 +737,8 @@ class LLMOrchestrator:
         Returns:
             {
                 "refined_input": str,  # 정제된 입력 텍스트
-                "target_generation_id": int or None  # 수정 대상 ID (modification일 때만)
+                "target_generation_id": int or None,  # 수정 대상 ID (modification일 때만)
+                "is_text_modification": bool  # 텍스트만 수정 요청 여부
             }
         """
 
@@ -794,6 +795,16 @@ class LLMOrchestrator:
 
 ---
 
+---
+
+# Task 3: Text-only Modification Detection
+사용자가 **텍스트만** 수정하겠다는 의도가 명확한지 판단하십시오.
+아래 조건에 해당하면 `is_text_modification = true`:
+- "문구만", "글자만", "텍스트만", "카피만" 등 텍스트 수정만 명시
+- "이미지는 그대로", "배경은 그대로"처럼 이미지 변경 제외를 명시
+
+그 외에는 `is_text_modification = false`.
+
 Output Format (JSON Only)
 반드시 아래 JSON 포맷으로만 응답하며, 마크다운 코드 블록(``json)을 사용하지 마십시오.
 **reasoning` 필드에 당신의 판단 근거를 먼저 작성해야 정확도가 올라갑니다.**
@@ -802,7 +813,8 @@ Output Format (JSON Only)
   "reasoning": "사용자가 '두 번째 거'라고 했으므로 chrono_rank=2인 ID 105를 선택함. 기존 요청 '시원한 느낌'에 '빨간색 강조'를 추가함.",
   "intent_type": "modification" | "generation",
   "target_generation_id": 123 | null,
-  "refined_input": "여기에 정제된 텍스트 작성"
+  "refined_input": "여기에 정제된 텍스트 작성",
+  "is_text_modification": true|false
 }}
 
 
@@ -856,7 +868,7 @@ generation_type: {generation_type or "null"}
 2. refined_input 작성
 
 JSON 형식으로 응답:
-{{"refined_input": "...", "target_generation_id": 123 or null}}
+{{"refined_input": "...", "target_generation_id": 123 or null, "is_text_modification": true|false}}
 """
 
         try:
@@ -884,12 +896,26 @@ JSON 형식으로 응답:
 
             refined_input = (result.get("refined_input") or "").strip()
             target_id = result.get("target_generation_id")
+            is_text_modification = result.get("is_text_modification")
 
             # target_id 유효성 검사
             if isinstance(target_id, str) and target_id.isdigit():
                 target_id = int(target_id)
             if not isinstance(target_id, int):
                 target_id = None
+
+            if isinstance(is_text_modification, str):
+                normalized = is_text_modification.strip().lower()
+                if normalized in ("true", "yes", "y", "1"):
+                    is_text_modification = True
+                elif normalized in ("false", "no", "n", "0"):
+                    is_text_modification = False
+                else:
+                    is_text_modification = None
+            if isinstance(is_text_modification, (int, float)) and not isinstance(is_text_modification, bool):
+                is_text_modification = bool(is_text_modification)
+            if not isinstance(is_text_modification, bool):
+                is_text_modification = False
 
             # refined_input이 비어있으면 마지막 사용자 메시지 사용
             if not refined_input:
@@ -905,6 +931,7 @@ JSON 형식으로 응답:
             return {
                 "refined_input": refined_input,
                 "target_generation_id": target_id,
+                "is_text_modification": is_text_modification,
             }
 
         except Exception as e:
@@ -913,6 +940,7 @@ JSON 형식으로 응답:
             return {
                 "refined_input": latest_user_message,
                 "target_generation_id": None,
+                "is_text_modification": False,
             }
 
 # =====================================================
