@@ -85,7 +85,7 @@ def web_search(query: str) -> str:
                     formatted.append(
                         f"[{i}] {title}\n"
                         f"    {content}...\n"
-                        f"    출처: {url}"
+                        f"    링크: {url}"
                     )
                 return "\n\n".join(formatted)
         except Exception:
@@ -110,7 +110,7 @@ def web_search(query: str) -> str:
             formatted.append(
                 f"[{i}] {title}\n"
                 f"    {body}...\n"
-                f"    출처: {href}"
+                f"    링크: {href}"
             )
 
         return "\n\n".join(formatted)
@@ -250,25 +250,25 @@ AGENT_SYSTEM_PROMPT = f"""당신은 소상공인 마케팅 전문 컨설턴트�
 2) 숫자는 검색 결과에서 확인된 것만 사용
    - 검색 결과에 숫자가 없으면 "구체적 수치는 검색 결과에서 확인되지 않음"이라고 명시
    - **절대 "20% 증가", "30% 상승" 같은 숫자를 지어내지 말 것**
-3) 출처 필수 (환각 금지):
-   - **검색 결과에 실제로 있는 출처만 사용**
-   - 출처 형식: (출처: [실제 제목](URL)) 또는 (출처: {{매장명}}({{지역}}))
-   - **가짜 출처 생성 절대 금지** (예: "웹[1]", "사례[1]" 같은 플레이스홀더 금지)
-   - 검색 결과에 출처가 없으면 "출처: 제공된 검색/사례에서 확인 불가" 명시
+3) 참고 매장 표기 (환각 금지):
+   - **사례 검색 결과에 실제로 있는 매장만 사용**
+   - 형식: {매장명}({지역})만 허용
+   - **가짜 매장 생성 절대 금지** (예: "사례[1]" 같은 플레이스홀더 금지)
+   - 참고 매장이 없으면 섹션을 생략
 4) 평점/별점 언급 금지, 프랜차이즈 지양(로컬 우선)
 5) 한국어, 간결/친근, 상식적 조언 생략
 6) **검색 도구를 사용하지 않고 답변할 때는 "검색 없이 보유 지식으로 답변합니다"라고 먼저 명시**
 
 ## 환각 방지 체크리스트 (매 답변 전 확인)
 - [ ] 내가 언급하는 숫자가 검색 결과에 있는가?
-- [ ] 내가 언급하는 출처가 실제 검색 결과인가?
+- [ ] 내가 언급하는 참고 매장이 실제 사례 결과인가?
 - [ ] 지어낸 정보가 포함되어 있지 않은가?
 
 ## 출력 형식
 - 요약 2줄
-- 실행 아이디어 3개 (검색 결과 기반, 출처 명시)
+- 실행 아이디어 3개 (검색 결과 기반)
 - 주의/리스크 2개
-- 출처 (검색 결과에서 가져온 실제 출처만)"""
+- 참고 매장 (있을 때만)"""
 
 
 # --------------------------------------------
@@ -420,9 +420,8 @@ class TrendAgent:
                 messages.append(
                     HumanMessage(
                         content=(
-                            "[추가 근거] 아래 웹/사례 결과를 반드시 인용하여 답변하세요. "
-                            "각 실행 아이디어 끝에 (출처: 웹:제목/링크, 사례:{제목}({지역}))을 붙이고, "
-                            "출처 섹션에 웹 1~2개 + 사례 2개 이상 bullet로 작성하세요.\n\n"
+                            "[추가 근거] 아래 웹/사례 결과를 참고해 답변하세요. "
+                            "참고 매장 섹션에는 사례 검색에서 실제로 참고한 매장만 bullet로 작성하세요.\n\n"
                             f"{hybrid_result}"
                         )
                     )
@@ -542,6 +541,8 @@ class SmallBizConsultant:
         self.pending_intent: Optional[str] = None
         self.pending_slot: Optional[str] = None
         self.pending_ambiguous_query: Optional[str] = None
+        # 세션 내 컨텍스트 유지(외부에서 user_context를 넘기지 않는 경우 대비)
+        self.session_context: Optional[UserContext] = None
 
     def _build_filter(self, user_context: Optional[UserContext], intent: str) -> Optional[Dict[str, Any]]:
         """슬롯에서 추출된 업종/지역을 기반으로 검색 필터 생성"""
@@ -640,6 +641,44 @@ class SmallBizConsultant:
             "- 어떤 고객을 타겟으로 할지 추천해줘"
         )
 
+    def _is_vague_marketing_issue(self, query: str, intent: str) -> bool:
+        """마케팅 관련 고민/어려움 표현이지만 구체 주제가 없는지 판단"""
+        if intent not in ("marketing_counsel", "doc_rag"):
+            return False
+
+        text = query.lower().strip()
+        vague_signals = [
+            "고민", "어려움", "힘들", "막막", "모르겠", "감이 안",
+            "어떻게 할지", "어찌", "걱정",
+        ]
+        marketing_signals = ["광고", "마케팅", "홍보", "프로모션"]
+        specific_signals = [
+            "예산", "비용", "광고비", "채널", "플랫폼", "인스타", "네이버",
+            "검색", "키워드", "콘텐츠", "사진", "카피", "문구",
+            "전략", "방법", "타겟", "고객", "매출", "방문자",
+            "리뷰", "후기", "전환", "roas", "cpa", "쿠폰", "이벤트",
+            "브랜딩", "도달", "유입",
+        ]
+
+        has_vague = any(kw in text for kw in vague_signals)
+        has_marketing = any(kw in text for kw in marketing_signals)
+        has_specific = any(kw in text for kw in specific_signals)
+
+        return has_vague and has_marketing and not has_specific
+
+    def _handle_issue_clarify(self, query: str, intent: str) -> Dict[str, Any]:
+        """구체적인 고민 포인트를 묻는 확인 질문"""
+        prompt = (
+            "도움 드릴게요! 구체적으로 어떤 부분이 가장 고민인가요?\n"
+            "예: 채널 선택, 예산 배분, 콘텐츠/카피, 타겟 설정, 매출/유입 개선 등"
+        )
+        return {
+            "question": query,
+            "answer": prompt,
+            "intent": intent,
+            "method": "clarify_issue",
+        }
+
     def _resolve_ambiguity_selection(self, query: str) -> Optional[str]:
         """재질문에 대한 단답(1번/2번 등)을 해석"""
         stripped = query.strip()
@@ -677,8 +716,14 @@ class SmallBizConsultant:
         query = _sanitize_text(query)
 
         # 1. 쿼리에서 슬롯 추출하여 UserContext 업데이트
+        if user_context is None:
+            user_context = self.session_context
+        if user_context is None:
+            user_context = UserContext()
+
         prev_context = copy.deepcopy(user_context) if user_context else UserContext()
         user_context = self.slot_checker.update_context_from_query(query, user_context)
+        self.session_context = user_context
 
         # 슬롯 질문 직후라면, 느슨한 지역 추정으로라도 채워보기
         if self.pending_slot == "location" and user_context and not user_context.location:
@@ -828,6 +873,12 @@ class SmallBizConsultant:
                 if self.verbose:
                     print(f"누락 슬롯: {missing_slots} → 질문: {first_missing}")
                 return self._handle_slot_question(query, first_missing, intent)
+
+        # 3-A. 슬롯이 충족되었지만 고민이 모호한 경우 구체화 질문
+        if self._is_vague_marketing_issue(query, intent):
+            if self.verbose:
+                print("모호한 마케팅 고민 → 구체 질문 요청")
+            return self._handle_issue_clarify(query, intent)
 
         # 4. 라우팅별 처리
         if routing == "llm":
