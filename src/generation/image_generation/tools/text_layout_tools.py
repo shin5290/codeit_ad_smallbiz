@@ -99,9 +99,9 @@ def get_text_overlay_tool() -> Dict[str, Any]:
                                     },
                                     "size": {
                                         "type": "integer",
-                                        "minimum": 20,
+                                        "minimum": 18,
                                         "maximum": 200,
-                                        "description": "폰트 크기 (픽셀). 제품명→60-100, 부가문구→30-50 권장"
+                                        "description": "폰트 크기 (픽셀). CRITICAL: Use dynamically calculated size ranges from IMAGE DIMENSIONS section above!"
                                     }
                                 },
                                 "required": ["family", "size"]
@@ -277,39 +277,81 @@ def get_analysis_prompt(text_data: Dict[str, str], image_context: str = "", imag
         else:
             orientation = "정사각형 (Square)"
 
+        # 동적 폰트 크기 계산 (이미지의 짧은 쪽 기준)
+        # 기준: 1024px 기준으로 제품명=100px, 부가문구=50px
+        # 공식: font_size = base_size * (shorter_dimension / 1024) * scaling_factor
+        shorter_dim = min(width, height)
+        base_scale = shorter_dim / 1024.0
+
+        # 제품명 (Main Text): 이미지 짧은 쪽의 8-13% 크기
+        main_min = int(shorter_dim * 0.08)
+        main_max = int(shorter_dim * 0.13)
+
+        # 부가문구 (Secondary): 이미지 짧은 쪽의 4-7% 크기
+        secondary_min = int(shorter_dim * 0.04)
+        secondary_max = int(shorter_dim * 0.07)
+
+        # 작은 텍스트: 이미지 짧은 쪽의 2.5-4% 크기
+        fine_min = int(shorter_dim * 0.025)
+        fine_max = int(shorter_dim * 0.04)
+
+        # 최소/최대 제한 (너무 작거나 크지 않게)
+        main_min = max(40, min(main_min, 160))
+        main_max = max(60, min(main_max, 200))
+        secondary_min = max(25, min(secondary_min, 90))
+        secondary_max = max(35, min(secondary_max, 120))
+        fine_min = max(18, min(fine_min, 50))
+        fine_max = max(25, min(fine_max, 70))
+
         size_info = f"""
 ## IMAGE DIMENSIONS (CRITICAL FOR FONT SIZING!)
 - **Width**: {width}px
 - **Height**: {height}px
 - **Aspect Ratio**: {aspect_ratio:.2f} ({orientation})
-- **Total Area**: {width * height:,} pixels
+- **Shorter Dimension**: {shorter_dim}px (used as font size baseline)
 
-### FONT SIZE ADJUSTMENT RULES (MANDATORY!):
+### DYNAMIC FONT SIZE CALCULATION (SMART SCALING!)
+
+**📐 Formula**: Font sizes are calculated as **percentage of the shorter dimension** to ensure text fits perfectly regardless of image size.
+
+**Calculated sizes for THIS image**:
+- **Product Name / Main Text**: **{main_min}-{main_max}px**
+  - Calculation: {shorter_dim}px × 8-13% = optimal size for primary text
+  - This ensures the main text is LARGE and DOMINANT but doesn't overflow
+
+- **Tagline / Secondary Text**: **{secondary_min}-{secondary_max}px**
+  - Calculation: {shorter_dim}px × 4-7% = supporting text size
+  - Clear hierarchy below main text, still very readable
+
+- **Fine Print / Details**: **{fine_min}-{fine_max}px**
+  - Calculation: {shorter_dim}px × 2.5-4% = small but legible
+
+**🎯 Sizing Strategy ({orientation})**:
 """
 
-        # 이미지 크기에 따른 폰트 크기 가이드
-        if aspect_ratio < 0.8:  # 세로 이미지 (쇼츠/스토리)
-            size_info += """
-**⚠️ VERTICAL IMAGE DETECTED - Use SMALLER fonts!**
-- **Product Name / Main Text**: 50-80px (NOT 80-140px!)
-- **Tagline / Secondary Text**: 30-50px (NOT 40-70px!)
-- **Fine Print**: 20-35px
-- **Reason**: Vertical images have limited width - large fonts will overflow or wrap awkwardly
+        if aspect_ratio < 0.8:  # 세로 이미지
+            size_info += f"""- **VERTICAL** image: Using width ({width}px) as constraint
+- Text scales down automatically to fit narrow canvas
+- Prioritize readability over impact - Korean text needs breathing room
+- **Recommendation**: Use sizes in LOWER half of each range for better fit
 """
         elif aspect_ratio > 1.2:  # 가로 이미지
-            size_info += """
-**↔️ HORIZONTAL IMAGE - Standard or larger fonts OK**
-- **Product Name / Main Text**: 80-140px
-- **Tagline / Secondary Text**: 40-70px
-- **Fine Print**: 25-40px
-- **Reason**: Wide canvas allows for larger, more impactful text
+            size_info += f"""- **HORIZONTAL** image: Using height ({height}px) as constraint
+- Wide canvas allows for bold, impactful text
+- **Recommendation**: Use sizes in UPPER half of each range for maximum presence
 """
-        else:  # 정사각형
-            size_info += """
-**⬜ SQUARE IMAGE - Balanced font sizes**
-- **Product Name / Main Text**: 70-110px
-- **Tagline / Secondary Text**: 35-60px
-- **Fine Print**: 25-40px
+        else:  # 정사방형
+            size_info += f"""- **SQUARE** image: Balanced dimensions
+- **Recommendation**: Use MID-range sizes for harmonious composition
+"""
+
+        size_info += f"""
+**⚠️ CRITICAL RULES**:
+1. **ALWAYS use the calculated ranges above** - they're optimized for THIS specific image size
+2. Longer text (10+ characters) → use LOWER end of range
+3. Shorter text (3-5 characters) → use UPPER end of range
+4. Korean text is denser → add 10-15% more size than you'd use for English
+5. When in doubt, test mentally: "Would {main_max}px text fit comfortably in {width}px width?"
 """
     else:
         size_info = ""
@@ -386,15 +428,20 @@ Analyze the provided advertising image and determine the optimal layout for over
 3. **Different fonts per layer** - create hierarchy!
 
 ### 4. FONT SIZE HIERARCHY
-**⚠️ CRITICAL: Always check IMAGE DIMENSIONS section above for size-specific guidelines!**
+**⚠️ CRITICAL: IGNORE any generic size recommendations - ONLY use the DYNAMICALLY CALCULATED sizes from the IMAGE DIMENSIONS section above!**
 
-- Default ranges (for square/horizontal images):
-  - **Product Name / Main Text**: 80-140px
-  - **Tagline / Secondary Text**: 40-70px
-  - **Fine Print / Details**: 25-40px
+The sizes in that section are **scientifically calculated** based on:
+- Image dimensions (width × height)
+- Aspect ratio (landscape/portrait/square)
+- Text density (Korean vs English)
+- Canvas constraints (what physically fits)
 
-- **IMPORTANT**: For vertical images (aspect ratio < 0.8), use SMALLER sizes from IMAGE DIMENSIONS section!
-- **Korean text consideration**: Korean is denser than English - balance readability with canvas width
+**Why dynamic sizing matters**:
+- A 100px font on a 768px wide vertical image = 13% of width (too large!)
+- The same 100px font on a 1344px wide horizontal image = 7% of width (perfect!)
+- **Solution**: Use percentage-based sizing from IMAGE DIMENSIONS section
+
+**Your job**: Simply pick a size from the calculated range based on text length and emphasis level.
 
 ### 5. EFFECTS DECISION TREE (ALWAYS PRIORITIZE READABILITY!)
 - **Clean, simple background (sky, solid color, blur)**:
