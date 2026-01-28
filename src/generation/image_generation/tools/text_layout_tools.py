@@ -245,7 +245,7 @@ TEXT_OVERLAY_TOOL = get_text_overlay_tool()
 # GPT-4V Analysis Prompt Template
 # ==============================================================================
 
-def get_analysis_prompt(text_data: Dict[str, str], image_context: str = "") -> str:
+def get_analysis_prompt(text_data: Dict[str, str], image_context: str = "", image_size: tuple = None) -> str:
     """
     GPT-4V 이미지 분석 프롬프트 생성
 
@@ -253,6 +253,7 @@ def get_analysis_prompt(text_data: Dict[str, str], image_context: str = "") -> s
         text_data: 오버레이할 텍스트 데이터
             예: {"product_name": "딸기라떼", "tagline": "신메뉴 출시"}
         image_context: 이미지 컨텍스트 (선택, 예: "카페 메뉴 광고")
+        image_size: 이미지 크기 (width, height) - 폰트 크기 조정용
 
     Returns:
         str: GPT-4V에게 전달할 프롬프트
@@ -265,6 +266,54 @@ def get_analysis_prompt(text_data: Dict[str, str], image_context: str = "") -> s
     available_fonts = get_font_enum()
     font_list = "\n".join([f"- {font}" for font in available_fonts])
 
+    # 이미지 크기 정보 포맷팅
+    if image_size:
+        width, height = image_size
+        aspect_ratio = width / height
+        if aspect_ratio > 1.2:
+            orientation = "가로 (Landscape)"
+        elif aspect_ratio < 0.8:
+            orientation = "세로 (Portrait/Vertical)"
+        else:
+            orientation = "정사각형 (Square)"
+
+        size_info = f"""
+## IMAGE DIMENSIONS (CRITICAL FOR FONT SIZING!)
+- **Width**: {width}px
+- **Height**: {height}px
+- **Aspect Ratio**: {aspect_ratio:.2f} ({orientation})
+- **Total Area**: {width * height:,} pixels
+
+### FONT SIZE ADJUSTMENT RULES (MANDATORY!):
+"""
+
+        # 이미지 크기에 따른 폰트 크기 가이드
+        if aspect_ratio < 0.8:  # 세로 이미지 (쇼츠/스토리)
+            size_info += """
+**⚠️ VERTICAL IMAGE DETECTED - Use SMALLER fonts!**
+- **Product Name / Main Text**: 50-80px (NOT 80-140px!)
+- **Tagline / Secondary Text**: 30-50px (NOT 40-70px!)
+- **Fine Print**: 20-35px
+- **Reason**: Vertical images have limited width - large fonts will overflow or wrap awkwardly
+"""
+        elif aspect_ratio > 1.2:  # 가로 이미지
+            size_info += """
+**↔️ HORIZONTAL IMAGE - Standard or larger fonts OK**
+- **Product Name / Main Text**: 80-140px
+- **Tagline / Secondary Text**: 40-70px
+- **Fine Print**: 25-40px
+- **Reason**: Wide canvas allows for larger, more impactful text
+"""
+        else:  # 정사각형
+            size_info += """
+**⬜ SQUARE IMAGE - Balanced font sizes**
+- **Product Name / Main Text**: 70-110px
+- **Tagline / Secondary Text**: 35-60px
+- **Fine Print**: 25-40px
+"""
+    else:
+        size_info = ""
+
     prompt = f"""You are an expert graphic designer specializing in advertising image composition.
 
 ## YOUR TASK
@@ -274,6 +323,8 @@ Analyze the provided advertising image and determine the optimal layout for over
 
 ## IMAGE CONTEXT
 {image_context if image_context else "General advertising image"}
+
+{size_info}
 
 ## ANALYSIS GUIDELINES
 
@@ -335,10 +386,15 @@ Analyze the provided advertising image and determine the optimal layout for over
 3. **Different fonts per layer** - create hierarchy!
 
 ### 4. FONT SIZE HIERARCHY
-- **Product Name / Main Text**: 80-140px (needs to be LARGE and immediately visible, DOMINANT presence)
-- **Tagline / Secondary Text**: 40-70px (supporting information, but still clearly readable)
-- **Fine Print / Details**: 25-40px (additional info, disclaimers)
-- **CRITICAL**: Korean advertising text must be BOLD and LARGE - err on the larger side!
+**⚠️ CRITICAL: Always check IMAGE DIMENSIONS section above for size-specific guidelines!**
+
+- Default ranges (for square/horizontal images):
+  - **Product Name / Main Text**: 80-140px
+  - **Tagline / Secondary Text**: 40-70px
+  - **Fine Print / Details**: 25-40px
+
+- **IMPORTANT**: For vertical images (aspect ratio < 0.8), use SMALLER sizes from IMAGE DIMENSIONS section!
+- **Korean text consideration**: Korean is denser than English - balance readability with canvas width
 
 ### 5. EFFECTS DECISION TREE (ALWAYS PRIORITIZE READABILITY!)
 - **Clean, simple background (sky, solid color, blur)**:
