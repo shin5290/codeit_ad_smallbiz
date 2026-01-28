@@ -1161,6 +1161,8 @@ class ConsultingService:
         self.slot_checker = SlotChecker()
         self._session_contexts: Dict[str, UserContext] = {}
         self._pending_slots: Dict[str, str] = {}
+        self._pending_queries: Dict[str, str] = {}
+        self._pending_issue_queries: Dict[str, str] = {}
 
     def _get_consultant_bot(self, session_id: str):
         """세션별 SmallBizConsultant 인스턴스 반환 (슬롯 상태 분리)"""
@@ -1255,6 +1257,20 @@ class ConsultingService:
         self._session_contexts[session_id] = user_context
         return user_context
 
+    def _is_vague_marketing_issue(self, message: str) -> bool:
+        text = (message or '').lower().strip()
+        vague_signals = ["고민", "어려움", "힘들", "막막", "모르겠", "감이 안", "어떻게 할지", "어찌", "걱정"]
+        marketing_signals = ["광고", "마케팅", "홍보", "프로모션"]
+        specific_signals = ["예산", "비용", "광고비", "채널", "플랫폼", "인스타", "네이버", "검색", "키워드", "콘텐츠", "사진", "카피", "문구", "전략", "방법", "타겟", "고객", "매출", "방문자", "리뷰", "후기", "전환", "roas", "cpa", "쿠폰", "이벤트", "브랜딩", "도달", "유입"]
+        has_vague = any(k in text for k in vague_signals)
+        has_marketing = any(k in text for k in marketing_signals)
+        has_specific = any(k in text for k in specific_signals)
+        return has_vague and has_marketing and not has_specific
+
+    def _issue_clarify_prompt(self) -> str:
+        return ("도움 드릴게요! 구체적으로 어떤 부분이 가장 고민인가요?\n"
+                "예: 채널 선택, 예산 배분, 콘텐츠/카피, 타겟 설정, 매출/유입 개선 등")
+
     async def _stream_consulting_answer(
         self,
         message: str,
@@ -1270,6 +1286,9 @@ class ConsultingService:
         user_context = self._build_user_context(
             session_id, recent_conversations, industry_hint
         )
+        pending_issue = self._pending_issue_queries.pop(session_id, None)
+        if pending_issue:
+            message = f"{pending_issue}\n[구체 고민]: {message}"
         pending_slot = self._pending_slots.pop(session_id, None)
         if pending_slot and message:
             candidate = (message or "").strip()
@@ -1278,12 +1297,23 @@ class ConsultingService:
             elif pending_slot == "location" and not user_context.location:
                 user_context.location = candidate
         if not user_context.industry:
+            if session_id not in self._pending_queries:
+                self._pending_queries[session_id] = message
             self._pending_slots[session_id] = "industry"
             yield self.slot_checker.get_slot_question("industry")
             return
         if not user_context.location:
+            if session_id not in self._pending_queries:
+                self._pending_queries[session_id] = message
             self._pending_slots[session_id] = "location"
             yield self.slot_checker.get_slot_question("location")
+            return
+        pending_query = self._pending_queries.pop(session_id, None)
+        if pending_query:
+            message = pending_query
+        if self._is_vague_marketing_issue(message):
+            self._pending_issue_queries[session_id] = message
+            yield self._issue_clarify_prompt()
             return
         task = self.rag.prompt_builder.classify_task(message)
         filter_kwargs = self._build_rag_filter(user_context)
