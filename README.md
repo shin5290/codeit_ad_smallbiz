@@ -23,7 +23,7 @@ AI를 활용해 소상공인이 업종에 맞는 광고 이미지와 마케팅 �
 
 **협업일지**
 
-[배현석]() |
+[배현석](https://github.com/shin5290/codeit_ad_smallbiz/tree/main/docs/%ED%98%91%EC%97%85%EC%9D%BC%EC%A7%80/%EB%B0%B0%ED%98%84%EC%84%9D) |
 [신승목](https://github.com/shin5290/codeit_ad_smallbiz/tree/alpha/docs/%ED%98%91%EC%97%85%EC%9D%BC%EC%A7%80/%EC%8B%A0%EC%8A%B9%EB%AA%A9) |
 [이유노]() |
 [이현석](https://github.com/shin5290/codeit_ad_smallbiz/tree/alpha/docs/%ED%98%91%EC%97%85%EC%9D%BC%EC%A7%80/%EC%9D%B4%ED%98%84%EC%84%9D) |
