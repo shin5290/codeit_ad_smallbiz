@@ -732,6 +732,7 @@ class SmallBizConsultant:
                 user_context.location = coarse
 
         resolved_ambiguity = False
+        resolved_pending_slots = False
         # 직전 턴이 모호성 확인용이었다면, 추가 설명/선택을 원 질문에 합쳐 재실행
         if self.pending_ambiguous_query:
             selection = self._resolve_ambiguity_selection(query)
@@ -762,6 +763,7 @@ class SmallBizConsultant:
                 return self._handle_slot_question(self.pending_query, first_missing, self.pending_intent)
 
             # 모든 필수 슬롯이 채워졌으면 원 질문으로 이어서 처리
+            resolved_pending_slots = True
             if self.verbose:
                 print(f"슬롯 충족 → 원 질문 재실행: {self.pending_query}")
             query = self.pending_query
@@ -771,6 +773,10 @@ class SmallBizConsultant:
             self.pending_query = None
             self.pending_intent = None
             self.pending_slot = None
+            if resolved_pending_slots and self._is_vague_marketing_issue(query, intent):
+                if self.verbose:
+                    print("모호한 마케팅 고민(슬롯 채움 직후) → 구체 질문 요청")
+                return self._handle_issue_clarify(query, intent)
         else:
             # 2. 의도 분류
             intent = self.intent_router.classify(query)
@@ -835,6 +841,7 @@ class SmallBizConsultant:
             not self.pending_query  # 슬롯 채우기 중이 아닐 때만
             and not has_question_signal
             and (slot_update_signal or newly_set)
+            and not resolved_pending_slots
         ):
             if self.verbose:
                 print("컨텍스트 업데이트 감지 → 질문 요청")
@@ -852,6 +859,7 @@ class SmallBizConsultant:
             and not has_question_signal
             and intent not in ("chitchat", "conversation_start")
             and not resolved_ambiguity  # 방금 모호성 해소된 경우는 건너뜀
+            and not resolved_pending_slots
         ):
             if self.verbose:
                 print("질문 신호 없음 → 명확한 질문 요청")
