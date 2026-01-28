@@ -793,6 +793,27 @@ class SmallBizConsultant:
                 "method": "clarify_ambiguous",
             }
 
+        # 3. Slot-Filling: 필수 슬롯 확인 (RAG/Generator 라우팅일 때만)
+        if routing in ("rag", "generator"):
+            missing_slots = self.slot_checker.check_required_slots(
+                intent=intent,
+                user_context=user_context,
+                query=query,
+            )
+
+            if missing_slots:
+                # 누락된 슬롯이 있으면 질문
+                first_missing = missing_slots[0]
+                if self.verbose:
+                    print(f"누락 슬롯: {missing_slots} → 질문: {first_missing}")
+                return self._handle_slot_question(query, first_missing, intent)
+
+        # 3-A. 슬롯이 충족되었지만 고민이 모호한 경우 구체화 질문
+        if self._is_vague_marketing_issue(query, intent):
+            if self.verbose:
+                print("모호한 마케팅 고민 → 구체 질문 요청")
+            return self._handle_issue_clarify(query, intent)
+
         # 질문/명령 신호 감지
         has_question_signal = any(
             kw in query
@@ -858,27 +879,6 @@ class SmallBizConsultant:
                     ctx_parts.append(f"예산:{user_context.budget:,}원")
                 if ctx_parts:
                     print(f"컨텍스트: {' | '.join(ctx_parts)}")
-
-        # 3. Slot-Filling: 필수 슬롯 확인 (RAG/Generator 라우팅일 때만)
-        if routing in ("rag", "generator"):
-            missing_slots = self.slot_checker.check_required_slots(
-                intent=intent,
-                user_context=user_context,
-                query=query,
-            )
-
-            if missing_slots:
-                # 누락된 슬롯이 있으면 질문
-                first_missing = missing_slots[0]
-                if self.verbose:
-                    print(f"누락 슬롯: {missing_slots} → 질문: {first_missing}")
-                return self._handle_slot_question(query, first_missing, intent)
-
-        # 3-A. 슬롯이 충족되었지만 고민이 모호한 경우 구체화 질문
-        if self._is_vague_marketing_issue(query, intent):
-            if self.verbose:
-                print("모호한 마케팅 고민 → 구체 질문 요청")
-            return self._handle_issue_clarify(query, intent)
 
         # 4. 라우팅별 처리
         if routing == "llm":
