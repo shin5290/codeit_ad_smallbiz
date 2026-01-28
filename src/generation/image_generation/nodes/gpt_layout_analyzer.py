@@ -110,12 +110,13 @@ class GPTLayoutAnalyzerNode(BaseNode):
         logger.info(f"[{self.node_name}] Analyzing image with GPT-4V...")
         logger.info(f"   Text data: {text_data}")
         logger.info(f"   Context: {image_context or 'None'}")
+        logger.info(f"   Image size: {image.size[0]}x{image.size[1]}")
 
         # 1. 이미지를 base64로 인코딩
         image_base64 = self._encode_image_to_base64(image)
 
-        # 2. 분석 프롬프트 생성
-        analysis_prompt = get_analysis_prompt(text_data, image_context)
+        # 2. 분석 프롬프트 생성 (이미지 크기 포함)
+        analysis_prompt = get_analysis_prompt(text_data, image_context, image_size=image.size)
 
         # 3. GPT-4V 호출 (재시도 로직 포함)
         layout_spec = None
